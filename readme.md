@@ -6,7 +6,7 @@ We first provide the first version code by ourselves. We directly use a mask-bas
 We will update the second version based MASKGIT, which keep the same as SoundStorm.
 
 ## Overview
-Following the paper, we use HuBERT to extract semantic tokens, and then using semantic token as condition to predict all of the acoustic tokens in parallel. Different with SoundStrom to use sum average the multiple codebook, we use shallow u-net to combine different codebook. For AudioCodec, we use the open source AcademiCodec https://github.com/yangdongchao/AcademiCodec
+Following the paper, we use HuBERT to extract semantic tokens, and then using semantic token as condition to predict all of the acoustic tokens in parallel. Different with SoundStrom to use sum operation to combine the multiple codebook, we use shallow u-net to combine different codebook. For AudioCodec, we use the open source AcademiCodec https://github.com/yangdongchao/AcademiCodec
 
 ## Prepare dataset
 Please refer to data_sample folder to understood how to prepare the dataset.
