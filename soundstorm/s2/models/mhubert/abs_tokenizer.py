@@ -1,5 +1,6 @@
 import torch
 
+
 class AbsTokenizer(torch.nn.Module):
     """
     This is the virtual tokenizer class.

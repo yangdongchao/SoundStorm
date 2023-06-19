@@ -1,12 +1,11 @@
 from pathlib import Path
 
-import torch
-from torch import nn
-from einops import rearrange, pack, unpack
-
-import joblib
 import fairseq
-
+import joblib
+import torch
+from einops import pack
+from einops import unpack
+from torch import nn
 from torchaudio.functional import resample
 
 
@@ -14,17 +13,17 @@ def curtail_to_multiple(t, mult):
     data_len = t.shape[-1]
     return t[..., :(data_len // mult * mult)]
 
+
 def exists(val):
     return val is not None
 
+
 class HubertWithKmeans(nn.Module):
-    def __init__(
-        self,
-        checkpoint_path,
-        kmeans_path,
-        target_sample_hz = 16000,
-        seq_len_multiple_of = None
-    ):
+    def __init__(self,
+                 checkpoint_path,
+                 kmeans_path,
+                 target_sample_hz=16000,
+                 seq_len_multiple_of=None):
         super().__init__()
         self.target_sample_hz = target_sample_hz
         self.seq_len_multiple_of = seq_len_multiple_of
@@ -37,7 +36,8 @@ class HubertWithKmeans(nn.Module):
 
         checkpoint = torch.load(checkpoint_path)
         load_model_input = {checkpoint_path: checkpoint}
-        model, *_ = fairseq.checkpoint_utils.load_model_ensemble_and_task(load_model_input)
+        model, *_ = fairseq.checkpoint_utils.load_model_ensemble_and_task(
+            load_model_input)
 
         self.model = model[0]
         self.model.eval()
@@ -54,21 +54,17 @@ class HubertWithKmeans(nn.Module):
         return self.kmeans.n_clusters
 
     @torch.no_grad()
-    def forward(
-        self,
-        wav_input,
-        flatten = True,
-        input_sample_hz = None
-    ):
+    def forward(self, wav_input, flatten=True, input_sample_hz=None):
         device = wav_input.device
 
         if exists(input_sample_hz):
-            wav_input = resample(wav_input, input_sample_hz, self.target_sample_hz)
+            wav_input = resample(wav_input, input_sample_hz,
+                                 self.target_sample_hz)
 
         if exists(self.seq_len_multiple_of):
             wav_input = curtail_to_multiple(wav_input, self.seq_len_multiple_of)
 
-        embed = self.model(wav_input, features_only = True)
+        embed = self.model(wav_input, features_only=True)
         embed, packed_shape = pack([embed['x']], '* d')
 
         codebook_indices = self.kmeans.predict(embed.cpu().detach().numpy())
