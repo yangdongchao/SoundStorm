@@ -22,14 +22,14 @@ def process_sentence(fp: Path, output_dir: Path, semantic_tokenizer):
     record = None
     semantic_token_dir = output_dir / "semantic_token"
     semantic_token_dir.mkdir(parents=True, exist_ok=True)
-    # reading, resampling may occur
-    # mHuBERT's sr = 16000
     try:
         semantic_token_path = semantic_token_dir / (utt_id + ".npy")
         if os.path.exists(semantic_token_path):
             # print(semantic_token_path, 'exits!')
             pass
         else:
+            # reading, resampling may occur
+            # mHuBERT's sr = 16000
             wav, _ = librosa.load(str(fp), sr=16000)
             wav = torch.tensor(wav).unsqueeze(0)
             semantic_token = semantic_tokenizer.tokenize(wav)
