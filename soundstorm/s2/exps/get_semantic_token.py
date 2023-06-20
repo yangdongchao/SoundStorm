@@ -1,4 +1,7 @@
 import argparse
+import os
+# ThreadPoolExecutor 适用于 I/O 密集型任务，具有轻量级线程切换的优势
+# ProcessPoolExecutor 适用于 CPU 密集型任务，可以充分利用多核处理器的优势
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
 from pathlib import Path
@@ -17,17 +20,25 @@ def process_sentence(fp: Path, output_dir: Path, semantic_tokenizer):
     if utt_id.endswith("_mic2"):
         utt_id = utt_id[:-5]
     record = None
+    semantic_token_dir = output_dir / "semantic_token"
+    semantic_token_dir.mkdir(parents=True, exist_ok=True)
     # reading, resampling may occur
     # mHuBERT's sr = 16000
-    wav, _ = librosa.load(str(fp), sr=16000)
-    wav = torch.tensor(wav).unsqueeze(0)
-    flat_codec = semantic_tokenizer.tokenize(wav)
-    flat_codec_np = flat_codec.cpu().numpy()
-    codec_dir = output_dir / "semantic_token"
-    codec_dir.mkdir(parents=True, exist_ok=True)
-    codec_path = codec_dir / (utt_id + ".npy")
-    np.save(codec_path, flat_codec_np)
-    record = {"utt_id": utt_id, "flat_codec": codec_path}
+    try:
+        semantic_token_path = semantic_token_dir / (utt_id + ".npy")
+        if os.path.exists(semantic_token_path):
+            # print(semantic_token_path, 'exits!')
+            pass
+        else:
+            wav, _ = librosa.load(str(fp), sr=16000)
+            wav = torch.tensor(wav).unsqueeze(0)
+            semantic_token = semantic_tokenizer.tokenize(wav)
+            semantic_token_np = semantic_token.detach().cpu().numpy()
+            np.save(semantic_token_path, semantic_token_np)
+        record = {"utt_id": utt_id, "semantic_token_path": semantic_token_path}
+    except Exception:
+        print("occur Exception")
+        return None
     return record
 
 
@@ -50,7 +61,7 @@ def process_sentences(fps: List[Path],
             with tqdm.tqdm(total=len(fps)) as progress:
                 for fp in fps:
                     future = pool.submit(process_sentence, fp, output_dir,
-                                         semantic_tokenizer)
+                                            semantic_tokenizer)
                     future.add_done_callback(lambda p: progress.update())
                     futures.append(future)
 
@@ -64,9 +75,9 @@ def process_sentences(fps: List[Path],
     results.sort(key=itemgetter("utt_id"))
     for item in results:
         utt_id = item["utt_id"]
-        flat_codec = np.load(item["flat_codec"]).tolist()
-        flat_codec_str = ' '.join(str(x) for x in flat_codec)
-        data.append([utt_id, flat_codec_str])
+        semantic_token = np.load(item["semantic_token_path"]).tolist()
+        semantic_token_str = ' '.join(str(x) for x in semantic_token)
+        data.append([utt_id, semantic_token_str])
     delimiter = '\t'
     filename = output_dir / "semantic_token.tsv"
     with open(filename, 'w', encoding='utf-8') as writer:
@@ -84,9 +95,9 @@ def main():
 
     parser.add_argument(
         "--dataset",
-        default="baker",
+        default="ljspeech",
         type=str,
-        help="name of dataset, should in {baker, aishell3, ljspeech, vctk} now")
+        help="name of dataset, should in {ljspeech, libritts} now")
 
     parser.add_argument(
         "--data_dir", default=None, type=str, help="directory to dataset.")
@@ -107,7 +118,7 @@ def main():
 
     parser.add_argument(
         "--num-cpu", type=int, default=1, help="number of process.")
-
+    
     args = parser.parse_args()
 
     data_dir = Path(args.data_dir).expanduser()
@@ -143,7 +154,6 @@ def main():
     semantic_tokenizer = SemanticTokenizer(
         hubert_path=args.hubert_path,
         quantizer_path=args.quantizer_path,
-        local_rank=0,
         duplicate=True)
 
     # process for the 3 sections
@@ -153,7 +163,6 @@ def main():
             output_dir=train_dump_dir,
             semantic_tokenizer=semantic_tokenizer,
             nprocs=args.num_cpu)
-        # 合并成一个 .tsv 文件
     if dev_wav_files:
         process_sentences(
             fps=dev_wav_files,

@@ -1,28 +1,29 @@
 """Command-line for audio compression."""
 import logging
+from typing import Union
 
 import librosa
 import torch
-import torch.distributed as dist
 from soundstorm.s2.models.mhubert.abs_tokenizer import AbsTokenizer
 from soundstorm.s2.models.mhubert.hubert_kmeans import HubertWithKmeans
-# from hubert_kmeans import HubertWithKmeans
 
 
 class SemanticTokenizer(AbsTokenizer):
-    def __init__(self,
-                 hubert_path,
-                 quantizer_path,
-                 local_rank: int=-1,
-                 duplicate: bool=False):
+    def __init__(
+            self,
+            hubert_path,
+            quantizer_path,
+            duplicate: bool=False,
+            device: Union[str, torch.device]=None, ):
         """  Hubert model for extract semantic token
         """
         super(SemanticTokenizer, self).__init__()
-        if local_rank >= 0:
-            self.device = torch.device(f"cuda:{local_rank}")
-        else:
-            self.device = torch.device('cpu')
-
+        if device is None:
+            device = torch.device("cuda"
+                                  if torch.cuda.is_available() else "cpu")
+        elif isinstance(device, str):
+            device = torch.device(device)
+        self.device = device
         self.hubert_path = hubert_path
         self.quantizer_path = quantizer_path
         self.hubert_kmeans = HubertWithKmeans(
@@ -103,10 +104,7 @@ if __name__ == '__main__':
     wav, _ = librosa.load(wav, sr=16000)
     wav = torch.tensor(wav).unsqueeze(0)
     tokenizer = SemanticTokenizer(
-        hubert_path=hubert_path,
-        quantizer_path=quantizer_path,
-        local_rank=0,
-        duplicate=True)
+        hubert_path=hubert_path, quantizer_path=quantizer_path, duplicate=True)
     # wav should be wav_path or torch.Tensor
     flat_codec = tokenizer.tokenize(wav)
     print('flat_codec:', flat_codec)
