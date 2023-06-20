@@ -1,9 +1,10 @@
 import importlib
+import os
 import random
+import warnings
+
 import numpy as np
 import torch
-import warnings
-import os
 
 
 def seed_everything(seed, cudnn_deterministic=False):
@@ -40,18 +41,20 @@ def merge_opts_to_config(config, opts):
         return c
 
     if opts is not None and len(opts) > 0:
-        assert len(opts) % 2 == 0, "each opts should be given by the name and values! The length shall be even number!"
+        assert len(
+            opts
+        ) % 2 == 0, "each opts should be given by the name and values! The length shall be even number!"
         for i in range(len(opts) // 2):
-            name = opts[2*i]
-            value = opts[2*i+1]
+            name = opts[2 * i]
+            value = opts[2 * i + 1]
             config = modify_dict(config, name.split('.'), value)
-    return config 
+    return config
+
 
 def modify_config_for_debug(config):
     config['dataloader']['num_workers'] = 0
     config['dataloader']['batch_size'] = 1
     return config
-
 
 
 def get_model_parameters_info(model):
@@ -64,38 +67,41 @@ def get_model_parameters_info(model):
                 parameters[child_name]['trainable'] += p.numel()
             else:
                 parameters[child_name]['non_trainable'] += p.numel()
-        parameters[child_name]['total'] = parameters[child_name]['trainable'] + parameters[child_name]['non_trainable']
-        
-        parameters['overall']['trainable'] += parameters[child_name]['trainable']
-        parameters['overall']['non_trainable'] += parameters[child_name]['non_trainable']
+        parameters[child_name]['total'] = parameters[child_name][
+            'trainable'] + parameters[child_name]['non_trainable']
+
+        parameters['overall']['trainable'] += parameters[child_name][
+            'trainable']
+        parameters['overall']['non_trainable'] += parameters[child_name][
+            'non_trainable']
         parameters['overall']['total'] += parameters[child_name]['total']
-    
+
     # format the numbers
     def format_number(num):
         K = 2**10
         M = 2**20
         G = 2**30
-        if num > G: # K
+        if num > G:  # K
             uint = 'G'
-            num = round(float(num)/G, 2)
+            num = round(float(num) / G, 2)
         elif num > M:
             uint = 'M'
-            num = round(float(num)/M, 2)
+            num = round(float(num) / M, 2)
         elif num > K:
             uint = 'K'
-            num = round(float(num)/K, 2)
+            num = round(float(num) / K, 2)
         else:
             uint = ''
-        
+
         return '{}{}'.format(num, uint)
-    
+
     def format_dict(d):
         for k, v in d.items():
             if isinstance(v, dict):
                 format_dict(v)
             else:
                 d[k] = format_number(v)
-    
+
     format_dict(parameters)
     return parameters
 
@@ -115,26 +121,29 @@ def format_seconds(seconds):
             else:
                 ft = '{:02d}m:{:02d}s'.format(m, s)
         else:
-           ft = '{:02d}h:{:02d}m:{:02d}s'.format(h, m, s)
- 
+            ft = '{:02d}h:{:02d}m:{:02d}s'.format(h, m, s)
+
     else:
         ft = '{:d}d:{:02d}h:{:02d}m:{:02d}s'.format(d, h, m, s)
 
     return ft
 
+
 def instantiate_from_config(config):
     if config is None:
         return None
-    if not "target" in config:
+    if "target" not in config:
         raise KeyError("Expected key `target` to instantiate.")
     module, cls = config["target"].rsplit(".", 1)
     cls = getattr(importlib.import_module(module, package=None), cls)
     return cls(**config.get("params", dict()))
 
+
 def class_from_string(class_name):
     module, cls = class_name.rsplit(".", 1)
     cls = getattr(importlib.import_module(module, package=None), cls)
     return cls
+
 
 def get_all_file(dir, end_with='.h5'):
     if isinstance(end_with, str):

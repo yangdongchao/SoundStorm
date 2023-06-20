@@ -1,7 +1,9 @@
-import sys
-import yaml
-import torch
 import json
+import sys
+
+import torch
+import yaml
+
 
 def load_yaml_config(path):
     with open(path) as f:
@@ -15,6 +17,7 @@ def save_config_to_yaml(config, path):
         f.write(yaml.dump(config))
         f.close()
 
+
 def save_dict_to_json(d, path, indent=None):
     json.dump(d, open(path, 'w'), indent=indent)
 
@@ -24,10 +27,12 @@ def load_dict_from_json(path):
 
 
 def write_args(args, path):
-    args_dict = dict((name, getattr(args, name)) for name in dir(args)if not name.startswith('_'))
+    args_dict = dict((name, getattr(args, name)) for name in dir(args)
+                     if not name.startswith('_'))
     with open(path, 'a') as args_file:
         args_file.write('==> torch version: {}\n'.format(torch.__version__))
-        args_file.write('==> cudnn version: {}\n'.format(torch.backends.cudnn.version()))
+        args_file.write(
+            '==> cudnn version: {}\n'.format(torch.backends.cudnn.version()))
         args_file.write('==> Cmd:\n')
         args_file.write(str(sys.argv))
         args_file.write('\n==> args:\n')

@@ -1,17 +1,8 @@
 # Fast loader
 # it can help to fast read data, so that it can improve the training time.
-
 import torch
-from torch.utils.data import ConcatDataset
 from sound_synthesis2.utils.misc import instantiate_from_config
-from sound_synthesis2.distributed.distributed import is_distributed
-import json
-import copy
-import random
-import numpy as np
-import torch.distributed as dist
-import albumentations
-import os
+from torch.utils.data import ConcatDataset
 
 
 def build_dataloader(config, args=None, return_dataset=False):
@@ -34,36 +25,41 @@ def build_dataloader(config, args=None, return_dataset=False):
         val_dataset = ConcatDataset(val_dataset)
     else:
         val_dataset = val_dataset[0]
-    
+
     if args is not None and args.distributed:
         # I add "num_replicas=world_size, rank=rank"
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset, shuffle=True)
-        val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False)
+        train_sampler = torch.utils.data.distributed.DistributedSampler(
+            train_dataset, shuffle=True)
+        val_sampler = torch.utils.data.distributed.DistributedSampler(
+            val_dataset, shuffle=False)
         train_iters = len(train_sampler) // dataset_cfg['batch_size']
         val_iters = len(val_sampler) // dataset_cfg['batch_size']
     else:
         train_sampler = None
         val_sampler = None
-        train_iters = len(train_dataset) // dataset_cfg['batch_size'] # 每个epoch进行一次
+        train_iters = len(train_dataset) // dataset_cfg[
+            'batch_size']  # 每个epoch进行一次
         val_iters = len(val_dataset) // dataset_cfg['batch_size']
     num_workers = dataset_cfg['num_workers']
-    train_loader = torch.utils.data.DataLoader(train_dataset, 
-                                               batch_size=dataset_cfg['batch_size'], 
-                                               shuffle=(train_sampler is None),
-                                               num_workers=num_workers, 
-                                               pin_memory=True, 
-                                               sampler=train_sampler, 
-                                               drop_last=True,
-                                               collate_fn=train_dataset.collater)
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=dataset_cfg['batch_size'],
+        shuffle=(train_sampler is None),
+        num_workers=num_workers,
+        pin_memory=True,
+        sampler=train_sampler,
+        drop_last=True,
+        collate_fn=train_dataset.collater)
 
-    val_loader = torch.utils.data.DataLoader(val_dataset, 
-                                             batch_size=dataset_cfg['batch_size'], 
-                                             shuffle=False, #(val_sampler is None),
-                                             num_workers=num_workers, 
-                                             sampler=val_sampler, 
-                                             drop_last=True,
-                                             pin_memory=True,
-                                             collate_fn=train_dataset.collater)
+    val_loader = torch.utils.data.DataLoader(
+        val_dataset,
+        batch_size=dataset_cfg['batch_size'],
+        shuffle=False,  #(val_sampler is None),
+        num_workers=num_workers,
+        sampler=val_sampler,
+        drop_last=True,
+        pin_memory=True,
+        collate_fn=train_dataset.collater)
 
     dataload_info = {
         'train_loader': train_loader,
@@ -71,11 +67,9 @@ def build_dataloader(config, args=None, return_dataset=False):
         'train_iterations': train_iters,
         'validation_iterations': val_iters
     }
-    
+
     if return_dataset:
         dataload_info['train_dataset'] = train_dataset
         dataload_info['validation_dataset'] = val_dataset
 
     return dataload_info
-
-
