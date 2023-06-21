@@ -1,2 +1,0 @@
-
-python running_command/run_train_speartts_diffsound.py

@@ -9,9 +9,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
 
 import torch
 import numpy as np
-from sound_synthesis.utils.io import load_yaml_config
-from sound_synthesis.modeling.build import build_model
-from sound_synthesis.utils.misc import get_model_parameters_info
+from soundstorm.s2.utils.io import load_yaml_config
+from soundstorm.s2.modeling.build import build_model
+from soundstorm.s2.utils.misc import get_model_parameters_info
 import datetime
 from pathlib import Path
 from vocoder.modules import Generator
@@ -39,18 +39,6 @@ def save_audio(wav: torch.Tensor,
         bits_per_sample=16)
 
 
-def load_vocoder(ckpt_vocoder: str, eval_mode: bool):
-    ckpt_vocoder = Path(ckpt_vocoder)
-    # print('ckpt_vocoder ',ckpt_vocoder)
-    vocoder_sd = torch.load(ckpt_vocoder / 'best_netG.pt', map_location='cpu')
-    # print('vocoder_sd ',vocoder_sd)
-    with open(ckpt_vocoder / 'args.yml', 'r') as f:
-        args = yaml.load(f, Loader=yaml.UnsafeLoader)
-    vocoder = Generator(args.n_mel_channels, args.ngf, args.n_residual_layers)
-    vocoder.load_state_dict(vocoder_sd)
-    if eval_mode:
-        vocoder.eval()
-    return {'model': vocoder}
 
 
 def get_mask_from_lengths(lengths, max_len=None):
