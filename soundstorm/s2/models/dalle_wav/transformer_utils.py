@@ -100,12 +100,15 @@ class FullAttention(nn.Module):
         else:
             slf_mask = None
         B, T, C = x.size()
-        k = self.key(x).view(B, T, self.n_head, C // self.n_head).transpose(
-            1, 2)  # (B, nh, T, hs)
-        q = self.query(x).view(B, T, self.n_head, C // self.n_head).transpose(
-            1, 2)  # (B, nh, T, hs)
-        v = self.value(x).view(B, T, self.n_head, C // self.n_head).transpose(
-            1, 2)  # (B, nh, T, hs)
+        # (B, nh, T, hs)
+        k = self.key(x).view(B, T, self.n_head, C // self.n_head).transpose(1,
+                                                                            2)
+        # (B, nh, T, hs)
+        q = self.query(x).view(B, T, self.n_head, C // self.n_head).transpose(1,
+                                                                              2)
+        # (B, nh, T, hs)
+        v = self.value(x).view(B, T, self.n_head, C // self.n_head).transpose(1,
+                                                                              2)
         # (B, nh, T, T)
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
         # 对 attention 权重进行 mask
@@ -179,9 +182,7 @@ class CrossAttention(nn.Module):
         # print('att ', att.shape)
         # print('v ', v.shape)
         # print('slf_mask ', slf_mask.shape)
-        # assert 1==2
         # print('smask ', slf_x_mask.shape)
-        # assert 1==2
         # add mask
         if slf_mask is not None:
             # 对 attention 权重进行 mask
@@ -344,12 +345,11 @@ class Block(nn.Module):
             if x_mask is not None:
                 a = a.masked_fill(x_mask.unsqueeze(-1), 0)
                 # print('x_mask.unsqueeze(-1) ', x_mask.unsqueeze(-1).shape)
-                # assert 1==2
             x = x + a
-            #slf_x_attn_mask2 = x_mask.unsqueeze(2).expand(-1, -1, encoder_output.shape[1])
+            # slf_x_attn_mask2 = x_mask.unsqueeze(2).expand(-1, -1, encoder_output.shape[1])
+            # x_mask=slf_x_attn_mask2, c_mask=cond_emb_mask
             a, att = self.attn2(
-                self.ln1_1(x, timestep), encoder_output,
-                mask=None)  # x_mask=slf_x_attn_mask2, c_mask=cond_emb_mask
+                self.ln1_1(x, timestep), encoder_output, mask=None)
             if x_mask is not None:
                 a = a.masked_fill(x_mask.unsqueeze(-1), 0)
             x = x + a
@@ -359,10 +359,11 @@ class Block(nn.Module):
             if x_mask is not None:
                 a = a.masked_fill(x_mask.unsqueeze(-1), 0)
             x = x + a
-            x = x + self.mlp(
-                x + encoder_output)  # only one really use encoder_output
+            # only one really use encoder_output
+            x = x + self.mlp(x + encoder_output)
             return x, att
-        else:  # 'self'
+        # 'self'
+        else:
             a, att = self.attn(
                 self.ln1(x, timestep), encoder_output, mask=slf_x_attn_mask)
             if x_mask is not None:
@@ -449,12 +450,12 @@ class Text2ImageTransformer(nn.Module):
         super().__init__()
         self.use_checkpoint = checkpoint
         self.n_q = n_q
-        self.content_emb = instantiate_from_config(
-            content_emb_config)  # when init the model, the number of q has add 1
-        #self.condition_emb = instantiate_from_config(condition_emb_config) 
+        # when init the model, the number of q has add 1
+        self.content_emb = instantiate_from_config(content_emb_config)
+        # self.condition_emb = instantiate_from_config(condition_emb_config) 
+        # 用于semantic token
         self.semantic_embedding = nn.Embedding(
-            1000 + 4,
-            content_emb_config['params']['embed_dim'])  # 用于semantic token
+            1000 + 4, content_emb_config['params']['embed_dim'])
         # transformer
         #assert attn_type == 'selfcross'
         self.inc = (DoubleConv(condition_dim, condition_dim))
@@ -607,8 +608,9 @@ class Text2ImageTransformer(nn.Module):
         prompt_acoustic_token_ids = prompt_acoustics[:, 0, :]
         prompt_semantic_token_ids = rearrange(prompt_semantic_token_ids,
                                               'b ... -> b (...)')
-        target_semantic_token_ids = rearrange(
-            target_semantic_token_ids, 'b ... -> b (...)')  # transfer to [B, T]
+        # transfer to [B, T]
+        target_semantic_token_ids = rearrange(target_semantic_token_ids,
+                                              'b ... -> b (...)')
         # print('prompt_semantic_token_ids ', prompt_semantic_token_ids.shape)
         # print('target_semantic_token_ids ', target_semantic_token_ids.shape)
         # print('prompt_acoustic_token_ids ', prompt_acoustic_token_ids.shape)
@@ -665,7 +667,8 @@ class Text2ImageTransformer(nn.Module):
 
         logits = []
         index_mat = self.cls_ids
-        index_mat = index_mat.unsqueeze(0).repeat(x.shape[0], 1)  # 1, N
+        # 1, N
+        index_mat = index_mat.unsqueeze(0).repeat(x.shape[0], 1)
         for index in range(self.n_q):
             weight = self.content_emb.embs[str(index)](index_mat)
             tmp_logit = torch.bmm(x[:, index, :, :], weight.transpose(1, 2))

@@ -103,16 +103,16 @@ class DALLE(nn.Module):
             print("wrong sample type")
 
     @torch.no_grad()
-    def generate_content_tmp(self,
-                             batch,
-                             condition=None,
-                             filter_ratio=0.0,
-                             temperature=1.0,
-                             content_ratio=0.0,
-                             return_rec=False,
-                             replicate=1,
-                             return_att_weight=False,
-                             sample_type="top0.85r"):
+    def generate_content(self,
+                         batch,
+                         condition=None,
+                         filter_ratio=0.0,
+                         temperature=1.0,
+                         content_ratio=0.0,
+                         return_rec=False,
+                         replicate=1,
+                         return_att_weight=False,
+                         sample_type="top0.85r"):
         self.eval()
         # cont_ = self.prepare_content(batch) # get the content
         # condition = self.prepare_condition(batch, cont_) # get condition

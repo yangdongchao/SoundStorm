@@ -10,11 +10,11 @@ import warnings
 
 import numpy as np
 import torch
-from soundstorm.s2.modeling.build import build_model
 from soundstorm.s2.data.build import build_dataloader
 from soundstorm.s2.distributed.launch import launch
 from soundstorm.s2.engine.logger import Logger
 from soundstorm.s2.engine.solver_spec import Solver
+from soundstorm.s2.models.dalle_wav.build import build_model
 from soundstorm.s2.utils.io import load_yaml_config
 from soundstorm.s2.utils.misc import merge_opts_to_config
 from soundstorm.s2.utils.misc import modify_config_for_debug
@@ -106,10 +106,8 @@ def get_args():
         '--tensorboard',
         action='store_true',
         help='use tensorboard for logging')
-    parser.add_argument(
-        '--timestamp',
-        action='store_true',  # default=True,
-        help='use tensorboard for logging')
+    # default = True
+    parser.add_argument('--timestamp', action='store_true')
     # args for random
     parser.add_argument(
         '--seed',
@@ -144,7 +142,8 @@ def get_args():
                                         'configs', 'config.yaml')
         args.auto_resume = True
     else:
-        if args.name == '':  # 若没有设定实验名称
+        # 若没有设定实验名称
+        if args.name == '':
             args.name = os.path.basename(args.config_file).replace('.yaml', '')
         if args.timestamp:
             assert not args.auto_resume, "for timstamp, auto resume is hard to find the save directory"
@@ -171,11 +170,11 @@ def main():
             'You have chosen a specific GPU. This will completely disable ddp.')
         torch.cuda.set_device(args.gpu)
         args.ngpus_per_node = 1
-        args.world_size = 1  # ???
+        args.world_size = 1
     else:
         print('args.num_node ', args.num_node)
         if args.num_node == 1:
-            args.dist_url == "auto"  # ? 
+            args.dist_url == "auto"
         else:
             assert args.num_node > 1
         args.ngpus_per_node = torch.cuda.device_count()
@@ -197,7 +196,8 @@ def main_worker(local_rank, args):
     print(args)
     # load config
     config = load_yaml_config(args.config_file)
-    config = merge_opts_to_config(config, args.opts)  # 合并命令行输入到config文件中
+    # 合并命令行输入到config文件中
+    config = merge_opts_to_config(config, args.opts)
     if args.debug:
         config = modify_config_for_debug(config)
     # get logger
@@ -221,7 +221,8 @@ def main_worker(local_rank, args):
         logger=logger)
 
     # resume 
-    if args.load_path is not None:  # only load the model paramters
+    # only load the model paramters
+    if args.load_path is not None:
         solver.resume(
             path=args.load_path,
             # load_model=True,

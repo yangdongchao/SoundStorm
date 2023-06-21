@@ -6,7 +6,7 @@ model:
         condition_info: {key: text}
         n_q: 3  # the encodec codebook's number
         diffusion_config:
-            target: soundstorm.s2.modeling.transformers.diffusion_transformer.DiffusionTransformer
+            target: soundstorm.s2.models.dalle_wav.diffusion_transformer.DiffusionTransformer
             params:
                 diffusion_step: 100
                 n_q: 3
@@ -15,7 +15,7 @@ model:
                 adaptive_auxiliary_loss: True
                 mask_weight: [1, 1]    # the loss weight on mask region and non-mask region
                 transformer_config:
-                    target: soundstorm.s2.modeling.transformers.transformer_utils.Text2ImageTransformer
+                    target: soundstorm.s2.models.dalle_wav.transformer_utils.Text2ImageTransformer
                     params:
                         attn_type: 'selfcross' # using self attention
                         n_q: 3
@@ -30,7 +30,7 @@ model:
                         mlp_hidden_times: 4
 
                         content_emb_config:
-                            target: soundstorm.s2.modeling.embeddings.mask_embedding.DalleMaskImageEmbedding
+                            target: soundstorm.s2.models.dalle_wav.mask_embedding.DalleMaskImageEmbedding
                             params:
                                 num_embed: 1026    #should be quantize_number
                                 max_size: 16000

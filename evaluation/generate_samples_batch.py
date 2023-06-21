@@ -10,15 +10,13 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
 import torch
 import numpy as np
 from soundstorm.s2.utils.io import load_yaml_config
-from soundstorm.s2.modeling.build import build_model
+from soundstorm.s2.models.dalle_wav.build import build_model
 from soundstorm.s2.utils.misc import get_model_parameters_info
 import datetime
 from pathlib import Path
-from vocoder.modules import Generator
-import yaml
 import pandas as pd
 import typing as tp
-import torchaudio
+from omegaconf import OmegaConf
 
 
 def save_audio(wav: torch.Tensor,
@@ -31,14 +29,8 @@ def save_audio(wav: torch.Tensor,
         wav = wav * min(limit / mx, 1)
     else:
         wav = wav.clamp(-limit, limit)
-    torchaudio.save(
-        path,
-        wav,
-        sample_rate=sample_rate,
-        encoding='PCM_S',
-        bits_per_sample=16)
-
-
+    wav = wav.squeeze().cpu().numpy()
+    sf.write(path, wav, sample_rate)
 
 
 def get_mask_from_lengths(lengths, max_len=None):
@@ -50,21 +42,6 @@ def get_mask_from_lengths(lengths, max_len=None):
                                                        -1).type_as(lengths)
     mask = ids >= lengths.unsqueeze(1).expand(-1, max_len)
     return mask
-
-
-from omegaconf import OmegaConf
-
-
-def check_clipping2(wav, rescale):
-    if rescale:
-        return
-    mx = wav.abs().max()
-    limit = 0.99
-    if mx > limit:
-        print(
-            f"Clipping!! max scale {mx}, limit is {limit}. "
-            "To avoid clipping, use the `-r` option to rescale the output.",
-            file=sys.stderr)
 
 
 def build_codec_model(config):
@@ -201,7 +178,7 @@ class Diffsound():
             new_samples['target_acoustics'] = real_acoustic_tokens
             new_samples['x_mask'] = x_mask.cuda()
             with torch.no_grad():
-                model_out = self.model.generate_content_tmp(
+                model_out = self.model.generate_content(
                     batch=new_samples,
                     filter_ratio=0,
                     replicate=1,  # 每个样本重复多少次?
@@ -227,7 +204,6 @@ class Diffsound():
                            16000)
                 save_audio(real_wav.cpu(),
                            store_root + '/' + name + '_real.wav', 16000)
-                #assert 1==2
 
 
 if __name__ == '__main__':
