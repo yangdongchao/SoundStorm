@@ -44,7 +44,7 @@ solver:
     adjust_lr: none # not adjust lr according to total batch_size
     max_epochs: 400
     save_epochs: 1
-    validation_epochs: 400
+    dev_epochs: 400
     sample_iterations: epoch  # epoch #30000      # how many iterations to perform sampling once ?
     print_specific_things: True
     sr: 24000
@@ -85,13 +85,13 @@ dataloader:
     train_datasets: # a list of configures, so we can combine several schedulers
         - target: soundstorm.s2.data.semantic_dataset.SemanticDataset
           params:
-              folder: LibriTTS_1000 # your folder
-              num_quant: 3
-              stage: train
+                num_quant: 3
+                semantic_path: dump/train/semantic_token.tsv
+                acoustic_path: dump/train/acoustic_token/hificodec.pth
 
-    validation_datasets:
+    dev_datasets:
         - target: soundstorm.s2.data.semantic_dataset.SemanticDataset
           params:
-              folder: LibriTTS_1000 # your folder
-              stage: test
-              num_quant: 3
+                num_quant: 3
+                semantic_path: dump/dev/semantic_token.tsv
+                acoustic_path: dump/dev/acoustic_token/hificodec.pth

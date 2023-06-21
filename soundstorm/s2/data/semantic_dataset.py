@@ -40,19 +40,16 @@ def pad_1D(inputs, PAD):
 class SemanticDataset(torch.utils.data.Dataset):
     def __init__(
             self,
-            folder,
             num_quant,
-            stage='train',
-            max_length=(250, 250), ):
+            max_length=(250, 250), 
+            semantic_path,
+            acoustic_path,
+            ):
         super().__init__()
-        path = Path(folder)
-        assert path.exists(), 'folder does not exist'
-
-        semantic_path = os.path.join(folder, 'semantic', stage + '.tsv')
-        acoustic_path = os.path.join(folder, 'acoustic', 'acoustic_2.pth')
 
         self.semantic_data = pd.read_csv(semantic_path, delimiter='\t')
-        self.acoustic_data = torch.load(acoustic_path)  # get dict
+        # get dict
+        self.acoustic_data = torch.load(acoustic_path)
 
         self.max_length = max_length
         self.num_quant = num_quant

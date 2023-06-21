@@ -13,7 +13,7 @@ import torch
 from soundstorm.s2.data.build import build_dataloader
 from soundstorm.s2.distributed.launch import launch
 from soundstorm.s2.engine.logger import Logger
-from soundstorm.s2.engine.solver_spec import Solver
+from soundstorm.s2.engine.solver import Solver
 from soundstorm.s2.models.dalle_wav.build import build_model
 from soundstorm.s2.utils.io import load_yaml_config
 from soundstorm.s2.utils.misc import merge_opts_to_config
@@ -68,6 +68,22 @@ def get_args():
         '--auto_resume',
         action='store_true',
         help='automatically resume the training')
+    # args for dataset
+    parser.add_argument(
+        '--train_semantic_path',
+        type=str,
+        default='dump/train/semantic_token.tsv')
+    parser.add_argument(
+        '--train_acoustic_path',
+        type=str,
+        default='dump/train/acoustic_token/hificodec.pth')
+    parser.add_argument(
+        '--dev_semantic_path', type=str, default='dump/dev/semantic_token.tsv')
+    parser.add_argument(
+        '--dev_acoustic_path',
+        type=str,
+        default='dump/dev/acoustic_token/hificodec.pth')
+
     # args for ddp
     parser.add_argument(
         '--num_node',
@@ -196,7 +212,7 @@ def main_worker(local_rank, args):
     print(args)
     # load config
     config = load_yaml_config(args.config_file)
-    # 合并命令行输入到config文件中
+    # 合并命令行输入到 config 文件中
     config = merge_opts_to_config(config, args.opts)
     if args.debug:
         config = modify_config_for_debug(config)

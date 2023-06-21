@@ -17,34 +17,12 @@ from soundstorm.s2.utils.misc import get_model_parameters_info
 from soundstorm.s2.utils.misc import instantiate_from_config
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 try:
-    from torch.cuda.amp import autocast, GradScaler
+    from torch.cuda.amp import autocast
+    from torch.cuda.amp import GradScaler
     AMP = True
 except Exception:
     print('Warning: import torch.amp failed, so no amp will be used!')
     AMP = False
-
-import typing as tp
-import torchaudio
-from pathlib import Path
-
-
-def save_audio(wav: torch.Tensor,
-               path: tp.Union[Path, str],
-               sample_rate: int,
-               rescale: bool=False):
-    limit = 0.99
-    mx = wav.abs().max()
-    if rescale:
-        wav = wav * min(limit / mx, 1)
-    else:
-        wav = wav.clamp(-limit, limit)
-    torchaudio.save(
-        path,
-        wav,
-        sample_rate=sample_rate,
-        encoding='PCM_S',
-        bits_per_sample=16)
-
 
 STEP_WITH_LOSS_SCHEDULERS = (ReduceLROnPlateauWithWarmup, ReduceLROnPlateau)
 
@@ -64,10 +42,9 @@ class Solver(object):
         if self.sample_iterations == 'epoch':  # 改为2个epoch 采样一次
             self.sample_iterations = 2 * self.dataloader[
                 'train_iterations']  # 4106
-        self.validation_epochs = config['solver'].get('validation_epochs',
-                                                      2)  # 多少个epoch验证一次
+        self.dev_epochs = config['solver'].get('dev_epochs', 2)  # 多少个epoch验证一次
         assert isinstance(self.save_epochs, (int, list))
-        assert isinstance(self.validation_epochs, (int, list))
+        assert isinstance(self.dev_epochs, (int, list))
         self.debug = config['solver'].get('debug', False)
 
         self.last_epoch = -1
@@ -272,17 +249,20 @@ class Solver(object):
             if phase == 'train':
                 # this part is nothing
                 # print('op_sc ',op_sc)
-                # assert 1==2
                 # check if this optimizer and scheduler is valid in this iteration and epoch
-                if op_sc['start_iteration'] > self.last_iter:  # pass
+                # pass
+                if op_sc['start_iteration'] > self.last_iter:
                     continue
+                # pass
                 if op_sc['end_iteration'] > 0 and op_sc[
-                        'end_iteration'] <= self.last_iter:  # pass
+                        'end_iteration'] <= self.last_iter:
                     continue
-                if op_sc['start_epoch'] > self.last_epoch:  # pass
+                # pass
+                if op_sc['start_epoch'] > self.last_epoch:
                     continue
+                # pass 
                 if op_sc['end_epoch'] > 0 and op_sc[
-                        'end_epoch'] <= self.last_epoch:  # pass 
+                        'end_epoch'] <= self.last_epoch:
                     continue
 
             input = {
@@ -311,18 +291,22 @@ class Solver(object):
                 if op_sc['optimizer']['step_iteration'] > 0 and (
                         self.last_iter + 1
                 ) % op_sc['optimizer']['step_iteration'] == 0:
-                    op_sc['optimizer']['module'].zero_grad()  # to zero
-                    if self.args.amp:  # nothing, we donot use amp now
+                    # to zero
+                    op_sc['optimizer']['module'].zero_grad()
+                    # nothing, we donot use amp now
+                    if self.args.amp:
                         self.scaler.scale(output['loss']).backward()
                         if self.clip_grad_norm is not None:
                             self.clip_grad_norm(self.model.parameters())
                         self.scaler.step(op_sc['optimizer']['module'])
                         self.scaler.update()
                     else:
-                        output['loss'].backward()  # backward
+                        # backward
+                        output['loss'].backward()
                         if self.clip_grad_norm is not None:
                             self.clip_grad_norm(self.model.parameters())
-                        op_sc['optimizer']['module'].step()  # update
+                        # update
+                        op_sc['optimizer']['module'].step()
 
                 if 'scheduler' in op_sc:
                     if op_sc['scheduler']['step_iteration'] > 0 and (
@@ -420,7 +404,6 @@ class Solver(object):
             state_dict = torch.load(
                 path, map_location='cuda:{}'.format(self.args.local_rank))
             # print('state_dict ',state_dict)
-            # assert 1==2
             if load_others:
                 self.last_epoch = state_dict['last_epoch']
                 self.last_iter = state_dict['last_iter']
@@ -430,7 +413,6 @@ class Solver(object):
                 try:
                     self.model.module.load_state_dict(state_dict['model'])
                     # print('module update ',self.args.global_rank)
-                    # assert 1==2
                 except Exception:
                     model_dict = self.model.module.state_dict()
                     #print('model_dict ',model_dict.keys())
@@ -443,11 +425,9 @@ class Solver(object):
                     model_dict.update(temp_state_dict)
                     self.model.module.load_state_dict(model_dict)
                     # print('model update ',self.args.global_rank)
-                    # assert 1==2
             else:
                 self.model.load_state_dict(state_dict['model'])
                 # print('model update2 ',self.args.global_rank)
-                # assert 1==2
 
             if 'ema' in state_dict and self.ema is not None:
                 try:
@@ -474,10 +454,12 @@ class Solver(object):
                             if kk == 'module' and load_optimizer_and_scheduler:
                                 self.optimizer_and_scheduler[op_sc_n][k][
                                     kk].load_state_dict(op_sc[k][kk])
-                            elif load_others:  # such as step_iteration, ...
+                            # such as step_iteration, ...
+                            elif load_others:
                                 self.optimizer_and_scheduler[op_sc_n][k][
                                     kk] = op_sc[k][kk]
-                    elif load_others:  # such as start_epoch, end_epoch, ....
+                    # such as start_epoch, end_epoch, ....
+                    elif load_others:
                         self.optimizer_and_scheduler[op_sc_n][k] = op_sc[k]
             print('succss', self.args.global_rank)
             #assert 1==2
@@ -549,7 +531,6 @@ class Solver(object):
             itr_start = time.time()
             # debug 
             # self.sample(batch, phase='train', step_type='iteration')
-            # assert 1==2
             # sample
             if self.sample_iterations > 0 and (
                     self.last_iter + 1) % self.sample_iterations == 0:
@@ -565,24 +546,22 @@ class Solver(object):
         self.dataloader['train_iterations'] = itr + 1
 
     def validate_epoch(self):
-        if 'validation_loader' not in self.dataloader:
+        if 'dev_loader' not in self.dataloader:
             val = False
         else:
-            if isinstance(self.validation_epochs, int):
-                val = (self.last_epoch + 1
-                       ) % self.validation_epochs == 0  # 能否整除
+            if isinstance(self.dev_epochs, int):
+                val = (self.last_epoch + 1) % self.dev_epochs == 0  # 能否整除
             else:
-                val = (self.last_epoch + 1) in self.validation_epochs
+                val = (self.last_epoch + 1) in self.dev_epochs
         if val:
             if self.args.distributed:
-                self.dataloader['validation_loader'].sampler.set_epoch(
-                    self.last_epoch)
+                self.dataloader['dev_loader'].sampler.set_epoch(self.last_epoch)
             self.model.eval()
             overall_loss = None
             epoch_start = time.time()
             itr_start = time.time()
             itr = -1
-            for itr, batch in enumerate(self.dataloader['validation_loader']):
+            for itr, batch in enumerate(self.dataloader['dev_loader']):
                 data_time = time.time() - itr_start
                 step_start = time.time()
                 loss = self.step(batch, phase='val')
@@ -603,11 +582,11 @@ class Solver(object):
                     info = '{}: val'.format(self.args.name)
                     info = info + ': Epoch {}/{} | iter {}/{}'.format(
                         self.last_epoch, self.max_epochs, itr,
-                        self.dataloader['validation_iterations'])
+                        self.dataloader['dev_iterations'])
                     for loss_n, loss_dict in loss.items():
                         info += ' ||'
                         info += '' if loss_n == 'none' else ' {}'.format(loss_n)
-                        # info = info + ': Epoch {}/{} | iter {}/{}'.format(self.last_epoch, self.max_epochs, itr, self.dataloader['validation_iterations'])
+                        # info = info + ': Epoch {}/{} | iter {}/{}'.format(self.last_epoch, self.max_epochs, itr, self.dataloader['dev_iterations'])
                         for k in loss_dict:
                             info += ' | {}: {:.4f}'.format(k,
                                                            float(loss_dict[k]))
@@ -622,9 +601,9 @@ class Solver(object):
                             self.dataloader['train_iterations'] - itr - 1)))
                     self.logger.log_info(info)
                 itr_start = time.time()
-            # modify here to make sure dataloader['validation_iterations'] is correct
+            # modify here to make sure dataloader['dev_iterations'] is correct
             assert itr >= 0, "The data is too less to form one iteration!"
-            self.dataloader['validation_iterations'] = itr + 1
+            self.dataloader['dev_iterations'] = itr + 1
 
             if self.logger is not None:
                 info = '{}: val'.format(self.args.name)
@@ -641,7 +620,7 @@ class Solver(object):
                 self.logger.log_info(info)
 
     def validate(self):
-        self.validation_epoch()
+        self.dev_epoch()
 
     def train(self):
         start_epoch = self.last_epoch + 1
