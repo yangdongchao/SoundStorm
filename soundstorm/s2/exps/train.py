@@ -206,7 +206,6 @@ def main():
 
 def main_worker(local_rank, args):
     args.local_rank = local_rank
-    # print('args.local_rank ',args.local_rank)
     args.global_rank = args.local_rank + args.node_rank * args.ngpus_per_node
     args.distributed = args.world_size > 1
     print(args)
@@ -222,7 +221,6 @@ def main_worker(local_rank, args):
 
     # get model 
     model = build_model(config, args)
-    # print(model)
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 

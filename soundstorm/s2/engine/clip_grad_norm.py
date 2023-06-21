@@ -9,7 +9,8 @@ class ClipGradNorm(object):
     def __init__(
             self,
             start_iteration=0,
-            end_iteration=-1,  # if negative, the norm will be always clipped
+            # if negative, the norm will be always clipped
+            end_iteration=-1,
             max_norm=0.5):
         self.start_iteration = start_iteration
         self.end_iteration = end_iteration

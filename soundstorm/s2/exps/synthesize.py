@@ -56,7 +56,8 @@ def build_soundstream():
     soundstream = build_codec_model(config)
     # soundstream = SoundStream(n_filters=32, D=512, ratios=[8, 5, 4, 2]) 
     parameter_dict = torch.load(resume_path)
-    soundstream.load_state_dict(parameter_dict['codec_model'])  # load model
+    # load model
+    soundstream.load_state_dict(parameter_dict['codec_model'])
     soundstream = soundstream.cuda()
     return soundstream
 
@@ -79,8 +80,10 @@ class Diffsound():
         else:
             model_name = os.path.basename(config_path).replace('.yaml', '')
         config = load_yaml_config(config_path)
-        model = build_model(config)  #加载 dalle model
-        model_parameters = get_model_parameters_info(model)  #参数详情
+        # 加载 dalle model
+        model = build_model(config)
+        # 参数详情
+        model_parameters = get_model_parameters_info(model)
         print(model_parameters)
         if os.path.exists(model_path):
             ckpt = torch.load(model_path, map_location="cpu")
@@ -127,9 +130,10 @@ class Diffsound():
         semantic_path = 'semantic/test.tsv'
         acoustic_path = os.path.join('LibriTTS_1000', 'acoustic',
                                      'acoustic_2.pth')
-        acoustic_data = torch.load(acoustic_path)  # get dict
-        semantic_data = pd.read_csv(
-            semantic_path, delimiter='\t')  # 读取 semantic
+        # get dict
+        acoustic_data = torch.load(acoustic_path)
+        # 读取 semantic
+        semantic_data = pd.read_csv(semantic_path, delimiter='\t')
         import time
         time_str = time.strftime('%Y-%m-%d-%H-%M')
         store_root = os.path.join(save_root, 'generate_' + time_str)
@@ -143,25 +147,26 @@ class Diffsound():
             print('semantic_tokens ', semantic_tokens.shape)
             acoustic_tokens = acoustic_data[name]  # 
             acoustic_tokens = torch.from_numpy(acoustic_tokens)
-            acoustic_tokens = acoustic_tokens.squeeze(1)  # n,len
-            acoustic_tokens = acoustic_tokens.unsqueeze(0)  # 
-            acoustic_tokens = acoustic_tokens[:, :
-                                              3, :]  # only use 3 codebook, you can set any config.
+            # n,len
+            acoustic_tokens = acoustic_tokens.squeeze(1)
+            acoustic_tokens = acoustic_tokens.unsqueeze(0)
+            # only use 3 codebook, you can set any config.
+            acoustic_tokens = acoustic_tokens[:, :3, :]
             print('acoustic_tokens ', acoustic_tokens.shape)
             if acoustic_tokens.shape[1] > 6 * 50:
                 tmp_len = 150
             else:
-                tmp_len = acoustic_tokens.shape[1] // 2  #
+                tmp_len = acoustic_tokens.shape[1] // 2
+            # 这里和 dataset 的写法很像
             prompt_acoustic_tokens = acoustic_tokens[:, :, :tmp_len]
             prompt_semantic_tokens = semantic_tokens[:, :tmp_len]
-            target_semantic_tokens = semantic_tokens[:, tmp_len:tmp_len +
-                                                     500]  # the left 
+            # the left 
+            target_semantic_tokens = semantic_tokens[:, tmp_len:tmp_len + 500]
 
             prompt_semantic_tokens = prompt_semantic_tokens.cuda()
             target_semantic_tokens = target_semantic_tokens.cuda()
             prompt_acoustic_tokens = prompt_acoustic_tokens.cuda()
-            real_acoustic_tokens = acoustic_tokens[:, :, tmp_len:tmp_len +
-                                                   500]  # 
+            real_acoustic_tokens = acoustic_tokens[:, :, tmp_len:tmp_len + 500]
             real_acoustic_tokens = real_acoustic_tokens.cuda()
             if fast is not False:
                 add_string = 'r,fast' + str(fast - 1)
@@ -170,7 +175,6 @@ class Diffsound():
             data_i = {}
             x_mask = torch.ones((1, real_acoustic_tokens.shape[-1]))
             x_mask = (x_mask == 0)
-            # print('x_mask ', x_mask)
             new_samples = {}
             new_samples['prompt_semantics'] = prompt_semantic_tokens
             new_samples['target_semantics'] = target_semantic_tokens
@@ -186,13 +190,11 @@ class Diffsound():
                     return_att_weight=False,
                     sample_type="top" + str(truncation_rate) + add_string,
                 )  # B x C x H x W
-                content = model_out['token_pred']  #
-                codes = content.reshape(content.shape[0], 3,
-                                        -1)  # reshape to original shape
+                content = model_out['token_pred']
+                # reshape to original shape
+                codes = content.reshape(content.shape[0], 3, -1)
                 codes = codes.transpose(0, 1)
-                # print('content ', content.shape)
-                # assert 1==2
-                #ge_acoustic_tokens = codes.permute(2,0,1)
+                # ge_acoustic_tokens = codes.permute(2,0,1)
                 out = soundstream.decode(codes)
                 print('out ', out.shape)
                 coarse_wav = out.detach().cpu().squeeze(0)

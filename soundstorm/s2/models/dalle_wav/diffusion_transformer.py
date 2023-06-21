@@ -13,7 +13,7 @@ from torch.cuda.amp import autocast
 eps = 1e-8
 
 
-# 对num_dims 后面的维度进行求和
+# 对 num_dims 后面的维度进行求和
 def sum_except_batch(x, num_dims=1):
     return x.reshape(*x.shape[:num_dims], -1).sum(-1)
 
@@ -32,14 +32,9 @@ def log_add_exp(a, b):
 
 # x_shape torch.Size([2, 2888, 1024])
 def extract(a, t, x_shape):
-    # print('a ',a)
-    # print('t ',t)
-    # print('x_shape ',x_shape)
     # b,剩下的
     b, *_ = t.shape
     out = a.gather(-1, t)
-    # print('out ',out)
-    # print('(len(x_shape) - 1)) ',(len(x_shape) - 1))
     # (b,1,1)
     return out.reshape(b, *((1, ) * (len(x_shape) - 1)))
 
@@ -51,22 +46,18 @@ def log_categorical(log_x_start, log_prob):
 def index_to_log_onehot(x, num_classes):
     assert x.max().item() < num_classes, \
         f'Error: {x.max().item()} >= {num_classes}'
-    # 根据数值产生one-hot向量,[2, 1024, 2888]
+    # 根据数值产生 one-hot 向量,[2, 1024, 2888]
     x_onehot = F.one_hot(x, num_classes)
-    # print('x_onehot ', x_onehot.shape)
     # 0,-1,1
     permute_order = (0, -1) + tuple(range(1, len(x.size())))
-    # print('permute_order ',permute_order)
     # [2, 2888, 1024]
     x_onehot = x_onehot.permute(permute_order)
-    # print('x_onehot ', x_onehot.shape)
-    # 对one-hot 取log? [2, 2888, 1024]
+    # 对 one-hot 取 log? [2, 2888, 1024]
     log_x = torch.log(x_onehot.float().clamp(min=1e-30))
-    # print('log_x ',log_x.shape)
     return log_x
 
 
-# 根据log_onehot向量，找到对应的index
+# 根据 log_onehot 向量，找到对应的 index
 def log_onehot_to_index(log_x):
     return log_x.argmax(1)
 
@@ -77,36 +68,27 @@ def alpha_schedule_mask_only(time_step,
                              att_T=0.000009,
                              ctt_1=0.000009,
                              ctt_T=0.99999):
-    att = np.arange(0, time_step) / (time_step - 1) * (
-        att_T - att_1) + att_1  # it means alpha, 等差数列
-    # print('att ',att.shape)
-    # print('att ',att)
-    att = np.concatenate(([1], att))  # add 1 on the first
-    # print('att1 ',att)
+    # it means alpha, 等差数列
+    att = np.arange(0, time_step) / (time_step - 1) * (att_T - att_1) + att_1
+    # add 1 on the first
+    att = np.concatenate(([1], att))
     # 得到从当前步到下一步乘的系数
     at = att[1:] / att[:-1]
-    # print('at ',at.shape)
-    # print('at ',at)
     # denotes gama,the prob for mask token
     ctt = np.arange(0, time_step) / (time_step - 1) * (ctt_T - ctt_1) + ctt_1
-    # print('ctt ',ctt) # 与att反过来
+    # 与 att 反过来
     ctt = np.concatenate(([0], ctt))
     # reverse
     one_minus_ctt = 1 - ctt
     # 9.99991000e-01, 9.89899091e-01
     one_minus_ct = one_minus_ctt[1:] / one_minus_ctt[:-1]
-    # print('one_minus_ct ',one_minus_ct)
     # 9.00000000e-06, 1.01009091e-02
     ct = 1 - one_minus_ct
-    # print('ct ',ct)
     # it means beta
     bt = (1 - at - ct) / N
     att = np.concatenate((att[1:], [1]))
     ctt = np.concatenate((ctt[1:], [0]))
     btt = (1 - att - ctt) / N
-    # print('att ',att)
-    # print('btt ',btt)
-    # print('ctt ',ctt)
     return at, bt, ct, att, btt, ctt
 
 
@@ -119,26 +101,20 @@ def alpha_schedule_uniform_only(time_step,
     # set ctt_T = ? to control
     # it means alpha, 等差数列
     att = np.arange(0, time_step) / (time_step - 1) * (att_T - att_1) + att_1
-    # print('att ',att.shape)
-    # print('att ',att)
     # add 1 on the first
     att = np.concatenate(([1], att))
-    # print('att1 ',att)
     # 得到从当前步到下一步乘的系数
     at = att[1:] / att[:-1]
-    # print('at ',at.shape)
-    # print('at ',at)
     # denotes gama,the prob for mask token
     ctt = np.arange(0, time_step) / (time_step - 1) * (ctt_T - ctt_1) + ctt_1
-    # print('ctt ',ctt) # 与att反过来
+    # 与att反过来
     ctt = np.concatenate(([0], ctt))
-    one_minus_ctt = 1 - ctt  # reverse
+    # reverse
+    one_minus_ctt = 1 - ctt
     # 9.99991000e-01, 9.89899091e-01
     one_minus_ct = one_minus_ctt[1:] / one_minus_ctt[:-1]
-    # print('one_minus_ct ',one_minus_ct)
     # 9.00000000e-06, 1.01009091e-02
     ct = 1 - one_minus_ct
-    # print('ct ',ct)
     # it means beta
     bt = (1 - at - ct) / N
     att = np.concatenate((att[1:], [1]))
@@ -162,13 +138,12 @@ def alpha_schedule(time_step,
     at = att[1:] / att[:-1]
     # denotes gama,the prob for mask token
     ctt = np.arange(0, time_step) / (time_step - 1) * (ctt_T - ctt_1) + ctt_1
-    # print('ctt ',ctt) # 与att反过来
+    # 与 att 反过来
     ctt = np.concatenate(([0], ctt))
     # reverse
     one_minus_ctt = 1 - ctt
     # 9.99991000e-01, 9.89899091e-01
     one_minus_ct = one_minus_ctt[1:] / one_minus_ctt[:-1]
-    # print('one_minus_ct ',one_minus_ct)
     # 9.00000000e-06, 1.01009091e-02
     ct = 1 - one_minus_ct
     # it means beta
@@ -197,16 +172,16 @@ class DiffusionTransformer(nn.Module):
             self.condition_emb = None
         else:
             # for condition and config, we learn a seperate embedding
-            # 加载能获得condition embedding的模型
+            # 加载能获得 condition embedding 的模型
             self.condition_emb = instantiate(condition_emb_config)
             # 每个embedding的维度
             self.condition_dim = self.condition_emb.embed_dim
-        # 在transformer_conf文件中，加入这两个参数
+        # 在 transformer_conf 文件中，加入这两个参数
         transformer_config['diffusion_step'] = diffusion_step
-        self.transformer = instantiate_from_config(
-            transformer_config)  # 加载transformer
-        print('transformer ', self.transformer)
-        # self.content_seq_len = transformer_config['content_seq_len'] # 1024  # 32 x 32
+        # 加载 transformer
+        self.transformer = instantiate_from_config(transformer_config)
+        # 1024  # 32 x 32
+        # self.content_seq_len = transformer_config['content_seq_len'] 
         self.amp = False
         self.n_q = n_q
         # 2888 #? 2887 + 1
@@ -221,7 +196,7 @@ class DiffusionTransformer(nn.Module):
         # [1,1] , what the means? --> the loss weight on mask region and non-mask region
         self.mask_weight = mask_weight
 
-        if alpha_init_type == "alpha1":  # ?
+        if alpha_init_type == "alpha1":
             at, bt, ct, att, btt, ctt = alpha_schedule(
                 self.num_timesteps, N=self.num_classes)
         else:
@@ -343,7 +318,7 @@ class DiffusionTransformer(nn.Module):
 
     def sample_samll_time(self, b, device, method='uniform'):
         # do not pass 20 diffusion steps
-        # 从[0,num_timesteps]随机产生b个数
+        # 从 [0,num_timesteps] 随机产生b个数
         t = torch.randint(1, 20, (b, ), device=device).long()
         return t
 
@@ -374,32 +349,27 @@ class DiffusionTransformer(nn.Module):
     def cf_predict_start(self, log_x_t, cond_emb, x_mask, cond_emb_mask, t):
         return self.predict_start(log_x_t, cond_emb, x_mask, cond_emb_mask, t)
 
-    def q_posterior(self, log_x_start, log_x_t,
-                    t):  # p_theta(xt_1|xt) = sum(q(xt-1|xt,x0)*p(x0|xt))
+    # p_theta(xt_1|xt) = sum(q(xt-1|xt,x0)*p(x0|xt))
+    def q_posterior(self, log_x_start, log_x_t, t):
         # notice that log_x_t is onehot
         # log(p_theta(xt_1|xt)) = log(q(xt-1|xt,x0)) + log(p(x0|xt))
         #                       = log(p(x0|xt)) + log(q(xt|xt_1,x0)) + log(q(xt_1|x0)) - log(q(xt|x0))  (*)
         # log_x_start=log_x0_recon (the results of prediction), log_x_t=log_xt, t=t
-        # print('log_x_start ', log_x_start.shape)
         assert t.min().item() >= 0 and t.max().item() < self.num_timesteps
         batch_size = log_x_start.size()[0]
         # get sample
         onehot_x_t = log_onehot_to_index(log_x_t)
-        # print('log_x_t ',log_x_t.shape)
-        # print('onehot_x_t ',onehot_x_t.shape)
-        mask = (onehot_x_t == self.num_classes - 1).unsqueeze(
-            1)  #选出为mask token的
-        # print('mask ', mask)
-        log_one_vector = torch.zeros(batch_size, 1, 1).type_as(
-            log_x_t)  # b,1,1 (全0)
-        # print('log_one_vector ',log_one_vector)
+        #选出为 mask token 的
+        mask = (onehot_x_t == self.num_classes - 1).unsqueeze(1)
+        # b,1,1 (全0)
+        log_one_vector = torch.zeros(batch_size, 1, 1).type_as(log_x_t)
         #[2, 1, 1024]
         log_zero_vector = torch.log(log_one_vector + 1.0e-30).expand(
             -1, -1, log_x_start.shape[2])
         # log(q(xt|x0))
-        # x_t 在向前t步, 或者说把x_t 当成x_0使用？ 
+        # x_t 在向前 t 步, 或者说把 x_t 当成 x_0 使用？ 
         log_qt = self.q_pred(log_x_t, t)
-        # 代表mask的位置，全设为0
+        # 代表 mask 的位置，全设为0
         log_qt = torch.cat((log_qt[:, :-1, :], log_zero_vector), dim=1)
         #  # ct~
         log_cumprod_ct = extract(self.log_cumprod_ct, t, log_x_start.shape)
@@ -407,10 +377,10 @@ class DiffusionTransformer(nn.Module):
         ct_cumprod_vector = log_cumprod_ct.expand(-1, self.num_classes - 1, -1)
         ct_cumprod_vector = torch.cat(
             (ct_cumprod_vector, log_one_vector), dim=1)
-        log_qt = (~mask
-                  ) * log_qt + mask * ct_cumprod_vector  # mask token的部分，全设为ct_
+        # mask token 的部分，全设为 ct_
+        log_qt = (~mask) * log_qt + mask * ct_cumprod_vector
         # log(q(xt|xt_1,x0))
-        # q(xt|xt_1), 只向前一步,因为用了 at,bt
+        # q(xt|xt_1), 只向前一步,因为用了 at, bt
         log_qt_one_timestep = self.q_pred_one_timestep(log_x_t, t)
         log_qt_one_timestep = torch.cat(
             (log_qt_one_timestep[:, :-1, :], log_zero_vector), dim=1)
@@ -532,9 +502,9 @@ class DiffusionTransformer(nn.Module):
         log_sample = index_to_log_onehot(sample, self.num_classes)
         return log_sample
 
-    def q_sample(self, log_x_start,
-                 t):  # diffusion step, q(xt|x0) and sample xt
-        # 从 x_0 开始，往前走t步 (马尔科夫链),获得 logq(xt|x0)
+    # diffusion step, q(xt|x0) and sample xt
+    def q_sample(self, log_x_start, t):
+        # 从 x_0 开始，往前走 t 步 (马尔科夫链),获得 logq(xt|x0)
         log_EV_qxt_x0 = self.q_pred(log_x_start, t)
         # 根据概率分布，进行采样
         log_sample = self.log_sample_categorical(log_EV_qxt_x0)
@@ -543,7 +513,7 @@ class DiffusionTransformer(nn.Module):
 
     def sample_time(self, b, device, method='uniform'):
         if method == 'importance':
-            # 当矩阵里每个值都大于10时，才不使用 uniform 采样
+            # 当矩阵里每个值都大于 10 时，才不使用 uniform 采样
             if not (self.Lt_count > 10).all():
                 # print('use uniform... ')
                 return self.sample_time(b, device, method='uniform')
@@ -555,12 +525,12 @@ class DiffusionTransformer(nn.Module):
             # 采 index 权重大的，采到的几率就越大
             t = torch.multinomial(pt_all, num_samples=b, replacement=True)
             # input 张量可以看成一个权重张量，每一个元素代表其在该行中的权重。如果有元素为0，那么在其他不为0的元素被取干净之前，这个元素是不会被取到的。
-            # 根据index,找到对应的值
+            # 根据 index, 找到对应的值
             pt = pt_all.gather(dim=0, index=t)
             return t, pt
 
         elif method == 'uniform':
-            # 从 [0,num_timesteps] 随机产生b个数
+            # 从 [0,num_timesteps] 随机产生 b 个数
             t = torch.randint(
                 0, self.num_timesteps, (b, ), device=device).long()
             # 概率一直都是0.01?
@@ -569,18 +539,20 @@ class DiffusionTransformer(nn.Module):
         else:
             raise ValueError
 
-    def _train_loss(self,
-                    x,
-                    cond_emb,
-                    x_mask=None,
-                    cond_emb_mask=None,
-                    is_train=True):  # get the KL loss
+    def _train_loss(
+            self,
+            x,
+            cond_emb,
+            x_mask=None,
+            cond_emb_mask=None,
+            # get the KL loss
+            is_train=True):
         b, device = x.size(0), x.device
         assert self.loss_type == 'vb_stochastic'
         x_start = x  # (b, N)
         # 时间采样
         t, pt = self.sample_time(b, device, 'importance')
-        # 将数值代表，转换为由one-hot向量组成的矩阵,其中每个向量最大值所在的索引就是原始的值
+        # 将数值代表，转换为由 one-hot 向量组成的矩阵,其中每个向量最大值所在的索引就是原始的值
         log_x_start = index_to_log_onehot(x_start, self.num_classes)
         # 通过采样获得 log_xt, 随机采得
         log_xt = self.q_sample(log_x_start=log_x_start, t=t)
@@ -590,9 +562,9 @@ class DiffusionTransformer(nn.Module):
         # P_theta(x0|xt)
         log_x0_recon = self.predict_start(
             log_xt, cond_emb, x_mask, cond_emb_mask, t=t)
+        # go through q(xt_1|xt,x0)
         log_model_prob = self.q_posterior(
-            log_x_start=log_x0_recon, log_x_t=log_xt,
-            t=t)  # go through q(xt_1|xt,x0)
+            log_x_start=log_x0_recon, log_x_t=log_xt, t=t)
         ################## compute acc list ################
         # 获得预测的x_0
         x0_recon = log_onehot_to_index(log_x0_recon)
@@ -607,9 +579,9 @@ class DiffusionTransformer(nn.Module):
         x_mask = x_mask_repeat.reshape(x_mask_repeat.shape[0], -1)
         for index in range(t.size()[0]):
             this_t = t[index].item()
-            # 获得当前样本的mask值
+            # 获得当前样本的 mask 值
             tmp_mask = ~x_mask[index]
-            # 只保留非mask部分
+            # 只保留非 mask 部分
             tmp_x0_recon = x0_recon[index][tmp_mask]
             tmp_x0_real = x0_real[index][tmp_mask]
             same_rate = (
@@ -625,9 +597,9 @@ class DiffusionTransformer(nn.Module):
             ) * 0.1 + self.diffusion_keep_list[this_t] * 0.9
 
         # compute log_true_prob now 
+        # using true label to calculate
         log_true_prob = self.q_posterior(
-            log_x_start=log_x_start, log_x_t=log_xt,
-            t=t)  # using true label to calculate
+            log_x_start=log_x_start, log_x_t=log_xt, t=t)
         kl = self.multinomial_kl(log_true_prob, log_model_prob)
         # xt 中被 mask 的区域
         mask_region = (xt == self.num_classes - 1).float()
@@ -696,7 +668,8 @@ class DiffusionTransformer(nn.Module):
             blacklist_weight_modules = (torch.nn.LayerNorm, torch.nn.Embedding)
             for mn, m in self.named_modules():
                 for pn, p in m.named_parameters():
-                    fpn = '%s.%s' % (mn, pn) if mn else pn  # full param name
+                    # full param name
+                    fpn = '%s.%s' % (mn, pn) if mn else pn
 
                     if pn.endswith('bias'):
                         # all biases will not be decayed
@@ -757,7 +730,7 @@ class DiffusionTransformer(nn.Module):
                 return_logits=True,
                 is_train=True,
                 **kwargs):
-        #{'condition_text_embed': cond, 'condition_mel_mask': cond_mask, 'content_token': }
+        # {'condition_text_embed': cond, 'condition_mel_mask': cond_mask, 'content_token': }
         # the input is prompt_semantic, target_semantic, prompt_acoustic, target_acoustic
         if kwargs.get('autocast') is True:
             self.amp = True
@@ -768,7 +741,6 @@ class DiffusionTransformer(nn.Module):
         # 目前先不使用 mask,因为我们直接padding eos
         content_token_mask = None
         content_token_mask = input['x_mask']
-        # print('sample_image ',sample_image.shape)
         # cont_emb = self.content_emb(sample_image)
         cond_emb = {}
         cond_emb_mask = None  # condition mask
@@ -817,9 +789,6 @@ class DiffusionTransformer(nn.Module):
         condition['prompt_acoustics'] = batch['prompt_acoustics']
         condition['target_semantics'] = batch['target_semantics']
         content_token_mask = batch['x_mask']
-        # print('content_token_mask ', content_token_mask.shape)
-        # print(batch['target_semantics'].shape)
-        # print(batch['target_acoustics'].shape)
         condition_mask = None
         # get cont_emb and cond_emb
         # when filter_ratio==0
@@ -829,23 +798,25 @@ class DiffusionTransformer(nn.Module):
             predict_len = batch['target_acoustics'].shape[-1] * self.n_q
             # unpdate prior_ps and n_sample
             self.prior_ps = predict_len
-            self.update_n_sample(predict_len)  #  
+            self.update_n_sample(predict_len)
+            # [b, 256, 265]
             zero_logits = torch.zeros(
-                (batch_size, self.num_classes - 1, predict_len),
-                device=device)  #b,256,265
-            one_logits = torch.ones(
-                (batch_size, 1, predict_len), device=device)  #b,1,265
-            # 每个token全是mask
+                (batch_size, self.num_classes - 1, predict_len), device=device)
+            # [b, 1, 265]
+            one_logits = torch.ones((batch_size, 1, predict_len), device=device)
+            # 每个 token 全是 mask
             mask_logits = torch.cat((zero_logits, one_logits), dim=1)
             log_z = torch.log(mask_logits)
             start_step = self.num_timesteps
             with torch.no_grad():
-                for diffusion_index in range(start_step - 1, -1, -1):  # 99,0
+                # 99,0
+                for diffusion_index in range(start_step - 1, -1, -1):
+                    # 用 diffusion_index 填充，shape=(b,)
                     t = torch.full(
                         (batch_size, ),
                         diffusion_index,
                         device=device,
-                        dtype=torch.long)  #用diffusion_index填充，shape=(b,)
+                        dtype=torch.long)
                     # 初始时 sampled 全设为0
                     sampled = [0] * log_z.shape[0]
                     while min(sampled) < self.n_sample[diffusion_index]:

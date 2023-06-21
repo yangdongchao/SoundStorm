@@ -36,7 +36,6 @@ def merge_opts_to_config(config, opts):
         if len(nl) == 1:
             c[nl[0]] = type(c[nl[0]])(v)
         else:
-            # print(nl)
             c[nl[0]] = modify_dict(c[nl[0]], nl[1:], v)
         return c
 

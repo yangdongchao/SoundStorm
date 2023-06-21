@@ -7,12 +7,6 @@ from soundstorm.s2.utils.misc import instantiate_from_config
 from torch import nn
 
 
-def disabled_train(self, mode=True):
-    """Overwrite model.train with this function to make sure train/eval mode
-    does not change anymore."""
-    return self
-
-
 class DALLE(nn.Module):
     def __init__(
             self,
@@ -127,7 +121,6 @@ class DALLE(nn.Module):
         def cf_predict_start(log_x_t, cond_emb, x_mask, cond_emb_mask, t):
             log_x_recon = self.transformer.predict_start(
                 log_x_t, cond_emb, x_mask, cond_emb_mask, t)[:, :-1]
-            # print('self.guidance_scale ', self.guidance_scale)
             if abs(self.guidance_scale - 1) < 1e-3:
                 zero_vector = torch.zeros(
                     x_mask.shape[0], 1,
@@ -194,13 +187,12 @@ class DALLE(nn.Module):
         self.eval()
         condition = self.prepare_condition(batch)
         content = self.prepare_content(batch)
-        # 只有一个sample输入时，相当于没有mask
+        # 只有一个 sample 输入时，相当于没有mask
         content.update({'content_token_mask': batch['mel_token_mask']})
-        # 输入的原始mel_spec
+        # 输入的原始 mel_spec
         content_samples = {'input_image': batch['mel_spec']}
         # (B, C, H, W)
         zshape = content['content_quant'].shape
-        # print('zshape ',zshape)
         if return_rec:
             content_samples['reconstruction_mel'] = self.decode_to_img(
                 content['content_token'], zshape)
@@ -212,7 +204,7 @@ class DALLE(nn.Module):
                 if num_content_tokens < 0:
                     continue
                 else:
-                    # 按比例保留部分的token
+                    # 按比例保留部分的 token
                     content_token = content['content_token'][:, :
                                                              num_content_tokens]
                 if sample_type == 'debug':
@@ -240,7 +232,8 @@ class DALLE(nn.Module):
                         content_logits=content.get('content_logits', None),
                         sample_type=sample_type,
                         **kwargs)
-                #content_samples['cond1_cont{}_fr{}_image'.format(cr, fr)] = self.content_codec.decode(trans_out['content_token']) # 根据预测值,进行解码
+                # 根据预测值,进行解码
+                # content_samples['cond1_cont{}_fr{}_image'.format(cr, fr)] = self.content_codec.decode(trans_out['content_token']) 
                 # bhwc = (zshape[0], zshape[2], zshape[3], zshape[1]) # 应该先获得未编码前的特征维度 ([b, 256, 5, 53])
                 # quant_z = self.content_codec.quantize.get_codebook_entry(trans_out['content_token'].reshape(-1), shape=bhwc)
                 content_samples['cond1_cont{}_fr{}_image'.format(
@@ -262,7 +255,7 @@ class DALLE(nn.Module):
         self.train()
         output = {}
         # 同时返回 text 和预测的 image
-        #output = {'condition': batch[self.condition_info['key']]}  
+        # output = {'condition': batch[self.condition_info['key']]}  
         output.update(content_samples)
         return output
 
@@ -275,8 +268,6 @@ class DALLE(nn.Module):
         return output
 
     def forward(self, batch, name='none', **kwargs):
-        # print('input ', input)
         # 信息处理直接交给 transformer
         output = self.transformer(batch, **kwargs)
-        # print('output ',output)
         return output

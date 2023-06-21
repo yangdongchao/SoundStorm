@@ -212,7 +212,6 @@ class SemanticDataset(torch.utils.data.Dataset):
         target_semantics = pad_2D(target_semantics, self.target_semantic_end_id)
         prompt_acoustics = pad_2D(prompt_acoustics, self.prompt_acoustic_eos)
         target_acoustics = pad_2D(target_acoustics, self.target_acoustic_eos)
-        # print('target_acoustics ', target_acoustics)
         # mask 住 target_acoustics 的补 0 部分
         x_mask = (target_acoustics == self.target_acoustic_eos)
         new_samples = {}

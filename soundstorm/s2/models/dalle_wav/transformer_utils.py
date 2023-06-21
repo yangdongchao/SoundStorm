@@ -95,8 +95,8 @@ class FullAttention(nn.Module):
 
     def forward(self, x, encoder_output, mask=None):
         if mask is not None:
-            slf_mask = mask.unsqueeze(1).repeat(1, self.n_head, 1,
-                                                1)  # (n*b) x .. x ..
+            # (n*b) x .. x ..
+            slf_mask = mask.unsqueeze(1).repeat(1, self.n_head, 1, 1)
         else:
             slf_mask = None
         B, T, C = x.size()
@@ -158,8 +158,6 @@ class CrossAttention(nn.Module):
         # causal mask to ensure that attention is only applied to the left in the input sequence
 
     def forward(self, x, encoder_output, mask=None):
-        # print('encoder_output ', encoder_output.shape)
-        # print('c_mask ', c_mask.shape)
         if mask is not None:
             # (n*b) x .. x ..
             slf_mask = mask.unsqueeze(1).repeat(1, self.n_head, 1, 1)
@@ -179,10 +177,6 @@ class CrossAttention(nn.Module):
                                             C // self.n_head).transpose(1, 2)
         # (B, nh, T, T_E)
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        # print('att ', att.shape)
-        # print('v ', v.shape)
-        # print('slf_mask ', slf_mask.shape)
-        # print('smask ', slf_x_mask.shape)
         # add mask
         if slf_mask is not None:
             # 对 attention 权重进行 mask
@@ -341,10 +335,8 @@ class Block(nn.Module):
         if self.attn_type == "selfcross":
             a, att = self.attn1(
                 self.ln1(x, timestep), encoder_output, mask=slf_x_attn_mask)
-            # print('a ', a.shape)
             if x_mask is not None:
                 a = a.masked_fill(x_mask.unsqueeze(-1), 0)
-                # print('x_mask.unsqueeze(-1) ', x_mask.unsqueeze(-1).shape)
             x = x + a
             # slf_x_attn_mask2 = x_mask.unsqueeze(2).expand(-1, -1, encoder_output.shape[1])
             # x_mask=slf_x_attn_mask2, c_mask=cond_emb_mask
@@ -489,12 +481,12 @@ class Text2ImageTransformer(nn.Module):
         self.target_semantic_start_id = self.semantic_token_nums + 2
         self.target_semantic_end_id = self.semantic_token_nums + 3
 
-        self.acoustic_token_nums = 1024  # 
+        self.acoustic_token_nums = 1024
         # self.prompt_acoustic_start_id = self.acoustic_token_nums 
         # self.prompt_acoustic_end_id = self.acoustic_token_nums + 1
         # self.target_acoustic_start_id = self.acoustic_token_nums + 2
         # self.target_acoustic_end_id = self.acoustic_token_nums + 3
-        # 最长的序列假设为10s
+        # 最长的序列假设为 10s
         self.prompt_semantic_pos_emb = LearnedPositionEmbeddings(500, n_embd)
         # 20s
         self.target_semantic_pos_emb = LearnedPositionEmbeddings(1000, n_embd)
@@ -611,10 +603,8 @@ class Text2ImageTransformer(nn.Module):
         # transfer to [B, T]
         target_semantic_token_ids = rearrange(target_semantic_token_ids,
                                               'b ... -> b (...)')
-        # print('prompt_semantic_token_ids ', prompt_semantic_token_ids.shape)
-        # print('target_semantic_token_ids ', target_semantic_token_ids.shape)
-        # print('prompt_acoustic_token_ids ', prompt_acoustic_token_ids.shape)
-        # 增加和一个stop token
+
+        # 增加和一个 stop token
         prompt_semantic_token_ids = F.pad(
             prompt_semantic_token_ids, (0, 1),
             value=self.prompt_semantic_end_id)
@@ -643,9 +633,7 @@ class Text2ImageTransformer(nn.Module):
             target_semantic_token_emb)
         prompt_acoustic_token_emb = prompt_acoustic_token_emb + self.prompt_acoustic_pos_emb(
             prompt_acoustic_token_emb)
-        # print('prompt_semantic_token_emb ', prompt_semantic_token_emb.shape)
-        # print('target_semantic_token_emb ', target_semantic_token_emb.shape)
-        # print('prompt_acoustic_token_emb ', prompt_acoustic_token_emb.shape)
+
         # [B, all, 512]      
         cond_emb = torch.cat(
             (prompt_semantic_token_emb, target_semantic_token_emb,

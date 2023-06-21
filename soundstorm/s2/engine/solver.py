@@ -39,10 +39,12 @@ class Solver(object):
         self.save_epochs = config['solver']['save_epochs']
         self.save_iterations = config['solver'].get('save_iterations', -1)
         self.sample_iterations = config['solver']['sample_iterations']
-        if self.sample_iterations == 'epoch':  # 改为2个epoch 采样一次
-            self.sample_iterations = 2 * self.dataloader[
-                'train_iterations']  # 4106
-        self.dev_epochs = config['solver'].get('dev_epochs', 2)  # 多少个epoch验证一次
+        # 改为 2 个 epoch 采样一次
+        if self.sample_iterations == 'epoch':
+            # 4106
+            self.sample_iterations = 2 * self.dataloader['train_iterations']
+        # 多少个epoch验证一次
+        self.dev_epochs = config['solver'].get('dev_epochs', 2)
         assert isinstance(self.save_epochs, (int, list))
         assert isinstance(self.dev_epochs, (int, list))
         self.debug = config['solver'].get('debug', False)
@@ -62,14 +64,17 @@ class Solver(object):
             self.clip_grad_norm = None
 
         # get lr
-        adjust_lr = config['solver'].get('adjust_lr', 'sqrt')  # none
-        base_lr = config['solver'].get('base_lr', 1.0e-4)  # 3.0e-6
-        # 若不存在则用1e-4
+        # none
+        adjust_lr = config['solver'].get('adjust_lr', 'sqrt')
+        # 3.0e-6
+        base_lr = config['solver'].get('base_lr', 1.0e-4)
+        # 若不存在则用 1e-4
         if adjust_lr == 'none':
             self.lr = base_lr
-        elif adjust_lr == 'sqrt':  # 平方调整
+        # 平方调整
+        elif adjust_lr == 'sqrt':
             self.lr = base_lr * math.sqrt(args.world_size *
-                                          config['dataloader']['batch_size'])  #
+                                          config['dataloader']['batch_size'])
         elif adjust_lr == 'linear':
             self.lr = base_lr * args.world_size * config['dataloader'][
                 'batch_size']
@@ -103,9 +108,8 @@ class Solver(object):
         self.model.to(self.args.local_rank)
         self.device = self.model.device
         if self.args.distributed:
-            self.logger.log_info(
-                'Distributed, begin DDP the model...'
-            )  # the next line change arg.gup to args.local_rank
+            # the next line change arg.gup to args.local_rank
+            self.logger.log_info('Distributed, begin DDP the model...')
             self.model = torch.nn.parallel.DistributedDataParallel(
                 self.model,
                 device_ids=[self.args.local_rank],
@@ -124,9 +128,7 @@ class Solver(object):
 
     def _get_optimizer_and_scheduler(self, op_sc_list):
         optimizer_and_scheduler = {}
-        # print(len(op_sc_list)) # 1
         for op_sc_cfg in op_sc_list:
-            # print('op_sc_cfg ', op_sc_cfg)
             op_sc = {
                 'name': op_sc_cfg.get('name', 'none'),
                 'start_epoch': op_sc_cfg.get('start_epoch', 0),
@@ -146,7 +148,6 @@ class Solver(object):
             op_cfg = op_sc_cfg.get('optimizer',
                                    {'target': 'torch.optim.SGD',
                                     'params': {}})
-            # print('op_cfg ', op_cfg)
             if 'params' not in op_cfg:
                 op_cfg['params'] = {}
             if 'lr' not in op_cfg['params']:
@@ -219,7 +220,6 @@ class Solver(object):
                     with autocast():
                         samples = model.infer_one(batch=batch)
                 else:
-                    #print('batch ')
                     samples = model.infer_one(batch=batch)
             else:
                 samples = model.infer_one(batch=batch[0].cuda())
@@ -227,7 +227,6 @@ class Solver(object):
             num_plots = 8
             save_path = self.image_dir
             for i in range(num_plots):
-                #print('samples ', samples)
                 pre_content_codec = samples['token_pred'].detach().cpu().numpy()
                 torch.save(pre_content_codec, save_path + '/wav_pred_' + str(i)
                            + '_epoch_' + str(self.last_epoch) + '_last_iter_' +
@@ -248,7 +247,6 @@ class Solver(object):
         for op_sc_n, op_sc in self.optimizer_and_scheduler.items():
             if phase == 'train':
                 # this part is nothing
-                # print('op_sc ',op_sc)
                 # check if this optimizer and scheduler is valid in this iteration and epoch
                 # pass
                 if op_sc['start_iteration'] > self.last_iter:
@@ -398,12 +396,9 @@ class Solver(object):
     ):
         if path is None:
             path = os.path.join(self.ckpt_dir, 'last.pth')
-        #print('path ', path)
         if os.path.exists(path):
-            #print('exists!!!')
             state_dict = torch.load(
                 path, map_location='cuda:{}'.format(self.args.local_rank))
-            # print('state_dict ',state_dict)
             if load_others:
                 self.last_epoch = state_dict['last_epoch']
                 self.last_iter = state_dict['last_iter']
@@ -412,22 +407,17 @@ class Solver(object):
                           torch.nn.parallel.DistributedDataParallel):
                 try:
                     self.model.module.load_state_dict(state_dict['model'])
-                    # print('module update ',self.args.global_rank)
                 except Exception:
                     model_dict = self.model.module.state_dict()
-                    #print('model_dict ',model_dict.keys())
                     temp_state_dict = {
                         k: v
                         for k, v in state_dict['model'].items()
                         if k in model_dict.keys()
                     }
-                    #print('temp_state_dict ',temp_state_dict.keys())
                     model_dict.update(temp_state_dict)
                     self.model.module.load_state_dict(model_dict)
-                    # print('model update ',self.args.global_rank)
             else:
                 self.model.load_state_dict(state_dict['model'])
-                # print('model update2 ',self.args.global_rank)
 
             if 'ema' in state_dict and self.ema is not None:
                 try:
@@ -462,7 +452,6 @@ class Solver(object):
                     elif load_others:
                         self.optimizer_and_scheduler[op_sc_n][k] = op_sc[k]
             print('succss', self.args.global_rank)
-            #assert 1==2
             self.logger.log_info('Resume from {}'.format(path))
 
     def train_epoch(self):
@@ -534,9 +523,7 @@ class Solver(object):
             # sample
             if self.sample_iterations > 0 and (
                     self.last_iter + 1) % self.sample_iterations == 0:
-                # print("save model here")
                 # self.save(force=True)
-                # print("save model done")
                 self.model.eval()
                 self.sample(batch, phase='train', step_type='iteration')
                 self.model.train()

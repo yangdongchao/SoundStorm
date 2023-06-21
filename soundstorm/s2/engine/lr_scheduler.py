@@ -7,8 +7,6 @@ import math
 from torch._six import inf
 from torch.optim.optimizer import Optimizer
 
-# from torch.optim import AdamW, Adam
-
 
 class ReduceLROnPlateauWithWarmup(object):
     """Reduce learning rate when a metric has stopped improving.

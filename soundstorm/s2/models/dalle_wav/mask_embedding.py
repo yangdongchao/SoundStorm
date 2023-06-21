@@ -35,7 +35,8 @@ class DalleMaskImageEmbedding(BaseEmbedding):
             pos_emb_type='embedding'):
         super().__init__()
         self.max_size = max_size
-        self.num_embed = num_embed + 1  # add a mask token
+        # add a mask token
+        self.num_embed = num_embed + 1
         self.embed_dim = embed_dim
         self.trainable = trainable
         self.n_q = n_q
@@ -57,7 +58,6 @@ class DalleMaskImageEmbedding(BaseEmbedding):
     def forward(self, index, **kwargs):
         # B x L
         assert index.dim() == 2
-        # print('index ', index.shape)
         index = index.reshape(index.shape[0], self.n_q, -1)
         index[index < 0] = 0
         emb = []
@@ -70,12 +70,8 @@ class DalleMaskImageEmbedding(BaseEmbedding):
             sub_emb = torch.cat(sub_emb, dim=0)
             emb.append(sub_emb.unsqueeze(0))
         target_emb = torch.cat(emb, dim=0)
-        # print('emb3 ', emb.shape)
-        # print('target_emb ', target_emb.shape)
         if target_emb.shape[2] > 0:
             if self.pos_emb_type == 'embedding':
-                # print('self.position_ids ', self.position_ids.shape)
-                # print('emb.shape[1] ', emb.shape[1])
                 position_ids = self.position_ids[:target_emb.shape[2]]
             else:
                 print('Not support non-embedding')

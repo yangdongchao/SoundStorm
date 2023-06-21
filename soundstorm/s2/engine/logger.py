@@ -14,12 +14,6 @@ from soundstorm.s2.utils.io import save_config_to_yaml
 from soundstorm.s2.utils.io import write_args
 from torch.utils.tensorboard import SummaryWriter
 
-# USE_TENSORBOARD = True
-# try:
-#     import tensorboard
-# except:
-#     USE_TENSORBOARD = False
-
 
 class Logger(object):
     def __init__(self, args):
