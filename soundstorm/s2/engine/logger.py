@@ -9,10 +9,10 @@ from __future__ import print_function
 import os
 import time
 
-import torch
 from soundstorm.s2.distributed.distributed import is_primary
 from soundstorm.s2.utils.io import save_config_to_yaml
 from soundstorm.s2.utils.io import write_args
+from torch.utils.tensorboard import SummaryWriter
 
 # USE_TENSORBOARD = True
 # try:
@@ -39,13 +39,10 @@ class Logger(object):
             log_dir = os.path.join(self.save_dir, 'logs')
             if not os.path.exists(log_dir):
                 os.makedirs(log_dir, exist_ok=True)
-            self.text_writer = open(os.path.join(log_dir, 'log.txt'),
-                                    'a')  # 'w')
+            self.text_writer = open(os.path.join(log_dir, 'log.txt'), 'a')
             if args.tensorboard:
                 self.log_info('using tensorboard')
-                self.tb_writer = torch.utils.tensorboard.SummaryWriter(
-                    log_dir=log_dir
-                )  # tensorboard.SummaryWriter(log_dir=log_dir)
+                self.tb_writer = SummaryWriter(log_dir=log_dir)
             else:
                 self.tb_writer = None
 

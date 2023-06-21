@@ -1,6 +1,4 @@
-import os
 import random
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -38,13 +36,11 @@ def pad_1D(inputs, PAD):
 
 
 class SemanticDataset(torch.utils.data.Dataset):
-    def __init__(
-            self,
-            num_quant,
-            max_length=(250, 250), 
-            semantic_path,
-            acoustic_path,
-            ):
+    def __init__(self,
+                 num_quant,
+                 semantic_path,
+                 acoustic_path,
+                 max_length=(250, 250)):
         super().__init__()
 
         self.semantic_data = pd.read_csv(semantic_path, delimiter='\t')
@@ -57,7 +53,7 @@ class SemanticDataset(torch.utils.data.Dataset):
         self.hz = 50  # 分辨率
         self.segment_size = 3  # 默认使用3s一个segments
         self.sizes = [
-            len(self.semantic_data['tgt_audio'][i].split(' '))
+            len(self.semantic_data['semantic_audio'][i].split(' '))
             for i in range(len(self.semantic_data))
         ]
         self.semantic_token_nums = 1000

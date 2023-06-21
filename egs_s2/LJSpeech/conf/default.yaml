@@ -1,6 +1,6 @@
 # change from o4
 model:
-    target: soundstorm.s2.modeling.dalle_wav.DALLE
+    target: soundstorm.s2.models.dalle_wav.dalle_wav.DALLE
     params:
         content_info: {key: audio}
         condition_info: {key: text}

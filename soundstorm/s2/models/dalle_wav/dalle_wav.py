@@ -26,12 +26,14 @@ class DALLE(nn.Module):
         self.n_q = n_q
         self.content_info = content_info
         self.condition_info = condition_info
-        self.guidance_scale = 1.0  # we donot use the classifier guidance in this stage
+        # we donot use the classifier guidance in this stage
+        self.guidance_scale = 1.0
         self.learnable_cf = learnable_cf
-        #self.content_codec = instantiate_from_config(content_codec_config)
+        # self.content_codec = instantiate_from_config(content_codec_config)
         self.transformer = instantiate_from_config(diffusion_config)
         self.truncation_forward = False
-        self.mask_id = 1024  # the last token reprent MASK
+        # the last token reprent MASK
+        self.mask_id = 1024
 
     def parameters(self, recurse=True, name=None):
         if name is None or name == 'none':
@@ -40,7 +42,8 @@ class DALLE(nn.Module):
             names = name.split('+')
             params = []
             for n in names:
-                try:  # the parameters() method is not overwritten for some classes
+                # the parameters() method is not overwritten for some classes
+                try:
                     params += getattr(self, name).parameters(
                         recurse=recurse, name=name)
                 except Exception:
@@ -114,8 +117,10 @@ class DALLE(nn.Module):
                          return_att_weight=False,
                          sample_type="top0.85r"):
         self.eval()
-        # cont_ = self.prepare_content(batch) # get the content
-        # condition = self.prepare_condition(batch, cont_) # get condition
+        # get the content
+        # cont_ = self.prepare_content(batch) 
+        # get condition
+        # condition = self.prepare_condition(batch, cont_) 
         con = batch['target_acoustics']
         batch_size = con.shape[0]
 
@@ -145,13 +150,15 @@ class DALLE(nn.Module):
             return log_pred
 
         out = {}
-        if replicate != 1:  # 重复多少次?
+        # 重复多少次?
+        if replicate != 1:
             for k in condition.keys():
                 if condition[k] is not None:
                     condition[k] = torch.cat(
                         [condition[k] for _ in range(replicate)], dim=0)
         content_token = None
-        if len(sample_type.split(',')) > 1:  # using r,fast
+        # using r,fast
+        if len(sample_type.split(',')) > 1:
             if sample_type.split(',')[1][:1] == 'q':
                 self.transformer.p_sample = self.p_sample_with_truncation(
                     self.transformer.p_sample, sample_type.split(',')[1])
@@ -178,34 +185,36 @@ class DALLE(nn.Module):
             temperature=1.,
             return_rec=True,
             filter_ratio=[0, 0.5, 1.0],
-            content_ratio=[1],  # the ratio to keep the encoded content tokens
+            # the ratio to keep the encoded content tokens
+            content_ratio=[1],
             return_att_weight=False,
             return_logits=False,
             sample_type="normal",
             **kwargs):
         self.eval()
-        condition = self.prepare_condition(batch)  # 
+        condition = self.prepare_condition(batch)
         content = self.prepare_content(batch)
-        content.update({
-            'content_token_mask': batch['mel_token_mask']
-        })  # 只有一个sample输入时，相当于没有mask
-        content_samples = {'input_image': batch['mel_spec']}  # 输入的原始mel_spec
-        zshape = content['content_quant'].shape  #  (B, C, H, W)
+        # 只有一个sample输入时，相当于没有mask
+        content.update({'content_token_mask': batch['mel_token_mask']})
+        # 输入的原始mel_spec
+        content_samples = {'input_image': batch['mel_spec']}
+        # (B, C, H, W)
+        zshape = content['content_quant'].shape
         # print('zshape ',zshape)
         if return_rec:
             content_samples['reconstruction_mel'] = self.decode_to_img(
                 content['content_token'], zshape)
         for fr in filter_ratio:
             for cr in content_ratio:
+                # L*cr (L denotes the sequance length)
                 num_content_tokens = int(
-                    (content['content_token'].shape[1] *
-                     cr))  # L*cr (L denotes the sequance length)
+                    (content['content_token'].shape[1] * cr))
                 if num_content_tokens < 0:
                     continue
                 else:
-                    content_token = content[
-                        'content_token'][:, :
-                                         num_content_tokens]  # 按比例保留部分的token
+                    # 按比例保留部分的token
+                    content_token = content['content_token'][:, :
+                                                             num_content_tokens]
                 if sample_type == 'debug':
                     # not use in our progress
                     trans_out = self.transformer.sample_debug(
@@ -238,34 +247,36 @@ class DALLE(nn.Module):
                     cr, fr)] = self.decode_to_img(trans_out['content_token'],
                                                   zshape)
                 if return_att_weight:
+                    # B x Lt x Ld
                     content_samples[
                         'cond1_cont{}_fr{}_image_condition_attention'.format(
-                            cr, fr)] = trans_out[
-                                'condition_attention']  # B x Lt x Ld
+                            cr, fr)] = trans_out['condition_attention']
                     content_att = trans_out['content_attention']
                     shape = *content_att.shape[:-1], self.content.token_shape[
                         0], self.content.token_shape[1]
+                    # B x Lt x Lt -> B x Lt x H x W
                     content_samples['cond1_cont{}_fr{}_image_content_attention'.
-                                    format(cr, fr)] = content_att.view(
-                                        *shape)  # B x Lt x Lt -> B x Lt x H x W
+                                    format(cr, fr)] = content_att.view(*shape)
                 if return_logits:
                     content_samples['logits'] = trans_out['logits']
         self.train()
         output = {}
-        #output = {'condition': batch[self.condition_info['key']]}  # 同时返回text和预测的image
+        # 同时返回 text 和预测的 image
+        #output = {'condition': batch[self.condition_info['key']]}  
         output.update(content_samples)
         return output
 
     @torch.no_grad()
     def infer_one(self, batch):
-        output = self.generate_content_tmp(batch)
+        output = self.generate_content(batch)
         # mel_pre = {}
         # mel_pre['mel_pre'] = output['content']
-        return output  # return mel
+        # return mel
+        return output
 
     def forward(self, batch, name='none', **kwargs):
         # print('input ', input)
-        output = self.transformer(batch, **kwargs)  # 信息处理直接交给transformer
+        # 信息处理直接交给 transformer
+        output = self.transformer(batch, **kwargs)
         # print('output ',output)
-        # assert 1==2
         return output

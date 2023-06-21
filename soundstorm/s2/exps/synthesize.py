@@ -137,7 +137,7 @@ class Diffsound():
         soundstream = build_soundstream()
         for index in range(len(semantic_data['item_name'])):
             name = semantic_data['item_name'][index]
-            semantic_str = semantic_data['tgt_audio'][index]
+            semantic_str = semantic_data['semantic_audio'][index]
             semantic_tokens = torch.tensor(
                 [int(idx) for idx in semantic_str.split(' ')]).unsqueeze(0)
             print('semantic_tokens ', semantic_tokens.shape)
