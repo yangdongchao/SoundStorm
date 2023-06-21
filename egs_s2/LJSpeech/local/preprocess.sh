@@ -46,7 +46,6 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
         --target_bw=12 \
         --sr=16000 \
         --num-cpu=20
-  
 fi
 
 # align the lengths of semantic token and acoustic token
