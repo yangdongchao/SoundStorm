@@ -1,4 +1,4 @@
-from sound_synthesis2.utils.misc import instantiate_from_config
+from soundstorm.s2.utils.misc import instantiate_from_config
 
 
 def build_model(config, args=None):
