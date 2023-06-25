@@ -201,7 +201,7 @@ class GELU2(nn.Module):
         super().__init__()
 
     def forward(self, x):
-        return x * F.sigmoid(1.702 * x)
+        return x * torch.sigmoid(1.702 * x)
 
 
 class SinusoidalPosEmb(nn.Module):

@@ -111,7 +111,7 @@ def get_args():
     parser.add_argument(
         "--tensorboard",
         type=str2bool,
-        default=False,
+        default=True,
         help="use tensorboard for logging")
     parser.add_argument("--timestamp", type=str2bool, default=True)
     # args for random

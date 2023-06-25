@@ -35,7 +35,6 @@ class Logger(object):
                 os.makedirs(log_dir, exist_ok=True)
             self.text_writer = open(os.path.join(log_dir, 'log.txt'), 'a')
             if args.tensorboard:
-                self.log_info('using tensorboard')
                 self.tb_writer = SummaryWriter(log_dir=log_dir)
             else:
                 self.tb_writer = None
@@ -50,8 +49,8 @@ class Logger(object):
             print(info)
             if self.is_primary:
                 info = str(info)
-                time_str = time.strftime('%Y-%m-%d-%H-%M')
-                info = '{}: {}'.format(time_str, info)
+                time_str = time.strftime('[%Y-%m-%d %H:%M:%S]')
+                info = '{} {}'.format(time_str, info)
                 if not info.endswith('\n'):
                     info += '\n'
                 self.text_writer.write(info)

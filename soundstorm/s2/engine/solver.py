@@ -122,7 +122,8 @@ class Solver(object):
             self.logger.log_info('Using AMP for training!')
 
         self.logger.log_info(
-            "global rank {}: prepare solver done!".format(self.args.global_rank),
+            "global rank {}: prepare solver done!".format(
+                self.args.global_rank),
             check_primary=False)
 
     def _get_optimizer_and_scheduler(self, op_sc_list):
@@ -203,7 +204,7 @@ class Solver(object):
     def sample(self, batch, phase='train', step_type='iteration'):
         tic = time.time()
         # self.logger.log_info('Begin to sample...')
-        if self.ema is not None:
+        if self.ema:
             self.ema.modify_to_inference()
             suffix = '_ema'
         else:
@@ -230,7 +231,7 @@ class Solver(object):
                 torch.save(pre_content_codec, save_path + '/wav_pred_' + str(i)
                            + '_epoch_' + str(self.last_epoch) + '_last_iter_' +
                            str(self.last_iter) + '.pth')
-        if self.ema is not None:
+        if self.ema:
             self.ema.modify_to_train()
         # self.logger.log_info(
         #     'Sample done, time: {:.2f} s'.format(time.time() - tic))
@@ -293,14 +294,14 @@ class Solver(object):
                     # nothing, we donot use amp now
                     if self.args.amp:
                         self.scaler.scale(output['loss']).backward()
-                        if self.clip_grad_norm is not None:
+                        if self.clip_grad_norm:
                             self.clip_grad_norm(self.model.parameters())
                         self.scaler.step(op_sc['optimizer']['module'])
                         self.scaler.update()
                     else:
                         # backward
                         output['loss'].backward()
-                        if self.clip_grad_norm is not None:
+                        if self.clip_grad_norm:
                             self.clip_grad_norm(self.model.parameters())
                         # update
                         op_sc['optimizer']['module'].step()
@@ -316,7 +317,7 @@ class Solver(object):
                         else:
                             op_sc['scheduler']['module'].step()
                 # update ema model
-                if self.ema is not None:
+                if self.ema:
                     self.ema.update(iteration=self.last_iter)
 
             loss[op_sc_n] = {
@@ -351,9 +352,9 @@ class Solver(object):
                                   torch.nn.parallel.DistributedDataParallel)
                     else self.model.state_dict()
                 }
-                if self.ema is not None:
+                if self.ema:
                     state_dict['ema'] = self.ema.state_dict()
-                if self.clip_grad_norm is not None:
+                if self.clip_grad_norm:
                     state_dict[
                         'clip_grad_norm'] = self.clip_grad_norm.state_dict()
 
@@ -418,7 +419,7 @@ class Solver(object):
             else:
                 self.model.load_state_dict(state_dict['model'])
 
-            if 'ema' in state_dict and self.ema is not None:
+            if 'ema' in state_dict and self.ema:
                 try:
                     self.ema.load_state_dict(state_dict['ema'])
                 except Exception:
@@ -431,7 +432,7 @@ class Solver(object):
                     model_dict.update(temp_state_dict)
                     self.ema.load_state_dict(model_dict)
 
-            if 'clip_grad_norm' in state_dict and self.clip_grad_norm is not None:
+            if 'clip_grad_norm' in state_dict and self.clip_grad_norm:
                 self.clip_grad_norm.load_state_dict(
                     state_dict['clip_grad_norm'])
 
@@ -469,11 +470,10 @@ class Solver(object):
             self.last_iter += 1
             loss = self.step(batch, phase='train')
             # logging info
-            if self.logger is not None and self.last_iter % self.args.log_frequency == 0:
-                info = 'SoundStorm: train'
-                info = info + ': Epoch {}/{} iter {}/{}'.format(
-                    self.last_epoch, self.max_epochs, self.last_iter %
-                    self.dataloader['train_iterations'],
+            if self.logger and self.last_iter % self.args.log_frequency == 0:
+                info = 'Train Epoch {}/{} iter {}/{}'.format(
+                    self.last_epoch, self.max_epochs,
+                    self.last_iter % self.dataloader['train_iterations'],
                     self.dataloader['train_iterations'])
                 for loss_n, loss_dict in loss.items():
                     info += ' ||'
@@ -541,60 +541,23 @@ class Solver(object):
             if self.args.distributed:
                 self.dataloader['dev_loader'].sampler.set_epoch(self.last_epoch)
             self.model.eval()
-            overall_loss = None
-            epoch_start = time.time()
-            itr_start = time.time()
-            itr = -1
-            for itr, batch in enumerate(self.dataloader['dev_loader']):
-                data_time = time.time() - itr_start
-                step_start = time.time()
-                loss = self.step(batch, phase='val')
 
+            overall_loss = None
+
+            for itr, batch in enumerate(self.dataloader['dev_loader']):
+                loss = self.step(batch, phase='val')
                 for loss_n, loss_dict in loss.items():
                     loss[loss_n] = reduce_dict(loss_dict)
+                # 保留第一个 dev iter 的 loss
                 if overall_loss is None:
                     overall_loss = loss
-                else:
-                    for loss_n, loss_dict in loss.items():
-                        for k, v in loss_dict.items():
-                            overall_loss[loss_n][k] = (
-                                overall_loss[loss_n][k] * itr + loss[loss_n][k]
-                            ) / (itr + 1)
 
-                if self.logger is not None and (
-                        itr + 1) % self.args.log_frequency == 0:
-                    info = 'SoundStorm: val'
-                    info = info + ': Epoch {}/{} | iter {}/{}'.format(
-                        self.last_epoch, self.max_epochs, itr,
-                        self.dataloader['dev_iterations'])
-                    for loss_n, loss_dict in loss.items():
-                        info += ' ||'
-                        info += '' if loss_n == 'none' else ' {}'.format(loss_n)
-                        # info = info + ': Epoch {}/{} | iter {}/{}'.format(self.last_epoch, self.max_epochs, itr, self.dataloader['dev_iterations'])
-                        for k in loss_dict:
-                            info += ' | {}: {:.4f}'.format(k,
-                                                           float(loss_dict[k]))
-
-                    itr_time_avg = (time.time() - epoch_start) / (itr + 1)
-                    info += ' || data_time: {dt}s | fbward_time: {fbt}s | iter_time: {it}s | epoch_time: {et} | left_time: {lt}'.format(
-                        dt=round(data_time, 1),
-                        fbt=round(time.time() - step_start, 1),
-                        it=round(time.time() - itr_start, 1),
-                        et=format_seconds(time.time() - epoch_start),
-                        lt=format_seconds(itr_time_avg * (
-                            self.dataloader['train_iterations'] - itr - 1)))
-                    self.logger.log_info(info)
-                itr_start = time.time()
-            # modify here to make sure dataloader['dev_iterations'] is correct
-            assert itr >= 0, "The data is too less to form one iteration!"
-            self.dataloader['dev_iterations'] = itr + 1
-
-            if self.logger is not None:
-                info = 'SoundStorm: val'
+            if self.logger:
+                info = ''
                 for loss_n, loss_dict in overall_loss.items():
                     info += '' if loss_n == 'none' else ' {}'.format(loss_n)
-                    info += ': Epoch {}/{}'.format(self.last_epoch,
-                                                   self.max_epochs)
+                    info += 'Eval Epoch {}/{}'.format(self.last_epoch,
+                                                      self.max_epochs)
                     for k in loss_dict:
                         info += ' | {}: {:.4f}'.format(k, float(loss_dict[k]))
                         self.logger.add_scalar(

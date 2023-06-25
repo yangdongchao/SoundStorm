@@ -11,4 +11,4 @@ python3 ${BIN_DIR}/train.py \
         --dev_semantic_path=${root_dir}/dump/dev/semantic_token.tsv \
         --dev_acoustic_path=${root_dir}/dump/dev/acoustic_token/hificodec.pth \
         --output=${root_dir}/${train_output_path} \
-        --tensorboard=True
+        --log_frequency=100
