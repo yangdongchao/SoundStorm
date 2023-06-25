@@ -132,9 +132,8 @@ def main():
     if args.dataset == "ljspeech":
         wav_files = sorted(list((data_dir / "wavs").rglob("*.wav")))
         # split data into 3 sections
-        # 这里是 LJSpeech_mini 的，后续记得改
-        num_train = 250
-        num_dev = 10
+        num_train = 12900
+        num_dev = 100
         train_wav_files = wav_files[:num_train]
         dev_wav_files = wav_files[num_train:num_train + num_dev]
         test_wav_files = wav_files[num_train + num_dev:]

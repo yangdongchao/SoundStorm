@@ -10,7 +10,7 @@ train_output_path=exp/default
 # dir to set part/all of dump dataset and experiment result
 root_dir='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm'
 # there should be *.wav 、*/*.wav or */*/*.wav in data_dir
-data_dir='~/datasets/LJSpeech_mini'
+data_dir='~/datasets/LJSpeech-1.1'
 config_path=conf/default.yaml
 
 

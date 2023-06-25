@@ -1,6 +1,6 @@
 #!/bin/bash
-stage=2
-stop_stage=2
+stage=0
+stop_stage=1
 root_dir=$1
 data_dir=$2
 
