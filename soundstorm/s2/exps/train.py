@@ -19,6 +19,7 @@ from soundstorm.s2.utils.io import load_yaml_config
 from soundstorm.s2.utils.misc import merge_opts_to_config
 from soundstorm.s2.utils.misc import modify_config_for_debug
 from soundstorm.s2.utils.misc import seed_everything
+from soundstorm.utils import str2bool
 
 NODE_RANK = os.environ['INDEX'] if 'INDEX' in os.environ else 0
 NODE_RANK = int(NODE_RANK)
@@ -65,9 +66,10 @@ def get_args():
         default=None,
         help='resume one experiment with the given name')
     parser.add_argument(
-        '--auto_resume',
-        action='store_true',
-        help='automatically resume the training')
+        "--auto_resume",
+        type=str2bool,
+        default=False,
+        help="automatically resume the training")
     # args for dataset
     parser.add_argument(
         '--train_semantic_path',
@@ -117,13 +119,13 @@ def get_args():
         type=int,
         help='node rank for distributed training')
     parser.add_argument(
-        '--sync_bn', action='store_true', help='use sync BN layer')
+        "--sync_bn", type=str2bool, default=False, help="use sync BN layer")
     parser.add_argument(
-        '--tensorboard',
-        action='store_true',
-        help='use tensorboard for logging')
-    # default = True
-    parser.add_argument('--timestamp', action='store_true')
+        "--tensorboard",
+        type=str2bool,
+        default=False,
+        help="use tensorboard for logging")
+    parser.add_argument("--timestamp", type=str2bool, default=True)
     # args for random
     parser.add_argument(
         '--seed',
@@ -131,18 +133,18 @@ def get_args():
         default=None,
         help='seed for initializing training. ')
     parser.add_argument(
-        '--cudnn_deterministic',
-        action='store_true',
-        help='set cudnn.deterministic True')
-
-    parser.add_argument(
-        '--amp',
-        action='store_true',
+        "--cudnn_deterministic",
+        type=str2bool,
         default=False,
-        help='automatic mixture of precesion')
-
+        help="set cudnn.deterministic True")
     parser.add_argument(
-        '--debug', action='store_true', default=False, help='set as debug mode')
+        "--amp",
+        type=str2bool,
+        default=False,
+        help="automatic mixture of precesion")
+    parser.add_argument(
+        "--debug", type=str2bool, default=False, help="set as debug mode")
+
     # args for modify config
     parser.add_argument(
         "opts",
