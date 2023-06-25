@@ -85,13 +85,13 @@ dataloader:
     train_datasets: # a list of configures, so we can combine several schedulers
         - target: soundstorm.s2.data.semantic_dataset.SemanticDataset
           params:
-                num_quant: 3
+                num_quant: 4 # must be 4 for hificodec, and can be 3 for soundstream and encodec
                 semantic_path: dump/train/semantic_token.tsv
                 acoustic_path: dump/train/acoustic_token/hificodec.pth
 
     dev_datasets:
         - target: soundstorm.s2.data.semantic_dataset.SemanticDataset
           params:
-                num_quant: 3
+                num_quant: 4 # must be 4 for hificodec, and can be 3 for soundstream and encodec
                 semantic_path: dump/dev/semantic_token.tsv
                 acoustic_path: dump/dev/acoustic_token/hificodec.pth
