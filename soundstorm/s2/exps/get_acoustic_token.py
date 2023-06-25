@@ -38,7 +38,6 @@ def process_sentence(args, fp: Path, output_dir: Path, codec_extractor):
                 acoustic_token = codec_extractor.encode(wav)
                 # trans acoustic_token.shape to (Nq, T)
                 acoustic_token = acoustic_token.squeeze(0).transpose(0, 1)
-                print("acoustic_token.shape:", acoustic_token.shape)
             elif args.codec_name == 'encodec':
                 # wav.shape (1, 1, T)
                 wav = wav.unsqueeze(1)
@@ -47,7 +46,6 @@ def process_sentence(args, fp: Path, output_dir: Path, codec_extractor):
                     wav, target_bw=args.target_bw)
                 # trans acoustic_token.shape to (Nq, T)
                 acoustic_token = acoustic_token.squeeze(1)
-                print("acoustic_token.shape:", acoustic_token.shape)
             else:
                 print("Please input the right codec_name!")
 
