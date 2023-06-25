@@ -7,8 +7,6 @@ import torch
 from torch import distributed as dist
 from torch import multiprocessing as mp
 
-# import distributed as dist_fn
-
 
 def find_free_port():
     import socket

@@ -43,7 +43,7 @@ class Solver(object):
         if self.sample_iterations == 'epoch':
             # 4106
             self.sample_iterations = 2 * self.dataloader['train_iterations']
-        # 多少个epoch验证一次
+        # 多少个 epoch 验证一次
         self.dev_epochs = config['solver'].get('dev_epochs', 2)
         assert isinstance(self.save_epochs, (int, list))
         assert isinstance(self.dev_epochs, (int, list))

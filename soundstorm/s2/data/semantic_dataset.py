@@ -29,6 +29,7 @@ class SemanticDataset(torch.utils.data.Dataset):
                  num_quant,
                  semantic_path,
                  acoustic_path,
+                 codec_name='hificodec',
                  max_length=(250, 250)):
         super().__init__()
 
@@ -37,7 +38,8 @@ class SemanticDataset(torch.utils.data.Dataset):
         self.acoustic_data = torch.load(acoustic_path)
 
         self.max_length = max_length
-        self.num_quant = num_quant
+        self.num_quant = 4 if codec_name=='hificodec' else num_quant
+        print('self.num_quant:',self.num_quant)
         # 16000 / 320 = 50
         self.hz = 50  # 分辨率
         # 默认使用 3s 一个segments
@@ -103,7 +105,7 @@ class SemanticDataset(torch.utils.data.Dataset):
             over_semantic = torch.tensor(sementic_ls[index]).unsqueeze(0)
             item_name = self.semantic_data['item_name'][index]
             acoustic_str = self.acoustic_data[item_name]
-            # only keep the first 3 codebooks, SoundStream 原始是几？HiFi-Codec 的话这里选几❓
+            # only keep the first num_quant codebooks
             # 这里表明 acoustic_token 的存储方式是 (C, T)
             over_acoustic = torch.tensor(
                 acoustic_str[:self.num_quant, ...]).squeeze(1)
