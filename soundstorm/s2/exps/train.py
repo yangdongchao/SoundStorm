@@ -47,7 +47,7 @@ def get_args():
         '--log_frequency',
         type=int,
         default=100,
-        help='print frequency (default: 100)')
+        help='print frequency (default: 100 iter)')
     parser.add_argument(
         '--load_path',
         type=str,

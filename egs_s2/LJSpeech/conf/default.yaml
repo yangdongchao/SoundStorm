@@ -26,7 +26,6 @@ model:
                         block_activate: GELU2
                         timestep_type: 'adalayernorm'   # adainsnorm or adalayernorm and abs
                         mlp_hidden_times: 4
-
                         content_emb_config:
                             target: soundstorm.s2.models.dalle_wav.mask_embedding.DalleMaskImageEmbedding
                             params:
@@ -41,16 +40,12 @@ solver:
     adjust_lr: none # not adjust lr according to total batch_size
     max_epochs: 400
     save_epochs: 1
-    dev_epochs: 400
+    dev_epochs: 2
     sample_iterations: epoch    # epoch 30000, how many iterations to perform sampling once ?
-    print_specific_things: True
-    sr: 24000
-
     ema:
         decay: 0.99
         update_interval: 25
         device: cpu
-
     clip_grad_norm:
         target: soundstorm.s2.engine.clip_grad_norm.ClipGradNorm
         params:
@@ -77,7 +72,7 @@ solver:
                 warmup: 1000
 
 dataloader:
-    batch_size: 1   # 16
+    max_token_one_batch: 12000
     num_workers: 0
     train_datasets: # a list of configures, so we can combine several schedulers
         - target: soundstorm.s2.data.semantic_dataset.SemanticDataset

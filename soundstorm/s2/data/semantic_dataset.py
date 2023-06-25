@@ -30,7 +30,8 @@ class SemanticDataset(torch.utils.data.Dataset):
                  semantic_path,
                  acoustic_path,
                  codec_name='hificodec',
-                 max_length=(250, 250)):
+                 max_length=(250, 250),
+                 max_token_one_batch=10000):
         super().__init__()
 
         self.semantic_data = pd.read_csv(semantic_path, delimiter='\t')
@@ -39,7 +40,6 @@ class SemanticDataset(torch.utils.data.Dataset):
 
         self.max_length = max_length
         self.num_quant = 4 if codec_name=='hificodec' else num_quant
-        print('self.num_quant:',self.num_quant)
         # 16000 / 320 = 50
         self.hz = 50  # 分辨率
         # 默认使用 3s 一个segments
@@ -59,12 +59,12 @@ class SemanticDataset(torch.utils.data.Dataset):
         self.prompt_acoustic_eos = self.acoustic_token_nums
         self.target_acoustic_eos = self.acoustic_token_nums + 1
 
-        # 一个 batch 最多 10000 个 token
-        self.max_token_one_batch = 10000
+        # 一个 batch 最多多少个 token
+        self.max_token_one_batch = max_token_one_batch
+        print("self.max_token_one_batch:", self.max_token_one_batch)
         # 调用初始化函数
         self.init_batch()
-        print('data size:', self.__len__())
-
+        
     def init_batch(self):
         # this function aims to prepare batch
         # 一个 batch 的总 token 数量设为 5600 ❓
@@ -202,7 +202,7 @@ class SemanticDataset(torch.utils.data.Dataset):
         return sample
 
     def collater(self, samples):
-        # 为什么只取 第 0 个? => 因为 samples 是 list 长度一直是 1,
+        # 为什么只取 第 0 个? => 因为 samples 是 list 长度一直是 1, batch_size must be 1 here
         # prompt_semantics 里面是 n 个 tensor, n 的大小不固定
         prompt_semantics = samples[0]['prompt_semantic']
         target_semantics = samples[0]['target_semantic']

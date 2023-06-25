@@ -202,7 +202,7 @@ class Solver(object):
 
     def sample(self, batch, phase='train', step_type='iteration'):
         tic = time.time()
-        self.logger.log_info('Begin to sample...')
+        # self.logger.log_info('Begin to sample...')
         if self.ema is not None:
             self.ema.modify_to_inference()
             suffix = '_ema'
@@ -232,8 +232,8 @@ class Solver(object):
                            str(self.last_iter) + '.pth')
         if self.ema is not None:
             self.ema.modify_to_train()
-        self.logger.log_info(
-            'Sample done, time: {:.2f}'.format(time.time() - tic))
+        # self.logger.log_info(
+        #     'Sample done, time: {:.2f} s'.format(time.time() - tic))
 
     def step(self, batch, phase='train'):
         loss = {}
@@ -520,7 +520,6 @@ class Solver(object):
             # sample
             if self.sample_iterations > 0 and (
                     self.last_iter + 1) % self.sample_iterations == 0:
-                # self.save(force=True)
                 self.model.eval()
                 self.sample(batch, phase='train', step_type='iteration')
                 self.model.train()
@@ -534,7 +533,8 @@ class Solver(object):
             val = False
         else:
             if isinstance(self.dev_epochs, int):
-                val = (self.last_epoch + 1) % self.dev_epochs == 0  # 能否整除
+                # 能否整除
+                val = (self.last_epoch + 1) % self.dev_epochs == 0
             else:
                 val = (self.last_epoch + 1) in self.dev_epochs
         if val:

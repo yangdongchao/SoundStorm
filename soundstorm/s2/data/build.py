@@ -7,11 +7,13 @@ from torch.utils.data import ConcatDataset
 
 def build_dataloader(config, args=None, return_dataset=False):
     dataset_cfg = config['dataloader']
+    batch_size = 1
     train_dataset = []
     for ds_cfg in dataset_cfg['train_datasets']:
         # ds_cfg['params']['data_root'] = dataset_cfg.get('data_root', '')
         ds_cfg['params']['semantic_path'] = args.train_semantic_path
         ds_cfg['params']['acoustic_path'] = args.train_acoustic_path
+        ds_cfg['params']['max_token_one_batch'] = dataset_cfg['max_token_one_batch']
         ds = instantiate_from_config(ds_cfg)
         train_dataset.append(ds)
     if len(train_dataset) > 1:
@@ -22,6 +24,7 @@ def build_dataloader(config, args=None, return_dataset=False):
     for ds_cfg in dataset_cfg['dev_datasets']:
         ds_cfg['params']['semantic_path'] = args.dev_semantic_path
         ds_cfg['params']['acoustic_path'] = args.dev_acoustic_path
+        ds_cfg['params']['max_token_one_batch'] = dataset_cfg['max_token_one_batch']
         ds = instantiate_from_config(ds_cfg)
         dev_dataset.append(ds)
     if len(dev_dataset) > 1:
@@ -35,18 +38,19 @@ def build_dataloader(config, args=None, return_dataset=False):
             train_dataset, shuffle=True)
         dev_sampler = torch.utils.data.distributed.DistributedSampler(
             dev_dataset, shuffle=False)
-        train_iters = len(train_sampler) // dataset_cfg['batch_size']
-        dev_iters = len(dev_sampler) // dataset_cfg['batch_size']
+        train_iters = len(train_sampler) // batch_size
+        dev_iters = len(dev_sampler) // batch_size
     else:
         train_sampler = None
         dev_sampler = None
         # 每个 epoch 进行一次
-        train_iters = len(train_dataset) // dataset_cfg['batch_size']
-        dev_iters = len(dev_dataset) // dataset_cfg['batch_size']
+        train_iters = len(train_dataset) // batch_size
+        dev_iters = len(dev_dataset) // batch_size
     num_workers = dataset_cfg['num_workers']
+    print("number of iters per epoch:", train_iters)
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=dataset_cfg['batch_size'],
+        batch_size=batch_size,
         shuffle=(train_sampler is None),
         num_workers=num_workers,
         pin_memory=True,
@@ -56,7 +60,7 @@ def build_dataloader(config, args=None, return_dataset=False):
 
     dev_loader = torch.utils.data.DataLoader(
         dev_dataset,
-        batch_size=dataset_cfg['batch_size'],
+        batch_size=batch_size,
         #(dev_sampler is None),
         shuffle=False,
         num_workers=num_workers,
