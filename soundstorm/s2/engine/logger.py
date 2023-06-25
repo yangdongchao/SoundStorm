@@ -18,7 +18,7 @@ from torch.utils.tensorboard import SummaryWriter
 class Logger(object):
     def __init__(self, args):
         self.args = args
-        self.save_dir = args.save_dir
+        self.save_dir = args.output
         self.is_primary = is_primary()
 
         if self.is_primary:

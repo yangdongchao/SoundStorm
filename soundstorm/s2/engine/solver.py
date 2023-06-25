@@ -51,8 +51,8 @@ class Solver(object):
 
         self.last_epoch = -1
         self.last_iter = -1
-        self.ckpt_dir = os.path.join(args.save_dir, 'checkpoint')
-        self.image_dir = os.path.join(args.save_dir, 'images')
+        self.ckpt_dir = os.path.join(args.output, 'checkpoint')
+        self.image_dir = os.path.join(args.output, 'images')
         os.makedirs(self.ckpt_dir, exist_ok=True)
         os.makedirs(self.image_dir, exist_ok=True)
 
@@ -122,8 +122,7 @@ class Solver(object):
             self.logger.log_info('Using AMP for training!')
 
         self.logger.log_info(
-            "{}: global rank {}: prepare solver done!".format(
-                self.args.name, self.args.global_rank),
+            "global rank {}: prepare solver done!".format(self.args.global_rank),
             check_primary=False)
 
     def _get_optimizer_and_scheduler(self, op_sc_list):
@@ -465,15 +464,13 @@ class Solver(object):
         itr_start = time.time()
         itr = -1
         for itr, batch in enumerate(self.dataloader['train_loader']):
-            if itr == 0:
-                print("time2 is " + str(time.time()))
             data_time = time.time() - itr_start
             step_start = time.time()
             self.last_iter += 1
             loss = self.step(batch, phase='train')
             # logging info
             if self.logger is not None and self.last_iter % self.args.log_frequency == 0:
-                info = '{}: train'.format(self.args.name)
+                info = 'SoundStorm: train'
                 info = info + ': Epoch {}/{} iter {}/{}'.format(
                     self.last_epoch, self.max_epochs, self.last_iter %
                     self.dataloader['train_iterations'],
@@ -566,7 +563,7 @@ class Solver(object):
 
                 if self.logger is not None and (
                         itr + 1) % self.args.log_frequency == 0:
-                    info = '{}: val'.format(self.args.name)
+                    info = 'SoundStorm: val'
                     info = info + ': Epoch {}/{} | iter {}/{}'.format(
                         self.last_epoch, self.max_epochs, itr,
                         self.dataloader['dev_iterations'])
@@ -593,7 +590,7 @@ class Solver(object):
             self.dataloader['dev_iterations'] = itr + 1
 
             if self.logger is not None:
-                info = '{}: val'.format(self.args.name)
+                info = 'SoundStorm: val'
                 for loss_n, loss_dict in overall_loss.items():
                     info += '' if loss_n == 'none' else ' {}'.format(loss_n)
                     info += ': Epoch {}/{}'.format(self.last_epoch,
@@ -613,8 +610,7 @@ class Solver(object):
         start_epoch = self.last_epoch + 1
         self.start_train_time = time.time()
         self.logger.log_info(
-            '{}: global rank {}: start training...'.format(
-                self.args.name, self.args.global_rank),
+            'global rank {}: start training...'.format(self.args.global_rank),
             check_primary=False)
 
         for epoch in range(start_epoch, self.max_epochs):

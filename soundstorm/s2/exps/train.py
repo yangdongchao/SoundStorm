@@ -36,18 +36,12 @@ def get_args():
     parser.add_argument(
         '--config_file',
         type=str,
-        default='configs/vqvae_celeba_attribute_cond.yaml',
+        default='conf/default.yaml',
         help='path of config file')
-    parser.add_argument(
-        '--name',
-        type=str,
-        default='',
-        help='the name of this experiment, if not provided, set to'
-        'the name of config file')
     parser.add_argument(
         '--output',
         type=str,
-        default='SoundStorm/OUTPUT',
+        default='exp/default',
         help='directory to save the results')
     parser.add_argument(
         '--log_frequency',
@@ -58,17 +52,11 @@ def get_args():
         '--load_path',
         type=str,
         default=None,
-        help='path to model that need to be loaded, '
-        'used for loading pretrained model')
-    parser.add_argument(
-        '--resume_name',
-        type=str,
-        default=None,
-        help='resume one experiment with the given name')
+        help='path to model that need to be loaded, used for loading pretrained model')
     parser.add_argument(
         "--auto_resume",
         type=str2bool,
-        default=False,
+        default=True,
         help="automatically resume the training")
     # args for dataset
     parser.add_argument(
@@ -153,29 +141,10 @@ def get_args():
         nargs=argparse.REMAINDER, )
     args = parser.parse_args()
     args.cwd = os.path.abspath(os.path.dirname(__file__))
-
-    if args.resume_name is not None:
-        args.name = args.resume_name
-        args.config_file = os.path.join(args.output, args.resume_name,
-                                        'configs', 'config.yaml')
-        args.auto_resume = True
-    else:
-        # 若没有设定实验名称
-        if args.name == '':
-            args.name = os.path.basename(args.config_file).replace('.yaml', '')
-        if args.timestamp:
-            assert not args.auto_resume, "for timstamp, auto resume is hard to find the save directory"
-            time_str = time.strftime('%Y-%m-%d-%H-%M')
-            args.name = time_str + '-' + args.name
     # modify args for debugging
     if args.debug:
-        args.name = 'debug'
         if args.gpu is None:
             args.gpu = 0
-    random_seconds_shift = datetime.timedelta(seconds=np.random.randint(60))
-    now = (datetime.datetime.now() - random_seconds_shift
-           ).strftime('%Y-%m-%dT%H-%M-%S')
-    args.save_dir = os.path.join(args.output, args.name, now)
     return args
 
 
@@ -244,7 +213,8 @@ def main_worker(local_rank, args):
             # load_model=True,
             load_optimizer_and_scheduler=False,
             load_others=False)
-    if args.auto_resume:
+    elif args.auto_resume:
+        print("in auto_resume")
         solver.resume()
     solver.train()
 
