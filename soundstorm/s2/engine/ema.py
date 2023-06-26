@@ -15,7 +15,7 @@ class EMA(object):
                  device=torch.device('cpu')):
 
         self.decay = decay
-        self.update_iterval = update_interval
+        self.update_interval = update_interval
         self.device = device
 
         self.model = model
@@ -34,7 +34,7 @@ class EMA(object):
         }
 
     def update(self, iteration):
-        if (iteration + 1) % self.update_iterval == 0:
+        if (iteration + 1) % self.update_interval == 0:
             # print('{} Update ema'.format(iteration))
             if hasattr(self.model,
                        'get_ema_model') and callable(self.model.get_ema_model):

@@ -10,8 +10,9 @@ train_output_path=exp/default
 # dir to set part/all of dump dataset and experiment result
 root_dir='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm'
 # there should be *.wav 、*/*.wav or */*/*.wav in data_dir
-data_dir='~/datasets/LJSpeech_mini'
+data_dir='~/datasets/LJSpeech-1.1'
 config_path=conf/default.yaml
+log_frequency=10
 
 
 # with the following command, you can choose the stage range you want to run
@@ -25,7 +26,7 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
 fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-    CUDA_VISIBLE_DEVICES=${gpus} ./local/train.sh ${config_path} ${train_output_path} ${root_dir}|| exit -1
+    CUDA_VISIBLE_DEVICES=${gpus} ./local/train.sh ${config_path} ${train_output_path} ${root_dir} ${log_frequency}|| exit -1
 fi
 # synthesize with test dataset
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then

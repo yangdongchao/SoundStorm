@@ -18,7 +18,7 @@ from torch.utils.tensorboard import SummaryWriter
 class Logger(object):
     def __init__(self, args):
         self.args = args
-        self.save_dir = args.save_dir
+        self.save_dir = args.output
         self.is_primary = is_primary()
 
         if self.is_primary:
@@ -35,7 +35,6 @@ class Logger(object):
                 os.makedirs(log_dir, exist_ok=True)
             self.text_writer = open(os.path.join(log_dir, 'log.txt'), 'a')
             if args.tensorboard:
-                self.log_info('using tensorboard')
                 self.tb_writer = SummaryWriter(log_dir=log_dir)
             else:
                 self.tb_writer = None
@@ -47,11 +46,11 @@ class Logger(object):
 
     def log_info(self, info, check_primary=True):
         if self.is_primary or (not check_primary):
-            print(info)
+            print("info:", info)
             if self.is_primary:
                 info = str(info)
-                time_str = time.strftime('%Y-%m-%d-%H-%M')
-                info = '{}: {}'.format(time_str, info)
+                time_str = time.strftime('[%Y-%m-%d %H:%M:%S]')
+                info = '{} {}'.format(time_str, info)
                 if not info.endswith('\n'):
                     info += '\n'
                 self.text_writer.write(info)
@@ -68,7 +67,13 @@ class Logger(object):
         if self.is_primary:
             if self.tb_writer is not None:
                 self.tb_writer.add_scalars(**kargs)
-
+    
+    def add_audio(self, **kargs):
+        """Log a scalar variable."""
+        if self.is_primary:
+            if self.tb_writer is not None:
+                self.tb_writer.add_audio(**kargs)
+    
     def add_image(self, **kargs):
         """Log a scalar variable."""
         if self.is_primary:

@@ -29,7 +29,9 @@ class SemanticDataset(torch.utils.data.Dataset):
                  num_quant,
                  semantic_path,
                  acoustic_path,
-                 max_length=(250, 250)):
+                 codec_name='hificodec',
+                 max_length=(250, 250),
+                 max_token_one_batch=10000):
         super().__init__()
 
         self.semantic_data = pd.read_csv(semantic_path, delimiter='\t')
@@ -37,7 +39,7 @@ class SemanticDataset(torch.utils.data.Dataset):
         self.acoustic_data = torch.load(acoustic_path)
 
         self.max_length = max_length
-        self.num_quant = num_quant
+        self.num_quant = 4 if codec_name=='hificodec' else num_quant
         # 16000 / 320 = 50
         self.hz = 50  # 分辨率
         # 默认使用 3s 一个segments
@@ -57,12 +59,11 @@ class SemanticDataset(torch.utils.data.Dataset):
         self.prompt_acoustic_eos = self.acoustic_token_nums
         self.target_acoustic_eos = self.acoustic_token_nums + 1
 
-        # 一个 batch 最多 10000 个 token
-        self.max_token_one_batch = 10000
+        # 一个 batch 最多多少个 token
+        self.max_token_one_batch = max_token_one_batch
         # 调用初始化函数
         self.init_batch()
-        print('data size:', self.__len__())
-
+        
     def init_batch(self):
         # this function aims to prepare batch
         # 一个 batch 的总 token 数量设为 5600 ❓
@@ -103,10 +104,9 @@ class SemanticDataset(torch.utils.data.Dataset):
             over_semantic = torch.tensor(sementic_ls[index]).unsqueeze(0)
             item_name = self.semantic_data['item_name'][index]
             acoustic_str = self.acoustic_data[item_name]
-            # only keep the first 3 codebooks, SoundStream 原始是几？HiFi-Codec 的话这里选几❓
+            # only keep the first num_quant codebooks
             # 这里表明 acoustic_token 的存储方式是 (C, T)
-            over_acoustic = torch.tensor(
-                acoustic_str[:self.num_quant, ...]).squeeze(1)
+            over_acoustic = acoustic_str[:self.num_quant, ...].squeeze(1)
             over_semantic_len = over_semantic.shape[1]
             if over_semantic_len > max_len:
                 # 若音频长度大于 13s，则考虑切成 3 + 10, prompt 3s, target 10s
@@ -147,6 +147,7 @@ class SemanticDataset(torch.utils.data.Dataset):
                 1] + prompt_acoustic.shape[1] + target_acoustic.shape[1]
             if tmp_tot_tokens + cal_num < max_token_one_batch:
                 # 若还没满一个 batch ,继续添加
+                # shape: (1, 150)
                 tmp_prompt_semantics.append(prompt_semantic)
                 tmp_target_semantics.append(target_semantic)
                 tmp_prompt_acoustics.append(prompt_acoustic)
@@ -200,8 +201,9 @@ class SemanticDataset(torch.utils.data.Dataset):
         return sample
 
     def collater(self, samples):
-        # 为什么只取 第 0 个? => 因为 samples 是 list 长度一直是 1,
+        # 为什么只取 第 0 个? => 因为 samples 是 list 长度一直是 1, batch_size must be 1 here
         # prompt_semantics 里面是 n 个 tensor, n 的大小不固定
+        # len(prompt_semantics) = 100 ，表示 batch_size = 100, batch_size 是不固定的
         prompt_semantics = samples[0]['prompt_semantic']
         target_semantics = samples[0]['target_semantic']
         prompt_acoustics = samples[0]['prompt_acoustic']
@@ -211,13 +213,16 @@ class SemanticDataset(torch.utils.data.Dataset):
         prompt_semantics = pad_2D(prompt_semantics, self.prompt_semantic_end_id)
         target_semantics = pad_2D(target_semantics, self.target_semantic_end_id)
         prompt_acoustics = pad_2D(prompt_acoustics, self.prompt_acoustic_eos)
+        # 用 1025 补零
         target_acoustics = pad_2D(target_acoustics, self.target_acoustic_eos)
         # mask 住 target_acoustics 的补 0 部分
         x_mask = (target_acoustics == self.target_acoustic_eos)
         new_samples = {}
+        # (B, 1, T), B, T 动态
         new_samples['prompt_semantics'] = torch.from_numpy(prompt_semantics)
         new_samples['target_semantics'] = torch.from_numpy(target_semantics)
         new_samples['prompt_acoustics'] = torch.from_numpy(prompt_acoustics)
+        # (B, 4, T), B, T 动态
         new_samples['target_acoustics'] = torch.from_numpy(target_acoustics)
         new_samples['x_mask'] = torch.from_numpy(x_mask[:, 0, :])
         return new_samples

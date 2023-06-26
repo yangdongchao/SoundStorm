@@ -24,6 +24,7 @@ class DALLE(nn.Module):
         self.guidance_scale = 1.0
         self.learnable_cf = learnable_cf
         # self.content_codec = instantiate_from_config(content_codec_config)
+        diffusion_config['params']['n_q'] = self.n_q
         self.transformer = instantiate_from_config(diffusion_config)
         self.truncation_forward = False
         # the last token reprent MASK
@@ -262,9 +263,6 @@ class DALLE(nn.Module):
     @torch.no_grad()
     def infer_one(self, batch):
         output = self.generate_content(batch)
-        # mel_pre = {}
-        # mel_pre['mel_pre'] = output['content']
-        # return mel
         return output
 
     def forward(self, batch, name='none', **kwargs):

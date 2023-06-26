@@ -46,7 +46,7 @@ def log_categorical(log_x_start, log_prob):
 def index_to_log_onehot(x, num_classes):
     assert x.max().item() < num_classes, \
         f'Error: {x.max().item()} >= {num_classes}'
-    # 根据数值产生 one-hot 向量,[2, 1024, 2888]
+    # 根据数值产生 one-hot 向量, [2, 1024, 2888]
     x_onehot = F.one_hot(x, num_classes)
     # 0,-1,1
     permute_order = (0, -1) + tuple(range(1, len(x.size())))
@@ -178,12 +178,13 @@ class DiffusionTransformer(nn.Module):
             self.condition_dim = self.condition_emb.embed_dim
         # 在 transformer_conf 文件中，加入这两个参数
         transformer_config['diffusion_step'] = diffusion_step
+        self.n_q = n_q
         # 加载 transformer
+        transformer_config['params']['n_q'] = self.n_q
         self.transformer = instantiate_from_config(transformer_config)
         # 1024  # 32 x 32
         # self.content_seq_len = transformer_config['content_seq_len'] 
         self.amp = False
-        self.n_q = n_q
         # 2888 #? 2887 + 1
         self.num_classes = self.transformer.content_emb.num_embed
         self.loss_type = 'vb_stochastic'
@@ -566,11 +567,11 @@ class DiffusionTransformer(nn.Module):
         log_model_prob = self.q_posterior(
             log_x_start=log_x0_recon, log_x_t=log_xt, t=t)
         ################## compute acc list ################
-        # 获得预测的x_0
+        # 获得预测的 x_0
         x0_recon = log_onehot_to_index(log_x0_recon)
         # 真实值
         x0_real = x_start
-        # 直接采样x_(t-1), 与 x(t)相同的数量
+        # 直接采样 x_(t-1), 与 x(t) 相同的数量
         xt_1_recon = log_onehot_to_index(log_model_prob)
         xt_recon = log_onehot_to_index(log_xt)
         # (B, Len) --> (B, n_q, len)
@@ -610,7 +611,7 @@ class DiffusionTransformer(nn.Module):
         kl = sum_except_batch(kl)
         # 分类的概率 e_0
         decoder_nll = -log_categorical(log_x_start, log_model_prob)
-        # mask padding部分
+        # mask padding 部分
         decoder_nll = decoder_nll * (~x_mask)
         decoder_nll = sum_except_batch(decoder_nll)
         # t 为 0, p(x_0|x_1,y)
@@ -620,7 +621,8 @@ class DiffusionTransformer(nn.Module):
 
         Lt2 = kl_loss.pow(2)
         Lt2_prev = self.Lt_history.gather(dim=0, index=t)
-        new_Lt_history = (0.1 * Lt2 + 0.9 * Lt2_prev).detach()  # 记录下kl
+        # 记录下 kl
+        new_Lt_history = (0.1 * Lt2 + 0.9 * Lt2_prev).detach()
         self.Lt_history.scatter_(dim=0, index=t, src=new_Lt_history)
         # 记录加的次数,也可理解为选择了时间步t的次数
         self.Lt_count.scatter_add_(dim=0, index=t, src=torch.ones_like(Lt2))

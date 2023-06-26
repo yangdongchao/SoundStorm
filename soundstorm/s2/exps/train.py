@@ -19,6 +19,7 @@ from soundstorm.s2.utils.io import load_yaml_config
 from soundstorm.s2.utils.misc import merge_opts_to_config
 from soundstorm.s2.utils.misc import modify_config_for_debug
 from soundstorm.s2.utils.misc import seed_everything
+from soundstorm.utils import str2bool
 
 NODE_RANK = os.environ['INDEX'] if 'INDEX' in os.environ else 0
 NODE_RANK = int(NODE_RANK)
@@ -35,39 +36,28 @@ def get_args():
     parser.add_argument(
         '--config_file',
         type=str,
-        default='configs/vqvae_celeba_attribute_cond.yaml',
+        default='conf/default.yaml',
         help='path of config file')
-    parser.add_argument(
-        '--name',
-        type=str,
-        default='',
-        help='the name of this experiment, if not provided, set to'
-        'the name of config file')
     parser.add_argument(
         '--output',
         type=str,
-        default='SoundStorm/OUTPUT',
+        default='exp/default',
         help='directory to save the results')
     parser.add_argument(
         '--log_frequency',
         type=int,
         default=100,
-        help='print frequency (default: 100)')
+        help='print frequency (default: 100 iter)')
     parser.add_argument(
         '--load_path',
         type=str,
         default=None,
-        help='path to model that need to be loaded, '
-        'used for loading pretrained model')
+        help='path to model that need to be loaded, used for loading pretrained model')
     parser.add_argument(
-        '--resume_name',
-        type=str,
-        default=None,
-        help='resume one experiment with the given name')
-    parser.add_argument(
-        '--auto_resume',
-        action='store_true',
-        help='automatically resume the training')
+        "--auto_resume",
+        type=str2bool,
+        default=True,
+        help="automatically resume the training")
     # args for dataset
     parser.add_argument(
         '--train_semantic_path',
@@ -117,13 +107,13 @@ def get_args():
         type=int,
         help='node rank for distributed training')
     parser.add_argument(
-        '--sync_bn', action='store_true', help='use sync BN layer')
+        "--sync_bn", type=str2bool, default=False, help="use sync BN layer")
     parser.add_argument(
-        '--tensorboard',
-        action='store_true',
-        help='use tensorboard for logging')
-    # default = True
-    parser.add_argument('--timestamp', action='store_true')
+        "--tensorboard",
+        type=str2bool,
+        default=True,
+        help="use tensorboard for logging")
+    parser.add_argument("--timestamp", type=str2bool, default=True)
     # args for random
     parser.add_argument(
         '--seed',
@@ -131,18 +121,18 @@ def get_args():
         default=None,
         help='seed for initializing training. ')
     parser.add_argument(
-        '--cudnn_deterministic',
-        action='store_true',
-        help='set cudnn.deterministic True')
-
-    parser.add_argument(
-        '--amp',
-        action='store_true',
+        "--cudnn_deterministic",
+        type=str2bool,
         default=False,
-        help='automatic mixture of precesion')
-
+        help="set cudnn.deterministic True")
     parser.add_argument(
-        '--debug', action='store_true', default=False, help='set as debug mode')
+        "--amp",
+        type=str2bool,
+        default=False,
+        help="automatic mixture of precesion")
+    parser.add_argument(
+        "--debug", type=str2bool, default=False, help="set as debug mode")
+
     # args for modify config
     parser.add_argument(
         "opts",
@@ -151,29 +141,10 @@ def get_args():
         nargs=argparse.REMAINDER, )
     args = parser.parse_args()
     args.cwd = os.path.abspath(os.path.dirname(__file__))
-
-    if args.resume_name is not None:
-        args.name = args.resume_name
-        args.config_file = os.path.join(args.output, args.resume_name,
-                                        'configs', 'config.yaml')
-        args.auto_resume = True
-    else:
-        # 若没有设定实验名称
-        if args.name == '':
-            args.name = os.path.basename(args.config_file).replace('.yaml', '')
-        if args.timestamp:
-            assert not args.auto_resume, "for timstamp, auto resume is hard to find the save directory"
-            time_str = time.strftime('%Y-%m-%d-%H-%M')
-            args.name = time_str + '-' + args.name
     # modify args for debugging
     if args.debug:
-        args.name = 'debug'
         if args.gpu is None:
             args.gpu = 0
-    random_seconds_shift = datetime.timedelta(seconds=np.random.randint(60))
-    now = (datetime.datetime.now() - random_seconds_shift
-           ).strftime('%Y-%m-%dT%H-%M-%S')
-    args.save_dir = os.path.join(args.output, args.name, now)
     return args
 
 
@@ -208,7 +179,6 @@ def main_worker(local_rank, args):
     args.local_rank = local_rank
     args.global_rank = args.local_rank + args.node_rank * args.ngpus_per_node
     args.distributed = args.world_size > 1
-    print(args)
     # load config
     config = load_yaml_config(args.config_file)
     # 合并命令行输入到 config 文件中
@@ -242,9 +212,11 @@ def main_worker(local_rank, args):
             # load_model=True,
             load_optimizer_and_scheduler=False,
             load_others=False)
-    if args.auto_resume:
+    elif args.auto_resume:
+        print("in auto_resume")
         solver.resume()
     solver.train()
+    torch.cuda.empty_cache()
 
 
 if __name__ == '__main__':

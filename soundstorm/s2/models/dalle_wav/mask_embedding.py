@@ -43,9 +43,8 @@ class DalleMaskImageEmbedding(BaseEmbedding):
         self.pos_emb_type = pos_emb_type
         assert self.pos_emb_type in ['embedding', 'parameter']
         self.embs = nn.ModuleDict({
-            '0': nn.Embedding(self.num_embed, embed_dim),
-            '1': nn.Embedding(self.num_embed, embed_dim),
-            '2': nn.Embedding(self.num_embed, embed_dim),
+            str(i): nn.Embedding(self.num_embed, embed_dim)
+            for i in range(self.n_q)
         })
         self.register_buffer('position_ids', torch.arange(max_size))
         if self.pos_emb_type == 'embedding':

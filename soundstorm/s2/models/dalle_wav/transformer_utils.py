@@ -201,7 +201,7 @@ class GELU2(nn.Module):
         super().__init__()
 
     def forward(self, x):
-        return x * F.sigmoid(1.702 * x)
+        return x * torch.sigmoid(1.702 * x)
 
 
 class SinusoidalPosEmb(nn.Module):
@@ -443,21 +443,18 @@ class Text2ImageTransformer(nn.Module):
         self.use_checkpoint = checkpoint
         self.n_q = n_q
         # when init the model, the number of q has add 1
+        content_emb_config['params']['n_q'] = self.n_q
         self.content_emb = instantiate_from_config(content_emb_config)
         # self.condition_emb = instantiate_from_config(condition_emb_config) 
         # 用于semantic token
         self.semantic_embedding = nn.Embedding(
             1000 + 4, content_emb_config['params']['embed_dim'])
         # transformer
-        #assert attn_type == 'selfcross'
         self.inc = (DoubleConv(condition_dim, condition_dim))
-        self.down1 = (Down(condition_dim, condition_dim, kernel_size=(3, 1)))
-        # self.down2 = (Down(condition_dim, condition_dim, kernel_size=(2,1)))
-        # self.down3 = (Down(condition_dim, condition_dim, kernel_size=(2,1)))
-
-        self.up1 = (Up(condition_dim * 2, condition_dim, scale_factor=(3, 1)))
-        # self.up2 = (Up(condition_dim*2, condition_dim, scale_factor=(2,1)))
-        # self.up3 = (Up(condition_dim*2, condition_dim, scale_factor=(2,1)))
+        self.down1 = (Down(
+            condition_dim, condition_dim, kernel_size=(self.n_q, 1)))
+        self.up1 = (Up(
+            condition_dim * 2, condition_dim, scale_factor=(self.n_q, 1)))
 
         all_attn_type = [attn_type] * n_layer
         self.blocks = nn.Sequential(* [
@@ -482,10 +479,7 @@ class Text2ImageTransformer(nn.Module):
         self.target_semantic_end_id = self.semantic_token_nums + 3
 
         self.acoustic_token_nums = 1024
-        # self.prompt_acoustic_start_id = self.acoustic_token_nums 
-        # self.prompt_acoustic_end_id = self.acoustic_token_nums + 1
-        # self.target_acoustic_start_id = self.acoustic_token_nums + 2
-        # self.target_acoustic_end_id = self.acoustic_token_nums + 3
+
         # 最长的序列假设为 10s
         self.prompt_semantic_pos_emb = LearnedPositionEmbeddings(500, n_embd)
         # 20s
@@ -650,7 +644,8 @@ class Text2ImageTransformer(nn.Module):
                                              cond_emb, x_mask, cond_emb_mask,
                                              t.cuda())
         x3 = emb.unsqueeze(1).permute(0, 3, 1, 2)
-        x = self.up1(x3, x1)  # 512
+        # 512
+        x = self.up1(x3, x1)
         x = x.permute(0, 2, 3, 1)
 
         logits = []
