@@ -179,7 +179,6 @@ def main_worker(local_rank, args):
     args.local_rank = local_rank
     args.global_rank = args.local_rank + args.node_rank * args.ngpus_per_node
     args.distributed = args.world_size > 1
-    print(args)
     # load config
     config = load_yaml_config(args.config_file)
     # 合并命令行输入到 config 文件中

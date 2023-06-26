@@ -46,7 +46,7 @@ class Logger(object):
 
     def log_info(self, info, check_primary=True):
         if self.is_primary or (not check_primary):
-            print(info)
+            print("info:", info)
             if self.is_primary:
                 info = str(info)
                 time_str = time.strftime('[%Y-%m-%d %H:%M:%S]')

@@ -47,7 +47,6 @@ def build_dataloader(config, args=None, return_dataset=False):
         train_iters = len(train_dataset) // batch_size
         dev_iters = len(dev_dataset) // batch_size
     num_workers = dataset_cfg['num_workers']
-    print("number of iters per epoch:", train_iters)
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,

@@ -51,6 +51,9 @@ class Solver(object):
 
         self.last_epoch = -1
         self.last_iter = -1
+
+        self.total_iters = self.max_epochs * self.dataloader['train_iterations']
+
         self.ckpt_dir = os.path.join(args.output, 'checkpoint')
         self.image_dir = os.path.join(args.output, 'images')
         os.makedirs(self.ckpt_dir, exist_ok=True)
@@ -471,7 +474,7 @@ class Solver(object):
             loss = self.step(batch, phase='train')
             # logging info
             if self.logger and self.last_iter % self.args.log_frequency == 0:
-                info = 'Train Epoch {}/{} iter {}/{}'.format(
+                info = 'Train: Epoch {}/{} iter {}/{}'.format(
                     self.last_epoch, self.max_epochs,
                     self.last_iter % self.dataloader['train_iterations'],
                     self.dataloader['train_iterations'])
@@ -501,17 +504,20 @@ class Solver(object):
 
                 # add time consumption to info
                 spend_time = time.time() - self.start_train_time
-                itr_time_avg = spend_time / (self.last_iter + 1)
-                info += ' || data_time: {dt}s | fbward_time: {fbt}s | iter_time: {it}s | iter_avg_time: {ita}s | epoch_time: {et} | spend_time: {st} | left_time: {lt}'.format(
+                forward_time = time.time() - step_start
+                # 1 卡 -> n 卡，iter_time 不变
+                iter_time = time.time() - itr_start
+                epoch_time = time.time() - epoch_start
+                info += ' || data_time: {dt}s | fbward_time: {fbt}s | iter_time: {it}s | epoch_time: {et} | left_time: {lt}'.format(
                     dt=round(data_time, 1),
-                    it=round(time.time() - itr_start, 1),
-                    fbt=round(time.time() - step_start, 1),
-                    ita=round(itr_time_avg, 1),
-                    et=format_seconds(time.time() - epoch_start),
-                    st=format_seconds(spend_time),
-                    lt=format_seconds(itr_time_avg * self.max_epochs *
-                                      self.dataloader[
-                                          'train_iterations'] - spend_time))
+                    it=round(iter_time, 1),
+                    fbt=round(forward_time, 1),
+                    et=format_seconds(epoch_time),
+                    # self.dataloader['train_iterations']: iter per epoch
+                    # 1 卡 -> n 卡，self.max_epochs 不变，self.dataloader['train_iterations'] 为原来的 1/n，单卡显存占用不变
+                    # max_token_one_batch 变为 n 倍，self.dataloader['train_iterations'] 为原来的 1/n，单卡显存占用变为 n 倍
+                    lt=format_seconds(iter_time *
+                                      (self.total_iters - self.last_iter)))
                 self.logger.log_info(info)
 
             itr_start = time.time()
@@ -556,7 +562,7 @@ class Solver(object):
                 info = ''
                 for loss_n, loss_dict in overall_loss.items():
                     info += '' if loss_n == 'none' else ' {}'.format(loss_n)
-                    info += 'Eval Epoch {}/{}'.format(self.last_epoch,
+                    info += 'Eval: Epoch {}/{}'.format(self.last_epoch,
                                                       self.max_epochs)
                     for k in loss_dict:
                         info += ' | {}: {:.4f}'.format(k, float(loss_dict[k]))

@@ -61,18 +61,18 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --output_dir=codebook2wav_output/ \
         # --num_quant=3 # NOT WORK HERE, default Nq of HiFi-Codec is 4 and cannot be reduced
     
-    # Encodec
-    # when target_bw=12 for 16k_320d, Nq=24
-    python3 ${BIN_DIR}/codebook2wav.py \
-        --codec_name=encodec \
-        --model_path=pretrained_model/encodec/encodec_16k_320d.pth \
-        --ratios 8 5 4 2 \
-        --target_bandwidths 1 1.5 2 4 6 12 \
-        --target_bw=12 \
-        --sr=16000 \
-        --input_path=${root_dir}/dump/train/acoustic_token/encodec/LJ050-0250.npy \
-        --output_dir=codebook2wav_output/ \
-        # --num_quant=3 # default Nq of Encodec is 24
+    # # Encodec
+    # # when target_bw=12 for 16k_320d, Nq=24
+    # python3 ${BIN_DIR}/codebook2wav.py \
+    #     --codec_name=encodec \
+    #     --model_path=pretrained_model/encodec/encodec_16k_320d.pth \
+    #     --ratios 8 5 4 2 \
+    #     --target_bandwidths 1 1.5 2 4 6 12 \
+    #     --target_bw=12 \
+    #     --sr=16000 \
+    #     --input_path=${root_dir}/dump/train/acoustic_token/encodec/LJ050-0250.npy \
+    #     --output_dir=codebook2wav_output/ \
+    #     # --num_quant=3 # default Nq of Encodec is 24
 fi
 
 
