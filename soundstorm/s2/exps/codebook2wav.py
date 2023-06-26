@@ -111,6 +111,14 @@ def main():
         print("Please input the right codec_name!")
 
     codec_extractor = model
+    # # for batch['target_acoustics']
+    # # 使用 gt.npy 可以正常合成
+    # acoustic_token = np.load("/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/exp_ljspeech/default/audios/epoch_119_last_iter_2759.npy")
+    # acoustic_token = acoustic_token[0]
+    # # acoustic_token 应该只有 1025 没有 1024
+    # # acoustic_token 末尾的补零 (1025) 部分会生成高频噪声
+    # acoustic_token = np.clip(acoustic_token, 0, 1023)
+
     acoustic_token = np.load(args.input_path)
     acoustic_token = torch.tensor(acoustic_token).cuda()
 

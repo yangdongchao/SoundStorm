@@ -7,6 +7,9 @@ import math
 import os
 import time
 
+import librosa
+import numpy as np
+import soundfile as sf
 import torch
 from soundstorm.s2.distributed.distributed import is_primary
 from soundstorm.s2.distributed.distributed import reduce_dict
@@ -16,8 +19,6 @@ from soundstorm.s2.utils.misc import format_seconds
 from soundstorm.s2.utils.misc import get_model_parameters_info
 from soundstorm.s2.utils.misc import instantiate_from_config
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-
-import numpy as np
 try:
     from torch.cuda.amp import autocast
     from torch.cuda.amp import GradScaler
@@ -30,10 +31,12 @@ STEP_WITH_LOSS_SCHEDULERS = (ReduceLROnPlateauWithWarmup, ReduceLROnPlateau)
 
 
 class Solver(object):
-    def __init__(self, config, args, model, dataloader, logger):
+    def __init__(self, config, args, model, dataloader, logger, hificodec):
         self.config = config
         self.args = args
         self.model = model
+        self.hificodec = hificodec
+
         self.dataloader = dataloader
         self.logger = logger
 
@@ -57,6 +60,7 @@ class Solver(object):
 
         self.ckpt_dir = os.path.join(args.output, 'checkpoint')
         self.audio_dir = os.path.join(args.output, 'audios')
+
         os.makedirs(self.ckpt_dir, exist_ok=True)
         os.makedirs(self.audio_dir, exist_ok=True)
 
@@ -110,14 +114,16 @@ class Solver(object):
         self.logger.log_info(str(get_model_parameters_info(self.model)))
         #self.model.cuda() 
         self.model.to(self.args.local_rank)
+        self.hificodec.to(self.args.local_rank)
         self.device = self.model.device
+
         if self.args.distributed:
             # the next line change arg.gup to args.local_rank
             self.logger.log_info('Distributed, begin DDP the model...')
             self.model = torch.nn.parallel.DistributedDataParallel(
                 self.model,
                 device_ids=[self.args.local_rank],
-                find_unused_parameters=True)  # 
+                find_unused_parameters=True)
             self.logger.log_info('Distributed, DDP model done!')
         # prepare for amp
         self.args.amp = self.args.amp and AMP
@@ -205,9 +211,51 @@ class Solver(object):
             raise ValueError('Unknow of return type: {}'.format(return_type))
         return lrs
 
-    def sample(self, batch, phase='train', step_type='iteration'):
-        tic = time.time()  
+    def hificodec_decode(self, acoustic_token, rescale=True):
+        # acoustic_token 应该只有 1025 没有 1024
+        # acoustic_token 末尾的补零 (1025) 部分会生成高频噪声
+        acoustic_token = np.clip(acoustic_token, 0, 1023)
+        acoustic_token = torch.tensor(acoustic_token).cuda(self.args.local_rank)
+        acoustic_token = acoustic_token.transpose(0, 1).unsqueeze(0)
+        # VQVAE.forward()
+        wav = self.hificodec(acoustic_token)
+        wav = wav.detach().squeeze().cpu().numpy()
+        limit = 0.99
+        if rescale:
+            mx = np.abs(wav).max()
+            wav = wav * min(limit / mx, 1)
+        else:
+            wav = wav.clip(-limit, limit)
+        return wav
+
+    def sample(self,
+               batch,
+               phase='train',
+               step_type='iteration',
+               gen_audio=True):
+        tic = time.time()
         self.logger.log_info('Begin to sample...')
+        step = self.last_iter if step_type == 'iteration' else self.last_epoch
+        sample_rate = 16000
+        save_path = self.audio_dir
+        save_name_gt = save_path + '/gt.npy'
+        save_name_gt_wav = save_path + '/gt.wav'
+        # shape (100, 4, 354)
+        content_gt = batch['target_acoustics']
+        codes_np_gt = content_gt.detach().cpu().numpy()
+        # 重复写入，如果判断是否存在的话可能会因为多卡导致 lood 一个不完整的 npy
+        np.save(save_name_gt, codes_np_gt)
+        if gen_audio:
+            # only save teh wav of batch[0]
+            acoustic_token_gt = codes_np_gt[0]
+            wav_gt = self.hificodec_decode(acoustic_token_gt)
+            sf.write(save_name_gt_wav, wav_gt, sample_rate)
+            self.logger.add_audio(
+                tag='gt/audio',
+                snd_tensor=wav_gt,
+                global_step=step,
+                sample_rate=sample_rate)
+
         if self.ema:
             self.ema.modify_to_inference()
             suffix = '_ema'
@@ -227,18 +275,29 @@ class Solver(object):
                     samples = model.infer_one(batch=batch)
             else:
                 samples = model.infer_one(batch=batch[0].cuda())
-            step = self.last_iter if step_type == 'iteration' else self.last_epoch
-            save_path = self.audio_dir
-            sample_rate = 16000
+
+            # shape (100, 1416)
             content = samples['token_pred']
-            
             # hificodec decode 需要 [B, T, Nq]
-            # [B, 4, T]
+            # (100, 4, 354), [B, 4, T]
             codes = content.reshape(content.shape[0], 4, -1)
             codes_np = codes.detach().cpu().numpy()
-            save_name = save_path + '/epoch_' + str(self.last_epoch) + '_last_iter_' + str(self.last_iter) + '.npy'
+            save_name = save_path + '/epoch_' + str(
+                self.last_epoch) + '_last_iter_' + str(self.last_iter) + '.npy'
+            save_name_wav = save_path + '/epoch_' + str(
+                self.last_epoch) + '_last_iter_' + str(self.last_iter) + '.wav'
+            # self.hificodec
             np.save(save_name, codes_np)
-                
+            if gen_audio:
+                acoustic_token = codes_np[0]
+                wav = self.hificodec_decode(acoustic_token)
+                sf.write(save_name_wav, wav, sample_rate)
+                self.logger.add_audio(
+                    tag='gen/audio',
+                    snd_tensor=wav,
+                    global_step=step,
+                    sample_rate=sample_rate)
+
         if self.ema:
             self.ema.modify_to_train()
         # 74s 为什么这么耗时
@@ -482,10 +541,11 @@ class Solver(object):
             loss = self.step(batch, phase='train')
             # logging info
             if self.logger and self.last_iter % self.args.log_frequency == 0:
-                cur_iter_in_epoch = (self.last_iter - self.last_epoch * self.dataloader['train_iterations']) % self.dataloader['train_iterations']
+                cur_iter_in_epoch = (self.last_iter - self.last_epoch *
+                                     self.dataloader['train_iterations']
+                                     ) % self.dataloader['train_iterations']
                 info = 'Train: Epoch {}/{} iter {}/{}'.format(
-                    self.last_epoch, self.max_epochs,
-                    cur_iter_in_epoch,
+                    self.last_epoch, self.max_epochs, cur_iter_in_epoch,
                     self.dataloader['train_iterations'])
                 for loss_n, loss_dict in loss.items():
                     info += ' ||'
@@ -530,7 +590,7 @@ class Solver(object):
                 self.logger.log_info(info)
 
             itr_start = time.time()
-        self.epoch_time = time.time()-epoch_start
+        self.epoch_time = time.time() - epoch_start
 
         # modify here to make sure dataloader['train_iterations'] is correct
         assert itr >= 0, "The data is too less to form one iteration!"
@@ -565,7 +625,7 @@ class Solver(object):
                 for loss_n, loss_dict in overall_loss.items():
                     info += '' if loss_n == 'none' else ' {}'.format(loss_n)
                     info += 'Eval: Epoch {}/{}'.format(self.last_epoch,
-                                                      self.max_epochs)
+                                                       self.max_epochs)
                     for k in loss_dict:
                         info += ' | {}: {:.4f}'.format(k, float(loss_dict[k]))
                         self.logger.add_scalar(
@@ -573,9 +633,9 @@ class Solver(object):
                             scalar_value=float(loss_dict[k]),
                             global_step=self.last_epoch)
                 self.logger.log_info(info)
-           
+
             # sample
-            if (self.last_epoch + 1) % self.sample_epochs==0:
+            if (self.last_epoch + 1) % self.sample_epochs == 0:
                 self.sample(batch, phase='val', step_type='iteration')
 
     def train(self):
@@ -586,6 +646,7 @@ class Solver(object):
             check_primary=False)
 
         for epoch in range(start_epoch, self.max_epochs):
+            self.validate_epoch()
             self.train_epoch()
             self.save(force=True)
-            self.validate_epoch()
+            # self.validate_epoch()

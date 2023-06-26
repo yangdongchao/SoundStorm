@@ -1,0 +1,1 @@
+../LJSpeech/path.sh
