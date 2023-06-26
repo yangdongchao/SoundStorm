@@ -263,9 +263,6 @@ class DALLE(nn.Module):
     @torch.no_grad()
     def infer_one(self, batch):
         output = self.generate_content(batch)
-        # mel_pre = {}
-        # mel_pre['mel_pre'] = output['content']
-        # return mel
         return output
 
     def forward(self, batch, name='none', **kwargs):

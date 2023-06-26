@@ -16,6 +16,8 @@ from soundstorm.s2.utils.misc import format_seconds
 from soundstorm.s2.utils.misc import get_model_parameters_info
 from soundstorm.s2.utils.misc import instantiate_from_config
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+
+import numpy as np
 try:
     from torch.cuda.amp import autocast
     from torch.cuda.amp import GradScaler
@@ -38,26 +40,25 @@ class Solver(object):
         self.max_epochs = config['solver']['max_epochs']
         self.save_epochs = config['solver']['save_epochs']
         self.save_iterations = config['solver'].get('save_iterations', -1)
-        self.sample_iterations = config['solver']['sample_iterations']
-        # 改为 2 个 epoch 采样一次
-        if self.sample_iterations == 'epoch':
-            # 4106
-            self.sample_iterations = 2 * self.dataloader['train_iterations']
         # 多少个 epoch 验证一次
         self.dev_epochs = config['solver'].get('dev_epochs', 2)
+        # sample() 很耗时，需要 70s 
+        self.sample_epochs = self.dev_epochs * 2
+
         assert isinstance(self.save_epochs, (int, list))
         assert isinstance(self.dev_epochs, (int, list))
         self.debug = config['solver'].get('debug', False)
 
         self.last_epoch = -1
         self.last_iter = -1
+        self.epoch_time = 0
 
         self.total_iters = self.max_epochs * self.dataloader['train_iterations']
 
         self.ckpt_dir = os.path.join(args.output, 'checkpoint')
-        self.image_dir = os.path.join(args.output, 'images')
+        self.audio_dir = os.path.join(args.output, 'audios')
         os.makedirs(self.ckpt_dir, exist_ok=True)
-        os.makedirs(self.image_dir, exist_ok=True)
+        os.makedirs(self.audio_dir, exist_ok=True)
 
         # get grad_clipper
         if 'clip_grad_norm' in config['solver']:
@@ -205,8 +206,8 @@ class Solver(object):
         return lrs
 
     def sample(self, batch, phase='train', step_type='iteration'):
-        tic = time.time()
-        # self.logger.log_info('Begin to sample...')
+        tic = time.time()  
+        self.logger.log_info('Begin to sample...')
         if self.ema:
             self.ema.modify_to_inference()
             suffix = '_ema'
@@ -227,17 +228,22 @@ class Solver(object):
             else:
                 samples = model.infer_one(batch=batch[0].cuda())
             step = self.last_iter if step_type == 'iteration' else self.last_epoch
-            num_plots = 8
-            save_path = self.image_dir
-            for i in range(num_plots):
-                pre_content_codec = samples['token_pred'].detach().cpu().numpy()
-                torch.save(pre_content_codec, save_path + '/wav_pred_' + str(i)
-                           + '_epoch_' + str(self.last_epoch) + '_last_iter_' +
-                           str(self.last_iter) + '.pth')
+            save_path = self.audio_dir
+            sample_rate = 16000
+            content = samples['token_pred']
+            
+            # hificodec decode 需要 [B, T, Nq]
+            # [B, 4, T]
+            codes = content.reshape(content.shape[0], 4, -1)
+            codes_np = codes.detach().cpu().numpy()
+            save_name = save_path + '/epoch_' + str(self.last_epoch) + '_last_iter_' + str(self.last_iter) + '.npy'
+            np.save(save_name, codes_np)
+                
         if self.ema:
             self.ema.modify_to_train()
-        # self.logger.log_info(
-        #     'Sample done, time: {:.2f} s'.format(time.time() - tic))
+        # 74s 为什么这么耗时
+        self.logger.log_info(
+            'Sample done, time: {:.2f} s'.format(time.time() - tic))
 
     def step(self, batch, phase='train'):
         loss = {}
@@ -378,7 +384,7 @@ class Solver(object):
                     optimizer_and_scheduler[op_sc_n] = state_
 
                 state_dict['optimizer_and_scheduler'] = optimizer_and_scheduler
-
+                # save per save_epochs
                 if save:
                     save_path = os.path.join(
                         self.ckpt_dir, '{}e_{}iter.pth'.format(
@@ -387,6 +393,7 @@ class Solver(object):
                     self.logger.log_info('saved in {}'.format(save_path))
 
                 # save with the last name
+                # save per epoch
                 save_path = os.path.join(self.ckpt_dir, 'last.pth')
                 torch.save(state_dict, save_path)
                 self.logger.log_info('saved in {}'.format(save_path))
@@ -463,20 +470,22 @@ class Solver(object):
 
         # if self.args.distributed:
         #     self.dataloader['train_loader'].sampler.set_epoch(self.last_epoch)
-
         epoch_start = time.time()
         itr_start = time.time()
         itr = -1
         for itr, batch in enumerate(self.dataloader['train_loader']):
+            # (B, 1, T), B, T 动态
+            # print("batch['prompt_semantics'].shape:",batch['prompt_semantics'].shape)
             data_time = time.time() - itr_start
             step_start = time.time()
             self.last_iter += 1
             loss = self.step(batch, phase='train')
             # logging info
             if self.logger and self.last_iter % self.args.log_frequency == 0:
+                cur_iter_in_epoch = (self.last_iter - self.last_epoch * self.dataloader['train_iterations']) % self.dataloader['train_iterations']
                 info = 'Train: Epoch {}/{} iter {}/{}'.format(
                     self.last_epoch, self.max_epochs,
-                    self.last_iter % self.dataloader['train_iterations'],
+                    cur_iter_in_epoch,
                     self.dataloader['train_iterations'])
                 for loss_n, loss_dict in loss.items():
                     info += ' ||'
@@ -508,11 +517,11 @@ class Solver(object):
                 # 1 卡 -> n 卡，iter_time 不变
                 iter_time = time.time() - itr_start
                 epoch_time = time.time() - epoch_start
-                info += ' || data_time: {dt}s | fbward_time: {fbt}s | iter_time: {it}s | epoch_time: {et} | left_time: {lt}'.format(
+                info += ' || data_time: {dt}s | fbward_time: {fbt}s | iter_time: {it}s | epoch_time: {et}s| left_time: {lt}'.format(
                     dt=round(data_time, 1),
                     it=round(iter_time, 1),
                     fbt=round(forward_time, 1),
-                    et=format_seconds(epoch_time),
+                    et=self.epoch_time,
                     # self.dataloader['train_iterations']: iter per epoch
                     # 1 卡 -> n 卡，self.max_epochs 不变，self.dataloader['train_iterations'] 为原来的 1/n，单卡显存占用不变
                     # max_token_one_batch 变为 n 倍，self.dataloader['train_iterations'] 为原来的 1/n，单卡显存占用变为 n 倍
@@ -521,14 +530,7 @@ class Solver(object):
                 self.logger.log_info(info)
 
             itr_start = time.time()
-            # debug 
-            # self.sample(batch, phase='train', step_type='iteration')
-            # sample
-            if self.sample_iterations > 0 and (
-                    self.last_iter + 1) % self.sample_iterations == 0:
-                self.model.eval()
-                self.sample(batch, phase='train', step_type='iteration')
-                self.model.train()
+        self.epoch_time = time.time()-epoch_start
 
         # modify here to make sure dataloader['train_iterations'] is correct
         assert itr >= 0, "The data is too less to form one iteration!"
@@ -571,9 +573,10 @@ class Solver(object):
                             scalar_value=float(loss_dict[k]),
                             global_step=self.last_epoch)
                 self.logger.log_info(info)
-
-    def validate(self):
-        self.dev_epoch()
+           
+            # sample
+            if (self.last_epoch + 1) % self.sample_epochs==0:
+                self.sample(batch, phase='val', step_type='iteration')
 
     def train(self):
         start_epoch = self.last_epoch + 1

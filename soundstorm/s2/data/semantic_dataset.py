@@ -147,6 +147,7 @@ class SemanticDataset(torch.utils.data.Dataset):
                 1] + prompt_acoustic.shape[1] + target_acoustic.shape[1]
             if tmp_tot_tokens + cal_num < max_token_one_batch:
                 # 若还没满一个 batch ,继续添加
+                # shape: (1, 150)
                 tmp_prompt_semantics.append(prompt_semantic)
                 tmp_target_semantics.append(target_semantic)
                 tmp_prompt_acoustics.append(prompt_acoustic)
@@ -202,6 +203,7 @@ class SemanticDataset(torch.utils.data.Dataset):
     def collater(self, samples):
         # 为什么只取 第 0 个? => 因为 samples 是 list 长度一直是 1, batch_size must be 1 here
         # prompt_semantics 里面是 n 个 tensor, n 的大小不固定
+        # len(prompt_semantics) = 100 ，表示 batch_size = 100, batch_size 是不固定的
         prompt_semantics = samples[0]['prompt_semantic']
         target_semantics = samples[0]['target_semantic']
         prompt_acoustics = samples[0]['prompt_acoustic']
@@ -211,13 +213,16 @@ class SemanticDataset(torch.utils.data.Dataset):
         prompt_semantics = pad_2D(prompt_semantics, self.prompt_semantic_end_id)
         target_semantics = pad_2D(target_semantics, self.target_semantic_end_id)
         prompt_acoustics = pad_2D(prompt_acoustics, self.prompt_acoustic_eos)
+        # 用 1025 补零
         target_acoustics = pad_2D(target_acoustics, self.target_acoustic_eos)
         # mask 住 target_acoustics 的补 0 部分
         x_mask = (target_acoustics == self.target_acoustic_eos)
         new_samples = {}
+        # (B, 1, T), B, T 动态
         new_samples['prompt_semantics'] = torch.from_numpy(prompt_semantics)
         new_samples['target_semantics'] = torch.from_numpy(target_semantics)
         new_samples['prompt_acoustics'] = torch.from_numpy(prompt_acoustics)
+        # (B, 4, T), B, T 动态
         new_samples['target_acoustics'] = torch.from_numpy(target_acoustics)
         new_samples['x_mask'] = torch.from_numpy(x_mask[:, 0, :])
         return new_samples

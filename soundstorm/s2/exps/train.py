@@ -216,6 +216,7 @@ def main_worker(local_rank, args):
         print("in auto_resume")
         solver.resume()
     solver.train()
+    torch.cuda.empty_cache()
 
 
 if __name__ == '__main__':
