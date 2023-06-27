@@ -1,5 +1,6 @@
 import argparse
 import os
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
 from pathlib import Path
@@ -39,6 +40,7 @@ def process_sentence(fp: Path, output_dir: Path, semantic_tokenizer):
         record = {"utt_id": utt_id, "semantic_token_path": semantic_token_path}
     except Exception:
         print("occur Exception")
+        traceback.print_exc()
         return None
     return record
 
