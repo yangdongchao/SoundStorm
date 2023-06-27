@@ -247,13 +247,21 @@ class Solver(object):
         if gen_audio:
             # only save the wav of first 5 in batch
             # target wav in batch is reverse sorted with length
-            for  i in range(5):
-                save_name_gt_wav = save_path + '/gt_'+str(i)+'.wav'
+            audio_indexs = []
+            for i in range(10):
+                save_name_gt_wav = save_path + '/gt_' + str(i) + '.wav'
                 acoustic_token_gt = codes_np_gt[i]
+                # all Nq have same pad length
+                acoustic_token_gt_0_list = acoustic_token_gt[0].tolist()
+                index = acoustic_token_gt_0_list.index(
+                    1025) if 1025 in acoustic_token_gt_0_list else -1
+                audio_indexs.append(index)
+                # clip wav via pad value (1025)
+                acoustic_token_gt = acoustic_token_gt[:, :index]
                 wav_gt = self.hificodec_decode(acoustic_token_gt)
                 sf.write(save_name_gt_wav, wav_gt, sample_rate)
                 self.logger.add_audio(
-                    tag='gt/audio/'+str(i),
+                    tag='gt/audio/' + str(i),
                     snd_tensor=wav_gt,
                     global_step=step,
                     sample_rate=sample_rate)
@@ -284,19 +292,24 @@ class Solver(object):
             # (100, 4, 354), [B, 4, T]
             codes = content.reshape(content.shape[0], 4, -1)
             codes_np = codes.detach().cpu().numpy()
-            name_prefix = '/epoch_' + str(self.last_epoch) + '_last_iter_' + str(self.last_iter)
+            name_prefix = '/epoch_' + str(
+                self.last_epoch) + '_last_iter_' + str(self.last_iter)
             save_name = save_path + name_prefix + '.npy'
-            
+
             # self.hificodec
             np.save(save_name, codes_np)
             if gen_audio:
-                for  i in range(5):
-                    save_name_wav = save_path + name_prefix + '_' +str(i)+ '.wav'
+                for i in range(10):
+                    save_name_wav = save_path + name_prefix + '_' + str(
+                        i) + '.wav'
                     acoustic_token = codes_np[i]
+                    index = audio_indexs[i]
+                    # clip wav via pad value (1025) get from acoustic_token_gt
+                    acoustic_token = acoustic_token[:, :index]
                     wav = self.hificodec_decode(acoustic_token)
                     sf.write(save_name_wav, wav, sample_rate)
                     self.logger.add_audio(
-                        tag='gen/audio/'+str(i),
+                        tag='gen/audio/' + str(i),
                         snd_tensor=wav,
                         global_step=step,
                         sample_rate=sample_rate)
