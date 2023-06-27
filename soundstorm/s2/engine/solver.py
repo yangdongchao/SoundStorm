@@ -239,22 +239,24 @@ class Solver(object):
         sample_rate = 16000
         save_path = self.audio_dir
         save_name_gt = save_path + '/gt.npy'
-        save_name_gt_wav = save_path + '/gt.wav'
         # shape (100, 4, 354)
         content_gt = batch['target_acoustics']
         codes_np_gt = content_gt.detach().cpu().numpy()
         # 重复写入，如果判断是否存在的话可能会因为多卡导致 lood 一个不完整的 npy
         np.save(save_name_gt, codes_np_gt)
         if gen_audio:
-            # only save teh wav of batch[0]
-            acoustic_token_gt = codes_np_gt[0]
-            wav_gt = self.hificodec_decode(acoustic_token_gt)
-            sf.write(save_name_gt_wav, wav_gt, sample_rate)
-            self.logger.add_audio(
-                tag='gt/audio',
-                snd_tensor=wav_gt,
-                global_step=step,
-                sample_rate=sample_rate)
+            # only save the wav of first 5 in batch
+            # target wav in batch is reverse sorted with length
+            for  i in range(5):
+                save_name_gt_wav = save_path + '/gt_'+str(i)+'.wav'
+                acoustic_token_gt = codes_np_gt[i]
+                wav_gt = self.hificodec_decode(acoustic_token_gt)
+                sf.write(save_name_gt_wav, wav_gt, sample_rate)
+                self.logger.add_audio(
+                    tag='gt/audio/'+str(i),
+                    snd_tensor=wav_gt,
+                    global_step=step,
+                    sample_rate=sample_rate)
 
         if self.ema:
             self.ema.modify_to_inference()
@@ -282,21 +284,22 @@ class Solver(object):
             # (100, 4, 354), [B, 4, T]
             codes = content.reshape(content.shape[0], 4, -1)
             codes_np = codes.detach().cpu().numpy()
-            save_name = save_path + '/epoch_' + str(
-                self.last_epoch) + '_last_iter_' + str(self.last_iter) + '.npy'
-            save_name_wav = save_path + '/epoch_' + str(
-                self.last_epoch) + '_last_iter_' + str(self.last_iter) + '.wav'
+            name_prefix = '/epoch_' + str(self.last_epoch) + '_last_iter_' + str(self.last_iter)
+            save_name = save_path + name_prefix + '.npy'
+            
             # self.hificodec
             np.save(save_name, codes_np)
             if gen_audio:
-                acoustic_token = codes_np[0]
-                wav = self.hificodec_decode(acoustic_token)
-                sf.write(save_name_wav, wav, sample_rate)
-                self.logger.add_audio(
-                    tag='gen/audio',
-                    snd_tensor=wav,
-                    global_step=step,
-                    sample_rate=sample_rate)
+                for  i in range(5):
+                    save_name_wav = save_path + name_prefix + '_' +str(i)+ '.wav'
+                    acoustic_token = codes_np[i]
+                    wav = self.hificodec_decode(acoustic_token)
+                    sf.write(save_name_wav, wav, sample_rate)
+                    self.logger.add_audio(
+                        tag='gen/audio/'+str(i),
+                        snd_tensor=wav,
+                        global_step=step,
+                        sample_rate=sample_rate)
 
         if self.ema:
             self.ema.modify_to_train()

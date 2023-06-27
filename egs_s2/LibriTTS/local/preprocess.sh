@@ -1,6 +1,6 @@
 #!/bin/bash
 stage=0
-stop_stage=1
+stop_stage=0
 root_dir=$1
 data_dir=$2
 
@@ -10,8 +10,8 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     # 需要处理不同数据集格式
     python3 ${BIN_DIR}/get_semantic_token.py \
         --data_dir=${data_dir} \
-        --dataset=ljspeech \
-        --dump_dir=${root_dir}/dump \
+        --dataset=libritts \
+        --dump_dir=${root_dir}/dump_libritts \
         --hubert_path=pretrained_model/mhubert/mhubert_base_vp_en_es_fr_it3.pt \
         --quantizer_path=pretrained_model/mhubert/mhubert_base_vp_en_es_fr_it3_L11_km1000.bin \
         --num-cpu=20
@@ -25,8 +25,8 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     # HiFi-Codec
     python3 ${BIN_DIR}/get_acoustic_token.py \
         --data_dir=${data_dir} \
-        --dataset=ljspeech \
-        --dump_dir=${root_dir}/dump \
+        --dataset=libritts \
+        --dump_dir=${root_dir}/dump_libritts \
         --codec_name=hificodec \
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
@@ -37,7 +37,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     # # when target_bw=12 for 16k_320d, Nq=24
     # python3 ${BIN_DIR}/get_acoustic_token.py \
     #     --data_dir=${data_dir} \
-    #     --dataset=ljspeech \
+    #     --dataset=libritts \
     #     --dump_dir=${root_dir}/dump \
     #     --codec_name=encodec \
     #     --model_path=pretrained_model/encodec/encodec_16k_320d.pth \

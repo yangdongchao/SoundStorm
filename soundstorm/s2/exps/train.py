@@ -203,6 +203,7 @@ def main_worker(local_rank, args):
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     # for sample()
     # NOTE by yuantian: all threads use some of memory of GPU 0 which need to be fixed
+    torch.cuda.set_device(local_rank)
     hificodec = VQVAE(
         config_path=args.hificodec_config_path,
         ckpt_path=args.hificodec_model_path,
