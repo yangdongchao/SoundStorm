@@ -1,0 +1,90 @@
+# change from o4
+model:
+    target: soundstorm.s2.models.dalle_wav.dalle_wav.DALLE
+    params:
+        content_info: {key: audio}
+        condition_info: {key: text}
+        n_q: 4  # the encodec codebook's number, same as `num_quant` of dataloader
+        diffusion_config:
+            target: soundstorm.s2.models.dalle_wav.diffusion_transformer.DiffusionTransformer
+            params:
+                diffusion_step: 100
+                alpha_init_type: 'alpha1'       # init_type = fix or cos or linear
+                auxiliary_loss_weight: 5.0e-4
+                adaptive_auxiliary_loss: True
+                mask_weight: [1, 1]    # the loss weight on mask region and non-mask region
+                transformer_config:
+                    target: soundstorm.s2.models.dalle_wav.transformer_utils.Text2ImageTransformer
+                    params:
+                        attn_type: 'selfcross' # using self attention
+                        n_layer: 16 # we may use large model
+                        n_embd: 512 # the dim of embedding dims
+                        condition_dim: 512
+                        n_head: 8
+                        attn_pdrop: 0.0
+                        resid_pdrop: 0.0
+                        block_activate: GELU2
+                        timestep_type: 'adalayernorm'   # adainsnorm or adalayernorm and abs
+                        mlp_hidden_times: 4
+                        content_emb_config:
+                            target: soundstorm.s2.models.dalle_wav.mask_embedding.DalleMaskImageEmbedding
+                            params:
+                                num_embed: 1026 # should be quantize_number
+                                max_size: 16000
+                                embed_dim: 512  # the dim of postion embedding
+                                trainable: True
+                                pos_emb_type: embedding
+
+solver:
+    base_lr: 3.0e-6
+    adjust_lr: none # not adjust lr according to total batch_size
+    max_epochs: 9200 # 400 for LibriTTS 9.2k epoch for LJspeech
+    save_epochs: 10
+    dev_epochs: 10
+    ema:
+        decay: 0.99
+        update_interval: 25
+        device: cpu
+    clip_grad_norm:
+        target: soundstorm.s2.engine.clip_grad_norm.ClipGradNorm
+        params:
+            start_iteration: 0
+            end_iteration: 5000
+            max_norm: 0.5
+    optimizers_and_schedulers:  # a list of configures, so we can config several optimizers and schedulers
+      - name: none  # default is None
+        optimizer:
+            target: torch.optim.AdamW
+            params:
+                betas: !!python/tuple [0.9, 0.96]
+                weight_decay: 4.5e-2
+        scheduler:
+            step_iteration: 1
+            target: soundstorm.s2.engine.lr_scheduler.ReduceLROnPlateauWithWarmup
+            params:
+                factor: 0.5
+                patience: 25000
+                min_lr: 1.0e-6
+                threshold: 1.0e-1
+                threshold_mode: rel
+                warmup_lr: 4.5e-4   # the lr to be touched after warmup
+                warmup: 1000
+
+dataloader:
+    max_token_one_batch: 96000 # 影响单卡显存占用, 96k for 80G GPU (A100) (LJSpeech)
+    num_workers: 0
+    train_datasets: # a list of configures, so we can combine several schedulers
+        - target: soundstorm.s2.data.semantic_dataset.SemanticDataset
+          params:
+                codec_name: hificodec
+                num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
+                semantic_path: dump/train/semantic_token.tsv
+                acoustic_path: dump/train/acoustic_token/hificodec.pth
+
+    dev_datasets:
+        - target: soundstorm.s2.data.semantic_dataset.SemanticDataset
+          params:
+                codec_name: hificodec
+                num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
+                semantic_path: dump/dev/semantic_token.tsv
+                acoustic_path: dump/dev/acoustic_token/hificodec.pth

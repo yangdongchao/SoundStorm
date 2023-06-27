@@ -199,9 +199,7 @@ def main():
         model = VQVAE(
             config_path=args.config_path,
             ckpt_path=args.model_path,
-            with_encoder=True,
-            # set return_acoustic_tokens_only = True here to get acoustic tokens
-            return_acoustic_tokens_only=True)
+            with_encoder=True)
         model.cuda()
         model.generator.remove_weight_norm()
         model.encoder.remove_weight_norm()

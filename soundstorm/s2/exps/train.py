@@ -206,9 +206,7 @@ def main_worker(local_rank, args):
     hificodec = VQVAE(
         config_path=args.hificodec_config_path,
         ckpt_path=args.hificodec_model_path,
-        with_encoder=True,
-        # set return_acoustic_tokens_only = True here to get acoustic tokens
-        return_acoustic_tokens_only=True)
+        with_encoder=True)
     hificodec.generator.remove_weight_norm()
     hificodec.encoder.remove_weight_norm()
     hificodec.eval()

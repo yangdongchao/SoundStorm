@@ -57,7 +57,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --input_path=${root_dir}/dump/train/acoustic_token/hificodec/LJ050-0078.npy \
+        --input_path=${root_dir}/dump/train/acoustic_token/hificodec/LJ050-0250.npy \
         --output_dir=codebook2wav_output/ \
         # --num_quant=3 # NOT WORK HERE, default Nq of HiFi-Codec is 4 and cannot be reduced
     
