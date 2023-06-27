@@ -631,7 +631,7 @@ class Solver(object):
                         self.logger.add_scalar(
                             tag='val/{}/{}'.format(loss_n, k),
                             scalar_value=float(loss_dict[k]),
-                            global_step=self.last_epoch)
+                            global_step=self.last_iter)
                 self.logger.log_info(info)
 
             # sample
