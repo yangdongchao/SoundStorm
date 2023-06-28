@@ -3,13 +3,11 @@
 # based on https://github.com/cientgu/VQ-Diffusion
 # ------------------------------------------
 import argparse
-import datetime
 import os
-import time
 import warnings
 
-import numpy as np
 import torch
+from academicodec.models.hificodec.vqvae import VQVAE
 from soundstorm.s2.data.build import build_dataloader
 from soundstorm.s2.distributed.launch import launch
 from soundstorm.s2.engine.logger import Logger
@@ -29,7 +27,6 @@ MASTER_ADDR, MASTER_PORT = (os.environ['CHIEF_IP'],
 MASTER_PORT = int(MASTER_PORT)
 DIST_URL = 'tcp://%s:%s' % (MASTER_ADDR, MASTER_PORT)
 NUM_NODE = os.environ['HOST_NUM'] if 'HOST_NUM' in os.environ else 1
-
 
 def get_args():
     parser = argparse.ArgumentParser(description='PyTorch Training script')
@@ -52,7 +49,8 @@ def get_args():
         '--load_path',
         type=str,
         default=None,
-        help='path to model that need to be loaded, used for loading pretrained model')
+        help='path to model that need to be loaded, used for loading pretrained model'
+    )
     parser.add_argument(
         "--auto_resume",
         type=str2bool,
@@ -132,6 +130,15 @@ def get_args():
         help="automatic mixture of precesion")
     parser.add_argument(
         "--debug", type=str2bool, default=False, help="set as debug mode")
+    # for HiFi-Codec
+    parser.add_argument(
+        "--hificodec_model_path",
+        type=str,
+        default='pretrained_model/hificodec//HiFi-Codec-16k-320d')
+    parser.add_argument(
+        "--hificodec_config_path",
+        type=str,
+        default='pretrained_model/hificodec/config_16k_320d.json')
 
     # args for modify config
     parser.add_argument(
@@ -193,6 +200,16 @@ def main_worker(local_rank, args):
     model = build_model(config, args)
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    # for sample()
+    # NOTE by yuantian: all threads use some of memory of GPU 0 which need to be fixed
+    torch.cuda.set_device(local_rank)
+    hificodec = VQVAE(
+        config_path=args.hificodec_config_path,
+        ckpt_path=args.hificodec_model_path,
+        with_encoder=True)
+    hificodec.generator.remove_weight_norm()
+    hificodec.encoder.remove_weight_norm()
+    hificodec.eval()
 
     # get dataloader
     dataloader_info = build_dataloader(config, args)
@@ -202,7 +219,8 @@ def main_worker(local_rank, args):
         args=args,
         model=model,
         dataloader=dataloader_info,
-        logger=logger)
+        logger=logger,
+        hificodec=hificodec)
 
     # resume 
     # only load the model paramters

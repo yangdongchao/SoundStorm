@@ -9,7 +9,7 @@ import torch.nn.functional as F
 '''
 数据集构建策略:
 (1) prompt 不超过 3s, target 不超过 3s
-(2) 若总长度小于 6s, 则 1/2 分给prompt, 1/2 分给 target.
+(2) 若总长度小于 6s, 则 1/2 分给 prompt, 1/2 分给 target.
 (3) 分成 se_pro, se-tar, ac_pro, ac_targ 4 个部分返回，每个部分分别 padding 到其 max sample
 '''
 
@@ -39,15 +39,12 @@ class SemanticDataset(torch.utils.data.Dataset):
         self.acoustic_data = torch.load(acoustic_path)
 
         self.max_length = max_length
-        self.num_quant = 4 if codec_name=='hificodec' else num_quant
+        self.num_quant = 4 if codec_name == 'hificodec' else num_quant
         # 16000 / 320 = 50
         self.hz = 50  # 分辨率
         # 默认使用 3s 一个segments
         self.segment_size = 3
-        self.sizes = [
-            len(self.semantic_data['semantic_audio'][i].split(' '))
-            for i in range(len(self.semantic_data))
-        ]
+
         # NOTE by yuantian: same as SemanticTokenizer.dim_codebook
         self.semantic_token_nums = 1000
         # self.prompt_semantic_start_id = self.semantic_token_nums
@@ -59,11 +56,22 @@ class SemanticDataset(torch.utils.data.Dataset):
         self.prompt_acoustic_eos = self.acoustic_token_nums
         self.target_acoustic_eos = self.acoustic_token_nums + 1
 
+        self.batch_prompt_semantics = {}
+        self.batch_target_semantics = {}
+        self.batch_prompt_acoustics = {}
+        self.batch_target_acoustics = {}
+
         # 一个 batch 最多多少个 token
         self.max_token_one_batch = max_token_one_batch
-        # 调用初始化函数
-        self.init_batch()
+        self.inited=False
+
+        if not self.inited:
+            # 调用初始化函数
+            print("init_batch!!!!!!")
+            self.init_batch()
+            self.inited=True
         
+
     def init_batch(self):
         # this function aims to prepare batch
         # 一个 batch 的总 token 数量设为 5600 ❓
@@ -73,7 +81,11 @@ class SemanticDataset(torch.utils.data.Dataset):
         max_token_one_batch = self.max_token_one_batch
         sementic_ls = []
         len_ls = []
-        for i in range(len(self.semantic_data)):
+        semantic_data_len = len(self.semantic_data)
+        acoustic_data_len = len(self.acoustic_data.keys())
+        print("semantic_data_len:", semantic_data_len)
+        print("acoustic_data_len:", acoustic_data_len)
+        for i in range(semantic_data_len):
             # 先依次遍历
             # get str
             semantic_str = self.semantic_data['semantic_audio'][i]
@@ -85,10 +97,6 @@ class SemanticDataset(torch.utils.data.Dataset):
         sorted_id = sorted(
             range(len(len_ls)), key=lambda k: len_ls[k], reverse=True)
         start_batch_id = 0
-        self.batch_prompt_semantics = {}
-        self.batch_target_semantics = {}
-        self.batch_prompt_acoustics = {}
-        self.batch_target_acoustics = {}
         # 最大长度为 13s
         max_len = 13 * self.hz
         tmp_prompt_semantics = []
@@ -102,8 +110,13 @@ class SemanticDataset(torch.utils.data.Dataset):
             # get the semantic 
             # (1, T)
             over_semantic = torch.tensor(sementic_ls[index]).unsqueeze(0)
+            # 需要处理 item_name 不在 acoustic_data 中的情况
             item_name = self.semantic_data['item_name'][index]
-            acoustic_str = self.acoustic_data[item_name]
+            try:
+                acoustic_str = self.acoustic_data[item_name]
+            except Exception:
+                print(item_name, "not in self.acoustic_data!")
+                continue
             # only keep the first num_quant codebooks
             # 这里表明 acoustic_token 的存储方式是 (C, T)
             over_acoustic = acoustic_str[:self.num_quant, ...].squeeze(1)

@@ -10,12 +10,11 @@ train_output_path=exp/default
 # dir to set part/all of dump dataset and experiment result
 root_dir='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm'
 # there should be *.wav 、*/*.wav or */*/*.wav in data_dir
-data_dir='~/datasets/LJSpeech-1.1'
+data_dir='~/datasets/LibriTTS-R'
 config_path=conf/default.yaml
 log_frequency=10
 # 'tcp://%s:%s' % (MASTER_ADDR, MASTER_PORT)
-dist_url='tcp://127.0.0.1:29500'
-
+dist_url='tcp://127.0.0.1:29501'
 
 # with the following command, you can choose the stage range you want to run
 # such as `./run.sh --stage 0 --stop-stage 0`

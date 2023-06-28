@@ -1,5 +1,6 @@
 import argparse
 import os
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
 from pathlib import Path
@@ -54,7 +55,9 @@ def process_sentence(args, fp: Path, output_dir: Path, codec_extractor):
         record = {"utt_id": utt_id, "acoustic_token_path": acoustic_token_path}
     except Exception:
         print("occur Exception")
+        traceback.print_exc()
         return None
+
     return record
 
 
@@ -130,14 +133,14 @@ def main():
 
     parser.add_argument(
         "--model_path", type=str, default='./HiFi-Codec-16k-320d')
-    
+
     parser.add_argument(
         '--sr', type=int, default=16000, help='sample rate of model')
 
     # for HiFi-Codec
     parser.add_argument(
         "--config_path", type=str, default='./config_16k_320d.json')
-    
+
     # for Encodec
     parser.add_argument(
         '--ratios',
@@ -183,6 +186,38 @@ def main():
         dev_wav_files = wav_files[num_train:num_train + num_dev]
         test_wav_files = wav_files[num_train + num_dev:]
     elif args.dataset == "libritts":
+        '''
+        we use train-clean-100、train-clean-360、train-other-500 here 
+        and split dev and test from them, don't use test-* and dev-* cause the speakers are disjoint
+        the file structure is LibriTTS_R/train-clean-100/spkid/*/*.wav
+        there are about 2311 in these subsets, we split 1 dev and 1 test wav out from each speaker
+        '''
+        wav_files = []
+        train_wav_files = []
+        dev_wav_files = []
+        test_wav_files = []
+        sub_num_dev = 1
+        for sub_dataset_name in {
+                "train-clean-100", "train-clean-360", "train-other-500"
+        }:
+            sub_dataset_dir = data_dir / sub_dataset_name
+            # filter out hidden files
+            speaker_list = [
+                file for file in os.listdir(sub_dataset_dir)
+                if not file.startswith('.')
+            ]
+            for speaker in speaker_list:
+                wav_files = sorted(list((sub_dataset_dir / speaker).rglob("*/*.wav")))
+                # filter out ._*.wav
+                wav_files = [file for file in wav_files if not file.name.startswith('._')]
+                train_wav_files += wav_files[:-sub_num_dev * 2]
+                dev_wav_files += wav_files[-sub_num_dev * 2:-sub_num_dev]
+                test_wav_files += wav_files[-sub_num_dev:]
+        print("len(train_wav_files):", len(train_wav_files))
+        print("len(dev_wav_files):", len(dev_wav_files))
+        print("len(test_wav_files):", len(test_wav_files))
+
+    elif args.dataset == "librilight":
         print("not ready yet.")
 
     else:
@@ -199,9 +234,7 @@ def main():
         model = VQVAE(
             config_path=args.config_path,
             ckpt_path=args.model_path,
-            with_encoder=True,
-            # set return_acoustic_tokens_only = True here to get acoustic tokens
-            return_acoustic_tokens_only=True)
+            with_encoder=True)
         model.cuda()
         model.generator.remove_weight_norm()
         model.encoder.remove_weight_norm()

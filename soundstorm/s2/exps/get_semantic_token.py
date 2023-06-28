@@ -1,7 +1,6 @@
 import argparse
 import os
-# ThreadPoolExecutor 适用于 I/O 密集型任务，具有轻量级线程切换的优势
-# ProcessPoolExecutor 适用于 CPU 密集型任务，可以充分利用多核处理器的优势
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
 from pathlib import Path
@@ -12,6 +11,9 @@ import numpy as np
 import torch
 import tqdm
 from soundstorm.s2.models.mhubert.semantic_tokenizer import SemanticTokenizer
+
+# ThreadPoolExecutor 适用于 I/O 密集型任务，具有轻量级线程切换的优势
+# ProcessPoolExecutor 适用于 CPU 密集型任务，可以充分利用多核处理器的优势
 
 
 def process_sentence(fp: Path, output_dir: Path, semantic_tokenizer):
@@ -38,6 +40,7 @@ def process_sentence(fp: Path, output_dir: Path, semantic_tokenizer):
         record = {"utt_id": utt_id, "semantic_token_path": semantic_token_path}
     except Exception:
         print("occur Exception")
+        traceback.print_exc()
         return None
     return record
 
@@ -61,7 +64,7 @@ def process_sentences(fps: List[Path],
             with tqdm.tqdm(total=len(fps)) as progress:
                 for fp in fps:
                     future = pool.submit(process_sentence, fp, output_dir,
-                                            semantic_tokenizer)
+                                         semantic_tokenizer)
                     future.add_done_callback(lambda p: progress.update())
                     futures.append(future)
 
@@ -118,7 +121,7 @@ def main():
 
     parser.add_argument(
         "--num-cpu", type=int, default=1, help="number of process.")
-    
+
     args = parser.parse_args()
 
     data_dir = Path(args.data_dir).expanduser()
@@ -138,7 +141,36 @@ def main():
         dev_wav_files = wav_files[num_train:num_train + num_dev]
         test_wav_files = wav_files[num_train + num_dev:]
     elif args.dataset == "libritts":
-        print("not ready yet.")
+        '''
+        we use train-clean-100、train-clean-360、train-other-500 here 
+        and split dev and test from them, don't use test-* and dev-* cause the speakers are disjoint
+        the file structure is LibriTTS_R/train-clean-100/spkid/*/*.wav
+        there are about 2311 in these subsets, we split 1 dev and 1 test wav out from each speaker
+        '''
+        wav_files = []
+        train_wav_files = []
+        dev_wav_files = []
+        test_wav_files = []
+        sub_num_dev = 1
+        for sub_dataset_name in {
+                "train-clean-100", "train-clean-360", "train-other-500"
+        }:
+            sub_dataset_dir = data_dir / sub_dataset_name
+            # filter out hidden files
+            speaker_list = [
+                file for file in os.listdir(sub_dataset_dir)
+                if not file.startswith('.')
+            ]
+            for speaker in speaker_list:
+                wav_files = sorted(list((sub_dataset_dir / speaker).rglob("*/*.wav")))
+                # filter out ._*.wav
+                wav_files = [file for file in wav_files if not file.name.startswith('._')]
+                train_wav_files += wav_files[:-sub_num_dev * 2]
+                dev_wav_files += wav_files[-sub_num_dev * 2:-sub_num_dev]
+                test_wav_files += wav_files[-sub_num_dev:]
+        print("len(train_wav_files):", len(train_wav_files))
+        print("len(dev_wav_files):", len(dev_wav_files))
+        print("len(test_wav_files):", len(test_wav_files))
 
     else:
         print("dataset should in {ljspeech, libritts} now!")

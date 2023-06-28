@@ -5,6 +5,7 @@ from soundstorm.s2.utils.misc import instantiate_from_config
 from torch.utils.data import ConcatDataset
 
 
+
 def build_dataloader(config, args=None, return_dataset=False):
     dataset_cfg = config['dataloader']
     batch_size = 1
@@ -47,6 +48,7 @@ def build_dataloader(config, args=None, return_dataset=False):
         train_iters = len(train_dataset) // batch_size
         dev_iters = len(dev_dataset) // batch_size
     num_workers = dataset_cfg['num_workers']
+    persistent_workers = True if num_workers > 0 else False
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,
@@ -55,7 +57,10 @@ def build_dataloader(config, args=None, return_dataset=False):
         pin_memory=True,
         sampler=train_sampler,
         drop_last=True,
-        collate_fn=train_dataset.collater)
+        collate_fn=train_dataset.collater,
+        persistent_workers=persistent_workers,
+        # 解决 num_workers>0 时的 bad value(s) in fds_to_keep 报错
+        multiprocessing_context='fork')
 
     dev_loader = torch.utils.data.DataLoader(
         dev_dataset,
@@ -66,7 +71,8 @@ def build_dataloader(config, args=None, return_dataset=False):
         sampler=dev_sampler,
         drop_last=True,
         pin_memory=True,
-        collate_fn=train_dataset.collater)
+        collate_fn=train_dataset.collater,
+        persistent_workers=persistent_workers)
 
     dataload_info = {
         'train_loader': train_loader,
