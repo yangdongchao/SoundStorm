@@ -72,7 +72,7 @@ solver:
 
 dataloader:
     max_token_one_batch: 96000 # 影响单卡显存占用, 96k for 80G GPU (A100) (LJSpeech)
-    num_workers: 0
+    num_workers: 1
     train_datasets: # a list of configures, so we can combine several schedulers
         - target: soundstorm.s2.data.semantic_dataset.SemanticDataset
           params:

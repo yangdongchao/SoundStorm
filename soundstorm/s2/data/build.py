@@ -58,7 +58,9 @@ def build_dataloader(config, args=None, return_dataset=False):
         sampler=train_sampler,
         drop_last=True,
         collate_fn=train_dataset.collater,
-        persistent_workers=persistent_workers)
+        persistent_workers=persistent_workers,
+        # 解决 num_workers>0 时的 bad value(s) in fds_to_keep 报错
+        multiprocessing_context='fork')
 
     dev_loader = torch.utils.data.DataLoader(
         dev_dataset,
