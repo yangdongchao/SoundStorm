@@ -662,7 +662,7 @@ class Solver(object):
             check_primary=False)
 
         for epoch in range(start_epoch, self.max_epochs):
-            # self.validate_epoch()
+            self.validate_epoch()
             self.train_epoch()
             self.save(force=True)
-            self.validate_epoch()
+            # self.validate_epoch()
