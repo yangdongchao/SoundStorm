@@ -1,6 +1,6 @@
 #!/bin/bash
 stage=0
-stop_stage=0
+stop_stage=1
 root_dir=$1
 data_dir=$2
 
@@ -11,7 +11,7 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     python3 ${BIN_DIR}/get_semantic_token.py \
         --data_dir=${data_dir} \
         --dataset=libritts \
-        --dump_dir=${root_dir}/dump_libritts \
+        --dump_dir=${root_dir}/dump \
         --hubert_path=pretrained_model/mhubert/mhubert_base_vp_en_es_fr_it3.pt \
         --quantizer_path=pretrained_model/mhubert/mhubert_base_vp_en_es_fr_it3_L11_km1000.bin \
         --num-cpu=20
@@ -26,7 +26,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     python3 ${BIN_DIR}/get_acoustic_token.py \
         --data_dir=${data_dir} \
         --dataset=libritts \
-        --dump_dir=${root_dir}/dump_libritts \
+        --dump_dir=${root_dir}/dump \
         --codec_name=hificodec \
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
@@ -57,7 +57,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --input_path=${root_dir}/dump/train/acoustic_token/hificodec/LJ050-0250.npy \
+        --input_path=${root_dir}/dump/test/acoustic_token/hificodec/986_129388_000067_000000.npy \
         --output_dir=codebook2wav_output/ \
         # --num_quant=3 # NOT WORK HERE, default Nq of HiFi-Codec is 4 and cannot be reduced
     
@@ -70,14 +70,14 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     #     --target_bandwidths 1 1.5 2 4 6 12 \
     #     --target_bw=12 \
     #     --sr=16000 \
-    #     --input_path=${root_dir}/dump/train/acoustic_token/encodec/LJ050-0250.npy \
+    #     --input_path=${root_dir}/dump/test/acoustic_token/hificodec/986_129388_000067_000000.npy  \
     #     --output_dir=codebook2wav_output/ \
     #     # --num_quant=3 # default Nq of Encodec is 24
 fi
 
-
-
 # align the lengths of semantic token and acoustic token
+# acoustic token 和 semantic token 求交集，因为可能数据预处理报错
+# 如 1092_134562_000013_000004.wav 文件损坏
 # 如何对齐，剪裁掉长的部分吗？
 # 需要看下在训练时的 dataset 是否有对齐的操作
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then

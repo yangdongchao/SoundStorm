@@ -38,9 +38,9 @@ model:
 solver:
     base_lr: 3.0e-6
     adjust_lr: none # not adjust lr according to total batch_size
-    max_epochs: 9200 # 400 for LibriTTS 9.2k epoch for LJspeech
-    save_epochs: 10
-    dev_epochs: 10
+    max_epochs: 400 # 400 for LibriTTS 9.2k epoch for LJspeech
+    save_epochs: 1
+    dev_epochs: 1
     ema:
         decay: 0.99
         update_interval: 25
