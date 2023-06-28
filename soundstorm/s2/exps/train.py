@@ -28,7 +28,6 @@ MASTER_PORT = int(MASTER_PORT)
 DIST_URL = 'tcp://%s:%s' % (MASTER_ADDR, MASTER_PORT)
 NUM_NODE = os.environ['HOST_NUM'] if 'HOST_NUM' in os.environ else 1
 
-
 def get_args():
     parser = argparse.ArgumentParser(description='PyTorch Training script')
     parser.add_argument(
