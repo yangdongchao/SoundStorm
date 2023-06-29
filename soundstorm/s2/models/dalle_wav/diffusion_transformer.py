@@ -553,7 +553,7 @@ class DiffusionTransformer(nn.Module):
         x_start = x  # (b, N)
         # 时间采样
         t, pt = self.sample_time(b, device, 'importance')
-        # 将数值代表，转换为由 one-hot 向量组成的矩阵,其中每个向量最大值所在的索引就是原始的值
+        # 将数值代表，转换为由 one-hot 向量组成的矩阵, 其中每个向量最大值所在的索引就是原始的值
         log_x_start = index_to_log_onehot(x_start, self.num_classes)
         # 通过采样获得 log_xt, 随机采得
         log_xt = self.q_sample(log_x_start=log_x_start, t=t)
@@ -740,7 +740,7 @@ class DiffusionTransformer(nn.Module):
         device = input['target_acoustics'].device
         # 1) get embeddding for condition and content  prepare input
         content_token = input['target_acoustics'].reshape(batch_size, -1)
-        # 目前先不使用 mask,因为我们直接padding eos
+        # 目前先不使用 mask,因为我们直接 padding eos
         content_token_mask = None
         content_token_mask = input['x_mask']
         # cont_emb = self.content_emb(sample_image)
@@ -769,6 +769,7 @@ class DiffusionTransformer(nn.Module):
             out['logits'] = torch.exp(log_model_prob)
         if return_loss:
             out['loss'] = loss
+            # out['acc'] = acc
         self.amp = False
         return out
 

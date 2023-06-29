@@ -621,8 +621,8 @@ class Solver(object):
             else:
                 val = (self.last_epoch + 1) in self.dev_epochs
         if val:
-            if self.args.distributed:
-                self.dataloader['dev_loader'].sampler.set_epoch(self.last_epoch)
+            # if self.args.distributed:
+            #     self.dataloader['dev_loader'].sampler.set_epoch(self.last_epoch)
             self.model.eval()
 
             overall_loss = None
