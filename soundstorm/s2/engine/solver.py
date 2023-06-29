@@ -7,7 +7,6 @@ import math
 import os
 import time
 
-import librosa
 import numpy as np
 import soundfile as sf
 import torch
@@ -627,14 +626,22 @@ class Solver(object):
             self.model.eval()
 
             overall_loss = None
-
+            first_batch = None
+            # 求所有 dev batch loss 的均值
             for itr, batch in enumerate(self.dataloader['dev_loader']):
+                if first_batch is None:
+                    first_batch = batch
                 loss = self.step(batch, phase='val')
                 for loss_n, loss_dict in loss.items():
                     loss[loss_n] = reduce_dict(loss_dict)
-                # 保留第一个 dev iter 的 loss
                 if overall_loss is None:
                     overall_loss = loss
+                else:
+                    for loss_n, loss_dict in loss.items():
+                        for k, v in loss_dict.items():
+                            overall_loss[loss_n][k] = (
+                                overall_loss[loss_n][k] * itr + loss[loss_n][k]
+                            ) / (itr + 1)
 
             if self.logger:
                 info = ''
@@ -651,8 +658,9 @@ class Solver(object):
                 self.logger.log_info(info)
 
             # sample
+            # 用的是最后一个 batch 的数据，有可能太短了，可以换成第一个
             if (self.last_epoch + 1) % self.sample_epochs == 0:
-                self.sample(batch, phase='val', step_type='iteration')
+                self.sample(first_batch, phase='val', step_type='iteration')
 
     def train(self):
         start_epoch = self.last_epoch + 1
