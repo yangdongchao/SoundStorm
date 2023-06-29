@@ -67,7 +67,6 @@ class SemanticDataset(torch.utils.data.Dataset):
 
         if not self.inited:
             # 调用初始化函数
-            print("init_batch!!!!!!")
             self.init_batch()
             self.inited=True
         

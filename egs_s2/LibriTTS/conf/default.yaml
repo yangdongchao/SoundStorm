@@ -38,7 +38,7 @@ model:
 solver:
     base_lr: 3.0e-6
     adjust_lr: none # not adjust lr according to total batch_size
-    max_epochs: 400 # 400 for LibriTTS 9.2k epoch for LJspeech
+    max_epochs: 400 # 400 for LibriTTS (train-clean-100 + train-clean-360) 9.2k epoch for LJspeech
     save_epochs: 1
     dev_epochs: 1
     ema:
@@ -71,7 +71,7 @@ solver:
                 warmup: 1000
 
 dataloader:
-    max_token_one_batch: 80000 # 影响单卡显存占用, 80k for 80G GPU (A100) (LibriTTS)
+    max_token_one_batch: 81000 # 影响单卡显存占用, 81k for 80G GPU (A100) (LibriTTS)
     num_workers: 2
     train_datasets: # a list of configures, so we can combine several schedulers
         - target: soundstorm.s2.data.semantic_dataset.SemanticDataset

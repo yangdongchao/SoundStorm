@@ -531,7 +531,7 @@ class DiffusionTransformer(nn.Module):
             return t, pt
 
         elif method == 'uniform':
-            # 从 [0,num_timesteps] 随机产生 b 个数
+            # 从 [0, num_timesteps] 随机产生 b 个数
             t = torch.randint(
                 0, self.num_timesteps, (b, ), device=device).long()
             # 概率一直都是0.01?
@@ -550,7 +550,8 @@ class DiffusionTransformer(nn.Module):
             is_train=True):
         b, device = x.size(0), x.device
         assert self.loss_type == 'vb_stochastic'
-        x_start = x  # (b, N)
+        # (b, N)
+        x_start = x
         # 时间采样
         t, pt = self.sample_time(b, device, 'importance')
         # 将数值代表，转换为由 one-hot 向量组成的矩阵, 其中每个向量最大值所在的索引就是原始的值
@@ -567,9 +568,9 @@ class DiffusionTransformer(nn.Module):
         log_model_prob = self.q_posterior(
             log_x_start=log_x0_recon, log_x_t=log_xt, t=t)
         ################## compute acc list ################
-        # 获得预测的 x_0
+        # 获得预测的 x_0, shape (B, T)
         x0_recon = log_onehot_to_index(log_x0_recon)
-        # 真实值
+        # 真实值, shape (B, T)
         x0_real = x_start
         # 直接采样 x_(t-1), 与 x(t) 相同的数量
         xt_1_recon = log_onehot_to_index(log_model_prob)
@@ -578,11 +579,14 @@ class DiffusionTransformer(nn.Module):
         x_mask_repeat = x_mask.unsqueeze(1).repeat(1, self.n_q, 1)
         # B, Len*n_q
         x_mask = x_mask_repeat.reshape(x_mask_repeat.shape[0], -1)
+        # 对 batch 维度进行遍历
         for index in range(t.size()[0]):
+            # batch 里面的每一条有一个时间随机数
             this_t = t[index].item()
             # 获得当前样本的 mask 值
             tmp_mask = ~x_mask[index]
             # 只保留非 mask 部分
+            # tmp_x0_recon 和 tmp_x0_real 长度一致, shape (T)
             tmp_x0_recon = x0_recon[index][tmp_mask]
             tmp_x0_real = x0_real[index][tmp_mask]
             same_rate = (

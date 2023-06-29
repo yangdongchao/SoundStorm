@@ -45,7 +45,8 @@ class Solver(object):
         # 多少个 epoch 验证一次
         self.dev_epochs = config['solver'].get('dev_epochs', 2)
         # sample() 很耗时，需要 70s 
-        self.sample_epochs = self.dev_epochs * 2
+        # self.sample_epochs = self.dev_epochs * 2
+        self.sample_epochs = 1
 
         assert isinstance(self.save_epochs, (int, list))
         assert isinstance(self.dev_epochs, (int, list))
@@ -113,7 +114,8 @@ class Solver(object):
         self.logger.log_info(str(get_model_parameters_info(self.model)))
         #self.model.cuda() 
         self.model.to(self.args.local_rank)
-        self.hificodec.to(self.args.local_rank)
+        if args.local_rank == 0:
+            self.hificodec.to(self.args.local_rank)
         self.device = self.model.device
 
         if self.args.distributed:
@@ -631,6 +633,7 @@ class Solver(object):
             for itr, batch in enumerate(self.dataloader['dev_loader']):
                 if first_batch is None:
                     first_batch = batch
+                # val 直接用 is_primary() 时卡到这里了
                 loss = self.step(batch, phase='val')
                 for loss_n, loss_dict in loss.items():
                     loss[loss_n] = reduce_dict(loss_dict)
@@ -656,11 +659,11 @@ class Solver(object):
                             scalar_value=float(loss_dict[k]),
                             global_step=self.last_iter)
                 self.logger.log_info(info)
-
-            # sample
-            # 用的是最后一个 batch 的数据，有可能太短了，可以换成第一个
-            if (self.last_epoch + 1) % self.sample_epochs == 0:
-                self.sample(first_batch, phase='val', step_type='iteration')
+            if is_primary():
+                # sample
+                # 用的是最后一个 batch 的数据，有可能太短了，可以换成第一个
+                if (self.last_epoch + 1) % self.sample_epochs == 0:
+                    self.sample(first_batch, phase='val', step_type='iteration')
 
     def train(self):
         start_epoch = self.last_epoch + 1
