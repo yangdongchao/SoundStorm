@@ -10,6 +10,7 @@ from hydra.utils import instantiate
 from soundstorm.s2.utils.misc import instantiate_from_config
 from torch import nn
 from torch.cuda.amp import autocast
+from torchmetrics.classification import MulticlassAccuracy
 eps = 1e-8
 
 
@@ -255,6 +256,11 @@ class DiffusionTransformer(nn.Module):
         self.update_n_sample(total_num=1300)
 
         self.learnable_cf = learnable_cf
+
+        self.metric_top10 = MulticlassAccuracy(
+            self.num_classes, top_k=10, average="micro")
+        self.metric_top1 = MulticlassAccuracy(
+            self.num_classes, top_k=1, average="micro")
 
     def update_n_sample(self, total_num):
         # 设定每步要更新的 mask sample
@@ -561,7 +567,7 @@ class DiffusionTransformer(nn.Module):
         # get b, N
         xt = log_onehot_to_index(log_xt)
         ############### go to p_theta function ###############
-        # P_theta(x0|xt)
+        # P_theta(x0|xt) shape (B, num_classes, T)
         log_x0_recon = self.predict_start(
             log_xt, cond_emb, x_mask, cond_emb_mask, t=t)
         # go through q(xt_1|xt,x0)
@@ -628,7 +634,7 @@ class DiffusionTransformer(nn.Module):
         # 记录下 kl
         new_Lt_history = (0.1 * Lt2 + 0.9 * Lt2_prev).detach()
         self.Lt_history.scatter_(dim=0, index=t, src=new_Lt_history)
-        # 记录加的次数,也可理解为选择了时间步t的次数
+        # 记录加的次数, 也可理解为选择了时间步 t 的次数
         self.Lt_count.scatter_add_(dim=0, index=t, src=torch.ones_like(Lt2))
 
         # Upweigh loss term of the kl
@@ -648,7 +654,11 @@ class DiffusionTransformer(nn.Module):
                 addition_loss_weight = 1.0
             loss2 = addition_loss_weight * self.auxiliary_loss_weight * kl_aux_loss / pt
             vb_loss += loss2
-        return log_model_prob, vb_loss
+
+        top1_acc = self.metric_top1(log_model_prob, x_start)
+        top10_acc = self.metric_top10(log_model_prob, x_start)
+
+        return log_model_prob, vb_loss, top1_acc, top10_acc
 
     @property
     def device(self):
@@ -762,7 +772,7 @@ class DiffusionTransformer(nn.Module):
             # cond_emb = cond_emb.float()
             pass
         if is_train is True:
-            log_model_prob, loss = self._train_loss(
+            log_model_prob, loss, top1_acc, top10_acc = self._train_loss(
                 content_token, cond_emb, content_token_mask, cond_emb_mask)
             # ? mask
             loss = loss.sum() / (content_token.size()[0] *
@@ -773,7 +783,8 @@ class DiffusionTransformer(nn.Module):
             out['logits'] = torch.exp(log_model_prob)
         if return_loss:
             out['loss'] = loss
-            # out['acc'] = acc
+            out['top1_acc'] = top1_acc
+            out['top10_acc'] = top10_acc
         self.amp = False
         return out
 
