@@ -10,7 +10,7 @@ from hydra.utils import instantiate
 from soundstorm.s2.utils.misc import instantiate_from_config
 from torch import nn
 from torch.cuda.amp import autocast
-from torchmetrics.classification import MulticlassAccuracy
+# from torchmetrics.classification import MulticlassAccuracy
 eps = 1e-8
 
 
@@ -257,10 +257,11 @@ class DiffusionTransformer(nn.Module):
 
         self.learnable_cf = learnable_cf
 
-        self.metric_top10 = MulticlassAccuracy(
-            self.num_classes, top_k=10, average="micro")
-        self.metric_top1 = MulticlassAccuracy(
-            self.num_classes, top_k=1, average="micro")
+        # too slow
+        # self.metric_top10 = MulticlassAccuracy(
+        #     self.num_classes, top_k=10, average="micro",multidim_average="global",)
+        # self.metric_top1 = MulticlassAccuracy(
+        #     self.num_classes, top_k=1, average="micro",multidim_average="global",)
 
     def update_n_sample(self, total_num):
         # 设定每步要更新的 mask sample
@@ -546,6 +547,13 @@ class DiffusionTransformer(nn.Module):
         else:
             raise ValueError
 
+    def topk_accuracy(self, predictions, targets, k=1):
+        _, indices = torch.topk(predictions, k, dim=1)
+        targets_expanded = targets.unsqueeze(1).expand_as(indices)
+        correct = torch.sum(indices == targets_expanded, dim=1)
+        accuracy = torch.sum(correct) / targets.numel()
+        return accuracy
+
     def _train_loss(
             self,
             x,
@@ -655,8 +663,19 @@ class DiffusionTransformer(nn.Module):
             loss2 = addition_loss_weight * self.auxiliary_loss_weight * kl_aux_loss / pt
             vb_loss += loss2
 
-        top1_acc = self.metric_top1(log_model_prob, x_start)
-        top10_acc = self.metric_top10(log_model_prob, x_start)
+        # calculate acc in cpu cause it cost to much gpu when use MulticlassAccuracy
+        # self.metric_top1.to('cpu')
+        # self.metric_top10.to('cpu')
+        probs = log_model_prob.cpu()
+        targets = x_start.cpu()
+
+        # top1_acc = self.metric_top1(probs, targets)
+        top1_acc = self.topk_accuracy(probs, targets, k=1)
+        # top10_acc = self.metric_top10(probs, targets)
+        top10_acc = self.topk_accuracy(probs, targets, k=10)
+
+        top1_acc = top1_acc.to(vb_loss.device)
+        top10_acc = top10_acc.to(vb_loss.device)
 
         return log_model_prob, vb_loss, top1_acc, top10_acc
 
@@ -754,7 +773,7 @@ class DiffusionTransformer(nn.Module):
         device = input['target_acoustics'].device
         # 1) get embeddding for condition and content  prepare input
         content_token = input['target_acoustics'].reshape(batch_size, -1)
-        # 目前先不使用 mask,因为我们直接 padding eos
+        # 目前先不使用 mask, 因为我们直接 padding eos
         content_token_mask = None
         content_token_mask = input['x_mask']
         # cont_emb = self.content_emb(sample_image)
@@ -835,7 +854,7 @@ class DiffusionTransformer(nn.Module):
                         diffusion_index,
                         device=device,
                         dtype=torch.long)
-                    # 初始时 sampled 全设为0
+                    # 初始时 sampled 全设为 0
                     sampled = [0] * log_z.shape[0]
                     while min(sampled) < self.n_sample[diffusion_index]:
                         # log_z is log_onehot
