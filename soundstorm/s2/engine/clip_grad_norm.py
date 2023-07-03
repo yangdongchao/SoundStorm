@@ -16,14 +16,14 @@ class ClipGradNorm(object):
         self.end_iteration = end_iteration
         self.max_norm = max_norm
 
-        self.last_epoch = -1
+        self.last_iter = -1
 
     def __call__(self, parameters):
-        self.last_epoch += 1
+        self.last_iter += 1
         clip = False
-        if self.last_epoch >= self.start_iteration:
+        if self.last_iter >= self.start_iteration:
             clip = True
-        if self.end_iteration > 0 and self.last_epoch < self.end_iteration:
+        if self.end_iteration > 0 and self.last_iter < self.end_iteration:
             clip = True
         if clip:
             clip_grad_norm_(parameters, max_norm=self.max_norm)

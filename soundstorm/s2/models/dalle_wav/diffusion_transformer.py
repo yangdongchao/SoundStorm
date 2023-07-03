@@ -547,10 +547,16 @@ class DiffusionTransformer(nn.Module):
         else:
             raise ValueError
 
-    def topk_accuracy(self, predictions, targets, k=1):
+    def topk_accuracy(self, predictions, targets, k=1, mask=None):
         _, indices = torch.topk(predictions, k, dim=1)
         targets_expanded = targets.unsqueeze(1).expand_as(indices)
-        correct = torch.sum(indices == targets_expanded, dim=1)
+        if mask is not None:
+            # Apply mask to the targets and indices
+            mask_expanded = mask.unsqueeze(1).expand_as(indices)
+            targets_expanded = targets_expanded[mask_expanded]
+            indices = indices[mask_expanded]
+
+        correct = torch.sum(indices == targets_expanded)
         accuracy = torch.sum(correct) / targets.numel()
         return accuracy
 
@@ -668,11 +674,12 @@ class DiffusionTransformer(nn.Module):
         # self.metric_top10.to('cpu')
         probs = log_model_prob.cpu()
         targets = x_start.cpu()
+        x_mask_cpu_reverse = ~x_mask.cpu()
 
         # top1_acc = self.metric_top1(probs, targets)
-        top1_acc = self.topk_accuracy(probs, targets, k=1)
+        top1_acc = self.topk_accuracy(probs, targets, k=1, mask=x_mask_cpu_reverse)
         # top10_acc = self.metric_top10(probs, targets)
-        top10_acc = self.topk_accuracy(probs, targets, k=10)
+        top10_acc = self.topk_accuracy(probs, targets, k=10, mask=x_mask_cpu_reverse)
 
         top1_acc = top1_acc.to(vb_loss.device)
         top10_acc = top10_acc.to(vb_loss.device)

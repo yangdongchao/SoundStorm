@@ -521,6 +521,7 @@ class Solver(object):
             if 'clip_grad_norm' in state_dict and self.clip_grad_norm:
                 self.clip_grad_norm.load_state_dict(
                     state_dict['clip_grad_norm'])
+                self.clip_grad_norm.last_iter = self.last_iter
 
             # handle optimizer and scheduler
             for op_sc_n, op_sc in state_dict['optimizer_and_scheduler'].items():

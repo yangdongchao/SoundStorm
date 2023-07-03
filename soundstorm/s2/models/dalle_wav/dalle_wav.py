@@ -4,6 +4,7 @@
 # ------------------------------------------
 import torch
 from soundstorm.s2.utils.misc import instantiate_from_config
+from soundstorm.utils.initialize import initialize
 from torch import nn
 
 
@@ -15,7 +16,8 @@ class DALLE(nn.Module):
             content_info={'key': 'wav_token'},
             condition_info={'key': 'text_dpe_adapted'},
             learnable_cf=False,
-            diffusion_config, ):
+            diffusion_config,
+            init_type: str="kaiming_uniform", ):
         super().__init__()
         self.n_q = n_q
         self.content_info = content_info
@@ -29,6 +31,7 @@ class DALLE(nn.Module):
         self.truncation_forward = False
         # the last token reprent MASK
         self.mask_id = 1024
+        initialize(self, init_type)
 
     def parameters(self, recurse=True, name=None):
         if name is None or name == 'none':
