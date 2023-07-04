@@ -1,226 +1,186 @@
-# ------------------------------------------
-# Diffsound
-# written by Dongchao Yang
-# code based https://github.com/cientgu/VQ-Diffusion
-# ------------------------------------------
-import datetime
-import os
-import sys
-import typing as tp
+import argparse
+import time
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import soundfile as sf
 import torch
-from omegaconf import OmegaConf
+from academicodec.models.hificodec.vqvae import VQVAE
 from soundstorm.s2.models.dalle_wav.build import build_model
 from soundstorm.s2.utils.io import load_yaml_config
-from soundstorm.s2.utils.misc import get_model_parameters_info
-sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
+
+# 每一条构成一个 batch 过一遍模型
+# 是单条推理还是凑 batch 推理？=> 可以实现两种分别看速度
+# 测试集 batch 是否要有随机性 => 最好是不要，方便对比不同模型的效果
 
 
-def save_audio(wav: torch.Tensor,
-               path: tp.Union[Path, str],
-               sample_rate: int,
-               rescale: bool=False):
+def hificodec_decode(hificodec, acoustic_token, rescale=True):
+    """
+    acoustic_token: shape [B, Nq, T]
+    """
+    # hificodec decode 需要 [B, T, Nq]
+    # [B, Nq, T] -> [B, T, Nq]
+    acoustic_token = acoustic_token.transpose(1, 2)
+    # VQVAE.forward()
+    wav = hificodec(acoustic_token)
+    wav = wav.detach().squeeze().cpu().numpy()
     limit = 0.99
-    mx = wav.abs().max()
     if rescale:
+        mx = np.abs(wav).max()
         wav = wav * min(limit / mx, 1)
     else:
-        wav = wav.clamp(-limit, limit)
-    wav = wav.squeeze().cpu().numpy()
-    sf.write(path, wav, sample_rate)
+        wav = wav.clip(-limit, limit)
+    return wav
 
 
-def get_mask_from_lengths(lengths, max_len=None):
-    """Get pad mask"""
-    batch_size = lengths.shape[0]
-    if max_len is None:
-        max_len = torch.max(lengths).item()
-    ids = torch.arange(0, max_len).unsqueeze(0).expand(batch_size,
-                                                       -1).type_as(lengths)
-    mask = ids >= lengths.unsqueeze(1).expand(-1, max_len)
-    return mask
+def get_batch(acoustic_data, semantic_data, index, num_quant=4):
+    '''
+    一条数据构成一个 batch
+    (1) 若总长度大于 6s, 前 3s 为 prompt, 剩余为 target 
+    (2) 若总长度小于 6s, 则 1/2 分给 prompt, 剩余为 target 
+    (3) target 最多为 10s
+    '''
+    hz = 50
+
+    item_name = semantic_data['item_name'][index]
+    semantic_str = semantic_data['semantic_audio'][index]
+    # shape: (1, T)
+    semantic_tokens = torch.tensor(
+        [int(idx) for idx in semantic_str.split(' ')]).unsqueeze(0)
+    try:
+        acoustic_str = acoustic_data[item_name]
+    except Exception:
+        return None
+    # shape (4, T)
+    # acoustic_tokens 的 T 与 semantic_tokens 的 T 可能有误差
+    acoustic_tokens = acoustic_str[:num_quant, ...]
+    if acoustic_tokens.shape[1] > 6 * hz:
+        prompt_len = 3 * hz
+    else:
+        prompt_len = acoustic_tokens.shape[1] // 2
+
+    prompt_acoustic_tokens = acoustic_tokens[:, :prompt_len]
+    prompt_semantic_tokens = semantic_tokens[:, :prompt_len]
+    target_semantic_tokens = semantic_tokens[:, prompt_len:prompt_len + 10 * hz]
+    prompt_semantic_tokens = prompt_semantic_tokens.cuda()
+    target_semantic_tokens = target_semantic_tokens.cuda()
+    prompt_acoustic_tokens = prompt_acoustic_tokens.cuda()
+
+    real_acoustic_tokens = acoustic_tokens[:, prompt_len:prompt_len + 10 * hz]
+    real_acoustic_tokens = real_acoustic_tokens.cuda()
+
+    # 用 False 指示有值的位置, shape (1, T)
+    x_mask = torch.zeros((1, real_acoustic_tokens.shape[-1])).bool().cuda()
+
+    samples = {}
+    # pseudo batch
+    samples['prompt_semantics'] = prompt_semantic_tokens.unsqueeze(0)
+    samples['target_semantics'] = target_semantic_tokens.unsqueeze(0)
+    samples['prompt_acoustics'] = prompt_acoustic_tokens.unsqueeze(0)
+    samples['target_acoustics'] = real_acoustic_tokens.unsqueeze(0)
+    samples['x_mask'] = x_mask
+    return samples
 
 
-def build_codec_model(config):
-    model = eval(config.generator.name)(**config.generator.config)
-    return model
+def evaluate(args):
+    # get models
+    # get codec
+    hificodec = VQVAE(
+        config_path=args.hificodec_config_path,
+        ckpt_path=args.hificodec_model_path,
+        with_encoder=True)
+    hificodec.generator.remove_weight_norm()
+    hificodec.encoder.remove_weight_norm()
+    hificodec.eval()
+    hificodec.cuda()
+
+    # get soundstorm
+    config = load_yaml_config(args.config_file)
+    ckpt = torch.load(args.ckpt_path, map_location="cpu")
+    soundstorm = build_model(config)
+    soundstorm.load_state_dict(ckpt["model"])
+    soundstorm.eval()
+    soundstorm.cuda()
+
+    acoustic_data = torch.load(args.test_acoustic_path)
+    semantic_data = pd.read_csv(args.test_semantic_path, delimiter='\t')
+    num_quant = 4
+    sample_rate = 16000
+
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for index, utt_id in enumerate(semantic_data['item_name'][:1]):
+        # 需要处理 item_name 不在 acoustic_data 中的情况
+        batch = get_batch(
+            acoustic_data, semantic_data, index, num_quant=num_quant)
+        # some wrong with this index od data
+        if batch is None:
+            continue
+
+        with torch.no_grad():
+            start = time.time()
+            model_out = soundstorm.infer_one(batch)
+            end = time.time()
+            print("infer time:", end - start)
+
+        content = model_out['token_pred']
+        # shape (B, Nq x T) -> (B, Nq, T)
+        codes = content.reshape(content.shape[0], num_quant, -1)
+        wav_gen = hificodec_decode(hificodec, codes)
+        wav_gt = hificodec_decode(hificodec, batch['target_acoustics'])
+
+        sf.write(output_dir / (utt_id + ".wav"), wav_gen, sample_rate)
+        sf.write(output_dir / (utt_id + "_real.wav"), wav_gt, sample_rate)
 
 
-def build_soundstream():
-    config_path = 'encodec_16k_6kbps_v4/config.yaml'
-    resume_path = 'encodec_16k_6kbps_v4/model_ckpts/ckpt_01215000.pth'
-    config = OmegaConf.load(config_path)
-    soundstream = build_codec_model(config)
-    # soundstream = SoundStream(n_filters=32, D=512, ratios=[8, 5, 4, 2]) 
-    parameter_dict = torch.load(resume_path)
-    # load model
-    soundstream.load_state_dict(parameter_dict['codec_model'])
-    soundstream = soundstream.cuda()
-    return soundstream
+def parse_args():
+    # parse args and config
+    parser = argparse.ArgumentParser(description="Run SoundStorm for test set.")
+
+    parser.add_argument(
+        '--config_file',
+        type=str,
+        default='conf/default.yaml',
+        help='path of config file')
+
+    parser.add_argument(
+        '--ckpt_path',
+        type=str,
+        default='exp/default/checkpoint/last.pth',
+        help='Checkpoint file of SoundStorm model.')
+
+    # args for dataset
+    parser.add_argument(
+        '--test_semantic_path',
+        type=str,
+        default='dump/test/semantic_token.tsv')
+    parser.add_argument(
+        '--test_acoustic_path',
+        type=str,
+        default='dump/test/acoustic_token/hificodec.pth')
+
+    # for HiFi-Codec
+    parser.add_argument(
+        "--hificodec_model_path",
+        type=str,
+        default='pretrained_model/hificodec//HiFi-Codec-16k-320d')
+    parser.add_argument(
+        "--hificodec_config_path",
+        type=str,
+        default='pretrained_model/hificodec/config_16k_320d.json')
+
+    parser.add_argument("--output_dir", type=str, help="output dir.")
+
+    args = parser.parse_args()
+    return args
 
 
-class Diffsound():
-    def __init__(self, config, path):
-        self.info = self.get_model(
-            ema=True, model_path=path, config_path=config)
-        self.model = self.info['model']
-        self.epoch = self.info['epoch']
-        self.model_name = self.info['model_name']
-        self.model = self.model.cuda()
-        self.model.eval()
-        for param in self.model.parameters():
-            param.requires_grad = False
-
-    def get_model(self, ema, model_path, config_path):
-        if 'OUTPUT' in model_path:  # pretrained model
-            model_name = model_path.split(os.path.sep)[-3]
-        else:
-            model_name = os.path.basename(config_path).replace('.yaml', '')
-        config = load_yaml_config(config_path)
-        # 加载 dalle model
-        model = build_model(config)
-        # 参数详情
-        model_parameters = get_model_parameters_info(model)
-        print(model_parameters)
-        if os.path.exists(model_path):
-            ckpt = torch.load(model_path, map_location="cpu")
-        if 'last_epoch' in ckpt:
-            epoch = ckpt['last_epoch']
-        elif 'epoch' in ckpt:
-            epoch = ckpt['epoch']
-        else:
-            epoch = 0
-        missing, unexpected = model.load_state_dict(ckpt["model"], strict=False)
-        print('Model missing keys:\n', missing)
-        print('Model unexpected keys:\n', unexpected)
-        if ema is True and 'ema' in ckpt:
-            print("Evaluate EMA model")
-            ema_model = model.get_ema_model()
-            missing, unexpected = ema_model.load_state_dict(
-                ckpt['ema'], strict=False)
-        return {
-            'model': model,
-            'epoch': epoch,
-            'model_name': model_name,
-            'parameter': model_parameters
-        }
-
-    def read_tsv(self, val_path):
-        train_tsv = pd.read_csv(val_path, sep=',', usecols=[0, 1])
-        filenames = train_tsv['file_name']
-        captions = train_tsv['caption']
-        filenames_ls = []
-        captions_ls = []
-        for name in filenames:
-            filenames_ls.append(name)
-        for cap in captions:
-            captions_ls.append(cap)
-        caps_dict = {}
-        for i in range(len(filenames_ls)):
-            if filenames_ls[i] not in caps_dict.keys():
-                caps_dict[filenames_ls[i]] = [captions_ls[i]]
-            else:
-                caps_dict[filenames_ls[i]].append(captions_ls[i])
-        return caps_dict
-
-    def generate_sample(self, val_path, truncation_rate, save_root, fast=False):
-        semantic_path = 'semantic/test.tsv'
-        acoustic_path = os.path.join('LibriTTS_1000', 'acoustic',
-                                     'acoustic_2.pth')
-        # get dict
-        acoustic_data = torch.load(acoustic_path)
-        # 读取 semantic
-        semantic_data = pd.read_csv(semantic_path, delimiter='\t')
-        import time
-        time_str = time.strftime('%Y-%m-%d-%H-%M')
-        store_root = os.path.join(save_root, 'generate_' + time_str)
-        os.makedirs(store_root, exist_ok=True)
-        soundstream = build_soundstream()
-        for index in range(len(semantic_data['item_name'])):
-            name = semantic_data['item_name'][index]
-            semantic_str = semantic_data['semantic_audio'][index]
-            semantic_tokens = torch.tensor(
-                [int(idx) for idx in semantic_str.split(' ')]).unsqueeze(0)
-            print('semantic_tokens ', semantic_tokens.shape)
-            acoustic_tokens = acoustic_data[name]  # 
-            acoustic_tokens = torch.from_numpy(acoustic_tokens)
-            # n,len
-            acoustic_tokens = acoustic_tokens.squeeze(1)
-            acoustic_tokens = acoustic_tokens.unsqueeze(0)
-            # only use 3 codebook, you can set any config.
-            acoustic_tokens = acoustic_tokens[:, :3, :]
-            print('acoustic_tokens ', acoustic_tokens.shape)
-            if acoustic_tokens.shape[1] > 6 * 50:
-                tmp_len = 150
-            else:
-                tmp_len = acoustic_tokens.shape[1] // 2
-            # 这里和 dataset 的写法很像
-            prompt_acoustic_tokens = acoustic_tokens[:, :, :tmp_len]
-            prompt_semantic_tokens = semantic_tokens[:, :tmp_len]
-            # the left 
-            target_semantic_tokens = semantic_tokens[:, tmp_len:tmp_len + 500]
-
-            prompt_semantic_tokens = prompt_semantic_tokens.cuda()
-            target_semantic_tokens = target_semantic_tokens.cuda()
-            prompt_acoustic_tokens = prompt_acoustic_tokens.cuda()
-            real_acoustic_tokens = acoustic_tokens[:, :, tmp_len:tmp_len + 500]
-            real_acoustic_tokens = real_acoustic_tokens.cuda()
-            if fast is not False:
-                add_string = 'r,fast' + str(fast - 1)
-            else:
-                add_string = 'r'
-            data_i = {}
-            x_mask = torch.ones((1, real_acoustic_tokens.shape[-1]))
-            x_mask = (x_mask == 0)
-            new_samples = {}
-            new_samples['prompt_semantics'] = prompt_semantic_tokens
-            new_samples['target_semantics'] = target_semantic_tokens
-            new_samples['prompt_acoustics'] = prompt_acoustic_tokens
-            new_samples['target_acoustics'] = real_acoustic_tokens
-            new_samples['x_mask'] = x_mask.cuda()
-            with torch.no_grad():
-                model_out = self.model.generate_content(
-                    batch=new_samples,
-                    filter_ratio=0,
-                    replicate=1,  # 每个样本重复多少次?
-                    content_ratio=1,
-                    return_att_weight=False,
-                    sample_type="top" + str(truncation_rate) + add_string,
-                )  # B x C x H x W
-                content = model_out['token_pred']
-                # reshape to original shape
-                codes = content.reshape(content.shape[0], 3, -1)
-                codes = codes.transpose(0, 1)
-                # ge_acoustic_tokens = codes.permute(2,0,1)
-                out = soundstream.decode(codes)
-                print('out ', out.shape)
-                coarse_wav = out.detach().cpu().squeeze(0)
-                print('real_acoustic_tokens ', real_acoustic_tokens.shape)
-                real_out = soundstream.decode(
-                    real_acoustic_tokens.transpose(0, 1))
-                real_wav = real_out.detach().cpu().squeeze(0)
-                save_audio(coarse_wav.cpu(), store_root + '/' + name + '.wav',
-                           16000)
-                save_audio(real_wav.cpu(),
-                           store_root + '/' + name + '_real.wav', 16000)
+def main():
+    args = parse_args()
+    evaluate(args)
 
 
-if __name__ == '__main__':
-    # Note that cap_text.yaml includes the config of vagan, we must choose the right path for it.
-    config_path = './diff_instruct.yaml'
-    pretrained_model_path = './000399e_404399iter.pth'
-    save_root_ = './generated_sample'
-    random_seconds_shift = datetime.timedelta(seconds=np.random.randint(60))
-    key_words = 'instructtts_diffsound'
-    now = (datetime.datetime.now() - random_seconds_shift
-           ).strftime('%Y-%m-%dT%H-%M-%S')
-    save_root = os.path.join(save_root_, key_words + '_samples_' + now)
-    os.makedirs(save_root, exist_ok=True)
-
-    audio_path = ''  # the audio path
-    Diffsound = Diffsound(config=config_path, path=pretrained_model_path)
-    Diffsound.generate_sample(
-        audio_path, truncation_rate=0.85, save_root=save_root, fast=False)
+if __name__ == "__main__":
+    main()
