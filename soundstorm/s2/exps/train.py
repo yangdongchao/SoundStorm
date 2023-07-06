@@ -28,6 +28,7 @@ MASTER_PORT = int(MASTER_PORT)
 DIST_URL = 'tcp://%s:%s' % (MASTER_ADDR, MASTER_PORT)
 NUM_NODE = os.environ['HOST_NUM'] if 'HOST_NUM' in os.environ else 1
 
+
 def get_args():
     parser = argparse.ArgumentParser(description='PyTorch Training script')
     parser.add_argument(
@@ -197,19 +198,21 @@ def main_worker(local_rank, args):
     logger.save_config(config)
 
     # get model 
-    model = build_model(config, args)
+    model = build_model(config)
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     # for sample()
     # NOTE by yuantian: all threads use some of memory of GPU 0 which need to be fixed
-    torch.cuda.set_device(local_rank)
-    hificodec = VQVAE(
-        config_path=args.hificodec_config_path,
-        ckpt_path=args.hificodec_model_path,
-        with_encoder=True)
-    hificodec.generator.remove_weight_norm()
-    hificodec.encoder.remove_weight_norm()
-    hificodec.eval()
+    if local_rank == 0:
+        hificodec = VQVAE(
+            config_path=args.hificodec_config_path,
+            ckpt_path=args.hificodec_model_path,
+            with_encoder=True)
+        hificodec.generator.remove_weight_norm()
+        hificodec.encoder.remove_weight_norm()
+        hificodec.eval()
+    else:
+        hificodec = None
 
     # get dataloader
     dataloader_info = build_dataloader(config, args)

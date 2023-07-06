@@ -7,7 +7,6 @@ import math
 import os
 import time
 
-import librosa
 import numpy as np
 import soundfile as sf
 import torch
@@ -46,7 +45,8 @@ class Solver(object):
         # 多少个 epoch 验证一次
         self.dev_epochs = config['solver'].get('dev_epochs', 2)
         # sample() 很耗时，需要 70s 
-        self.sample_epochs = self.dev_epochs * 2
+        # self.sample_epochs = self.dev_epochs * 2
+        self.sample_epochs = 1
 
         assert isinstance(self.save_epochs, (int, list))
         assert isinstance(self.dev_epochs, (int, list))
@@ -114,7 +114,8 @@ class Solver(object):
         self.logger.log_info(str(get_model_parameters_info(self.model)))
         #self.model.cuda() 
         self.model.to(self.args.local_rank)
-        self.hificodec.to(self.args.local_rank)
+        if args.local_rank == 0:
+            self.hificodec.to(self.args.local_rank)
         self.device = self.model.device
 
         if self.args.distributed:
@@ -520,6 +521,7 @@ class Solver(object):
             if 'clip_grad_norm' in state_dict and self.clip_grad_norm:
                 self.clip_grad_norm.load_state_dict(
                     state_dict['clip_grad_norm'])
+                self.clip_grad_norm.last_iter = self.last_iter
 
             # handle optimizer and scheduler
             for op_sc_n, op_sc in state_dict['optimizer_and_scheduler'].items():
@@ -622,19 +624,28 @@ class Solver(object):
             else:
                 val = (self.last_epoch + 1) in self.dev_epochs
         if val:
-            if self.args.distributed:
-                self.dataloader['dev_loader'].sampler.set_epoch(self.last_epoch)
+            # if self.args.distributed:
+            #     self.dataloader['dev_loader'].sampler.set_epoch(self.last_epoch)
             self.model.eval()
 
             overall_loss = None
-
+            first_batch = None
+            # 求所有 dev batch loss 的均值
             for itr, batch in enumerate(self.dataloader['dev_loader']):
+                if first_batch is None:
+                    first_batch = batch
+                # val 直接用 is_primary() 时卡到这里了
                 loss = self.step(batch, phase='val')
                 for loss_n, loss_dict in loss.items():
                     loss[loss_n] = reduce_dict(loss_dict)
-                # 保留第一个 dev iter 的 loss
                 if overall_loss is None:
                     overall_loss = loss
+                else:
+                    for loss_n, loss_dict in loss.items():
+                        for k, v in loss_dict.items():
+                            overall_loss[loss_n][k] = (
+                                overall_loss[loss_n][k] * itr + loss[loss_n][k]
+                            ) / (itr + 1)
 
             if self.logger:
                 info = ''
@@ -649,10 +660,11 @@ class Solver(object):
                             scalar_value=float(loss_dict[k]),
                             global_step=self.last_iter)
                 self.logger.log_info(info)
-
-            # sample
-            if (self.last_epoch + 1) % self.sample_epochs == 0:
-                self.sample(batch, phase='val', step_type='iteration')
+            if is_primary():
+                # sample
+                # 用的是最后一个 batch 的数据，有可能太短了，可以换成第一个
+                if (self.last_epoch + 1) % self.sample_epochs == 0:
+                    self.sample(first_batch, phase='val', step_type='iteration')
 
     def train(self):
         start_epoch = self.last_epoch + 1
@@ -662,7 +674,7 @@ class Solver(object):
             check_primary=False)
 
         for epoch in range(start_epoch, self.max_epochs):
-            # self.validate_epoch()
+            self.validate_epoch()
             self.train_epoch()
             self.save(force=True)
-            self.validate_epoch()
+            # self.validate_epoch()

@@ -15,6 +15,8 @@ config_path=conf/default.yaml
 log_frequency=10
 # 'tcp://%s:%s' % (MASTER_ADDR, MASTER_PORT)
 dist_url='tcp://127.0.0.1:29501'
+# use which checkpoint file to test
+ckpt_name=last.pth
 
 # with the following command, you can choose the stage range you want to run
 # such as `./run.sh --stage 0 --stop-stage 0`
@@ -29,11 +31,19 @@ fi
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     CUDA_VISIBLE_DEVICES=${gpus} ./local/train.sh ${config_path} ${train_output_path} ${root_dir} ${log_frequency} ${dist_url}|| exit -1
 fi
-# synthesize with test dataset
+# test with test dataset, prompt and target should be the same audio
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-    CUDA_VISIBLE_DEVICES=${gpus} ./local/test.sh ${train_output_path} ${ptfile_name} ${root_dir} ${config_path} ${model}|| exit -1
+    CUDA_VISIBLE_DEVICES=${gpus} ./local/test.sh ${config_path} ${train_output_path} ${ckpt_name} ${root_dir}|| exit -1
 fi
-# synthesize_e2e
+
+# synthesize input prompt/target_semantic/acoustic 4 files, which means prompt and target can from different audios
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
-    CUDA_VISIBLE_DEVICES=${gpus} ./local/synthesize_e2e.sh ${train_output_path} ${ptfile_name} ${root_dir} ${config_path} ${model}|| exit -1
+    CUDA_VISIBLE_DEVICES=${gpus} ./local/synthesize.sh \
+    ${config_path} ${train_output_path} ${ckpt_name} ${root_dir} \
+    ${prompt_semantic} ${prompt_acoustic} ${target_semantic} ${target_acoustic}|| exit -1
+fi
+
+# synthesize_e2e with S1 (text -> semantic token) model
+if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
+    CUDA_VISIBLE_DEVICES=${gpus} ./local/synthesize_e2e.sh || exit -1
 fi

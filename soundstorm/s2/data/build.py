@@ -72,7 +72,8 @@ def build_dataloader(config, args=None, return_dataset=False):
         drop_last=True,
         pin_memory=True,
         collate_fn=train_dataset.collater,
-        persistent_workers=persistent_workers)
+        persistent_workers=persistent_workers,
+        multiprocessing_context='fork')
 
     dataload_info = {
         'train_loader': train_loader,

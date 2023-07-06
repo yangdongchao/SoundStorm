@@ -10,6 +10,7 @@ from hydra.utils import instantiate
 from soundstorm.s2.utils.misc import instantiate_from_config
 from torch import nn
 from torch.cuda.amp import autocast
+# from torchmetrics.classification import MulticlassAccuracy
 eps = 1e-8
 
 
@@ -255,6 +256,12 @@ class DiffusionTransformer(nn.Module):
         self.update_n_sample(total_num=1300)
 
         self.learnable_cf = learnable_cf
+
+        # too slow
+        # self.metric_top10 = MulticlassAccuracy(
+        #     self.num_classes, top_k=10, average="micro",multidim_average="global",)
+        # self.metric_top1 = MulticlassAccuracy(
+        #     self.num_classes, top_k=1, average="micro",multidim_average="global",)
 
     def update_n_sample(self, total_num):
         # 设定每步要更新的 mask sample
@@ -531,7 +538,7 @@ class DiffusionTransformer(nn.Module):
             return t, pt
 
         elif method == 'uniform':
-            # 从 [0,num_timesteps] 随机产生 b 个数
+            # 从 [0, num_timesteps] 随机产生 b 个数
             t = torch.randint(
                 0, self.num_timesteps, (b, ), device=device).long()
             # 概率一直都是0.01?
@@ -539,6 +546,19 @@ class DiffusionTransformer(nn.Module):
             return t, pt
         else:
             raise ValueError
+
+    def topk_accuracy(self, predictions, targets, k=1, mask=None):
+        _, indices = torch.topk(predictions, k, dim=1)
+        targets_expanded = targets.unsqueeze(1).expand_as(indices)
+        if mask is not None:
+            # Apply mask to the targets and indices
+            mask_expanded = mask.unsqueeze(1).expand_as(indices)
+            targets_expanded = targets_expanded[mask_expanded]
+            indices = indices[mask_expanded]
+
+        correct = torch.sum(indices == targets_expanded)
+        accuracy = torch.sum(correct) / targets.numel()
+        return accuracy
 
     def _train_loss(
             self,
@@ -550,26 +570,27 @@ class DiffusionTransformer(nn.Module):
             is_train=True):
         b, device = x.size(0), x.device
         assert self.loss_type == 'vb_stochastic'
-        x_start = x  # (b, N)
+        # (b, N)
+        x_start = x
         # 时间采样
         t, pt = self.sample_time(b, device, 'importance')
-        # 将数值代表，转换为由 one-hot 向量组成的矩阵,其中每个向量最大值所在的索引就是原始的值
+        # 将数值代表，转换为由 one-hot 向量组成的矩阵, 其中每个向量最大值所在的索引就是原始的值
         log_x_start = index_to_log_onehot(x_start, self.num_classes)
         # 通过采样获得 log_xt, 随机采得
         log_xt = self.q_sample(log_x_start=log_x_start, t=t)
         # get b, N
         xt = log_onehot_to_index(log_xt)
         ############### go to p_theta function ###############
-        # P_theta(x0|xt)
+        # P_theta(x0|xt) shape (B, num_classes, T)
         log_x0_recon = self.predict_start(
             log_xt, cond_emb, x_mask, cond_emb_mask, t=t)
         # go through q(xt_1|xt,x0)
         log_model_prob = self.q_posterior(
             log_x_start=log_x0_recon, log_x_t=log_xt, t=t)
         ################## compute acc list ################
-        # 获得预测的 x_0
+        # 获得预测的 x_0, shape (B, T)
         x0_recon = log_onehot_to_index(log_x0_recon)
-        # 真实值
+        # 真实值, shape (B, T)
         x0_real = x_start
         # 直接采样 x_(t-1), 与 x(t) 相同的数量
         xt_1_recon = log_onehot_to_index(log_model_prob)
@@ -578,11 +599,14 @@ class DiffusionTransformer(nn.Module):
         x_mask_repeat = x_mask.unsqueeze(1).repeat(1, self.n_q, 1)
         # B, Len*n_q
         x_mask = x_mask_repeat.reshape(x_mask_repeat.shape[0], -1)
+        # 对 batch 维度进行遍历
         for index in range(t.size()[0]):
+            # batch 里面的每一条有一个时间随机数
             this_t = t[index].item()
             # 获得当前样本的 mask 值
             tmp_mask = ~x_mask[index]
             # 只保留非 mask 部分
+            # tmp_x0_recon 和 tmp_x0_real 长度一致, shape (T)
             tmp_x0_recon = x0_recon[index][tmp_mask]
             tmp_x0_real = x0_real[index][tmp_mask]
             same_rate = (
@@ -624,7 +648,7 @@ class DiffusionTransformer(nn.Module):
         # 记录下 kl
         new_Lt_history = (0.1 * Lt2 + 0.9 * Lt2_prev).detach()
         self.Lt_history.scatter_(dim=0, index=t, src=new_Lt_history)
-        # 记录加的次数,也可理解为选择了时间步t的次数
+        # 记录加的次数, 也可理解为选择了时间步 t 的次数
         self.Lt_count.scatter_add_(dim=0, index=t, src=torch.ones_like(Lt2))
 
         # Upweigh loss term of the kl
@@ -644,7 +668,23 @@ class DiffusionTransformer(nn.Module):
                 addition_loss_weight = 1.0
             loss2 = addition_loss_weight * self.auxiliary_loss_weight * kl_aux_loss / pt
             vb_loss += loss2
-        return log_model_prob, vb_loss
+
+        # calculate acc in cpu cause it cost to much gpu when use MulticlassAccuracy
+        # self.metric_top1.to('cpu')
+        # self.metric_top10.to('cpu')
+        probs = log_model_prob.cpu()
+        targets = x_start.cpu()
+        x_mask_cpu_reverse = ~x_mask.cpu()
+
+        # top1_acc = self.metric_top1(probs, targets)
+        top1_acc = self.topk_accuracy(probs, targets, k=1, mask=x_mask_cpu_reverse)
+        # top10_acc = self.metric_top10(probs, targets)
+        top10_acc = self.topk_accuracy(probs, targets, k=10, mask=x_mask_cpu_reverse)
+
+        top1_acc = top1_acc.to(vb_loss.device)
+        top10_acc = top10_acc.to(vb_loss.device)
+
+        return log_model_prob, vb_loss, top1_acc, top10_acc
 
     @property
     def device(self):
@@ -740,7 +780,7 @@ class DiffusionTransformer(nn.Module):
         device = input['target_acoustics'].device
         # 1) get embeddding for condition and content  prepare input
         content_token = input['target_acoustics'].reshape(batch_size, -1)
-        # 目前先不使用 mask,因为我们直接padding eos
+        # 目前先不使用 mask, 因为我们直接 padding eos
         content_token_mask = None
         content_token_mask = input['x_mask']
         # cont_emb = self.content_emb(sample_image)
@@ -758,7 +798,7 @@ class DiffusionTransformer(nn.Module):
             # cond_emb = cond_emb.float()
             pass
         if is_train is True:
-            log_model_prob, loss = self._train_loss(
+            log_model_prob, loss, top1_acc, top10_acc = self._train_loss(
                 content_token, cond_emb, content_token_mask, cond_emb_mask)
             # ? mask
             loss = loss.sum() / (content_token.size()[0] *
@@ -769,6 +809,8 @@ class DiffusionTransformer(nn.Module):
             out['logits'] = torch.exp(log_model_prob)
         if return_loss:
             out['loss'] = loss
+            out['top1_acc'] = top1_acc
+            out['top10_acc'] = top10_acc
         self.amp = False
         return out
 
@@ -819,7 +861,7 @@ class DiffusionTransformer(nn.Module):
                         diffusion_index,
                         device=device,
                         dtype=torch.long)
-                    # 初始时 sampled 全设为0
+                    # 初始时 sampled 全设为 0
                     sampled = [0] * log_z.shape[0]
                     while min(sampled) < self.n_sample[diffusion_index]:
                         # log_z is log_onehot
