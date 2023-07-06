@@ -1,13 +1,16 @@
 import argparse
+import os
 import time
 from pathlib import Path
 
+import librosa
 import numpy as np
 import pandas as pd
 import soundfile as sf
 import torch
 from academicodec.models.hificodec.vqvae import VQVAE
 from soundstorm.s2.models.dalle_wav.build import build_model
+from soundstorm.s2.models.mhubert.semantic_tokenizer import SemanticTokenizer
 from soundstorm.s2.utils.io import load_yaml_config
 
 acoustic_token_nums = 1024
@@ -45,23 +48,11 @@ def hificodec_decode(hificodec, acoustic_token, rescale=True):
 
 
 # one wav per batch
-def get_batch(prompt_semantic_data,
-              prompt_acoustic_data,
-              target_semantic_data,
+def get_batch(prompt_semantic_tokens,
+              prompt_acoustic_tokens,
+              target_semantic_tokens,
               num_quant=4):
     hz = 50
-    # source target 都需要裁剪, 最多 10s?
-    # get prompt
-    prompt_name = prompt_semantic_data['item_name'][0]
-    prompt_semantic_str = prompt_semantic_data['semantic_audio'][0]
-    # shape: (1, T)
-    prompt_semantic_tokens = torch.tensor(
-        [int(idx) for idx in prompt_semantic_str.split(' ')]).unsqueeze(0)
-    try:
-        prompt_acoustic_str = prompt_acoustic_data[prompt_name]
-    except Exception:
-        return None
-    prompt_acoustic_tokens = prompt_acoustic_str[:num_quant, ...]
 
     # prompt 最多为 3s
     if prompt_acoustic_tokens.shape[1] > 6 * hz:
@@ -71,13 +62,6 @@ def get_batch(prompt_semantic_data,
 
     prompt_semantic_tokens = prompt_semantic_tokens[:, :prompt_len]
     prompt_acoustic_tokens = prompt_acoustic_tokens[:, :prompt_len]
-
-    # get target
-    target_name = target_semantic_data['item_name'][0]
-    target_semantic_str = target_semantic_data['semantic_audio'][0]
-    # shape: (1, T)
-    target_semantic_tokens = torch.tensor(
-        [int(idx) for idx in target_semantic_str.split(' ')]).unsqueeze(0)
     # target 最多为 10s
     target_semantic_tokens = target_semantic_tokens[:, :10 * hz]
     # acoustic_token 和 semantic_token 长度是对齐的
@@ -96,34 +80,62 @@ def get_batch(prompt_semantic_data,
     samples['target_acoustics'] = target_acoustics_tokens.unsqueeze(0)
     samples['x_mask'] = x_mask
 
-    result = {}
-    result['batch'] = samples
-    result['prompt_name'] = prompt_name
-    result['target_name'] = target_name
-    return result
+    return samples
 
 
-def evaluate(args, hificodec, soundstorm):
+def evaluate(args, hificodec, soundstorm, semantic_tokenizer=None):
     num_quant = 4
     sample_rate = 16000
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    # 这里换成读取 3 个文件    
-    prompt_semantic_data = pd.read_csv(
-        args.prompt_semantic_path, delimiter='\t')
-    prompt_acoustic_data = torch.load(args.prompt_acoustic_path)
+
+    if args.prompt_semantic_path is None and args.prompt_acoustic_path is None:
+        # get prompt_semantic and prompt_acoustic from prompt_wav
+        assert args.prompt_wav_path is not None and semantic_tokenizer is not None
+        prompt_name = os.path.basename(args.prompt_wav_path).split('.')[0]
+        wav, _ = librosa.load(args.prompt_wav_path, sr=16000)
+        wav = torch.tensor(wav).unsqueeze(0)
+        wav = wav.cuda()
+        # get prompt_semantic
+        # (T) -> (1, T)
+        prompt_semantic_tokens = semantic_tokenizer.tokenize(wav).unsqueeze(0)
+        print("prompt_semantic_tokens.shape:",prompt_semantic_tokens.shape)
+
+        # get prompt_acoustic
+        # (1, T, 4)
+        acoustic_token = hificodec.encode(wav)
+        # trans acoustic_token.shape to (Nq, T)
+        prompt_acoustic_tokens = acoustic_token.squeeze(0).transpose(0, 1)
+    else:
+        prompt_semantic_data = pd.read_csv(
+            args.prompt_semantic_path, delimiter='\t')
+        prompt_acoustic_data = torch.load(args.prompt_acoustic_path)
+
+        prompt_name = prompt_semantic_data['item_name'][0]
+        prompt_semantic_str = prompt_semantic_data['semantic_audio'][0]
+        # shape: (1, T)
+        prompt_semantic_tokens = torch.tensor(
+            [int(idx) for idx in prompt_semantic_str.split(' ')]).unsqueeze(0)
+        try:
+            prompt_acoustic_str = prompt_acoustic_data[prompt_name]
+        except Exception:
+            return None
+        prompt_acoustic_tokens = prompt_acoustic_str[:num_quant, ...]
+
+    # get target
     target_semantic_data = pd.read_csv(
         args.target_semantic_path, delimiter='\t')
+    target_name = target_semantic_data['item_name'][0]
+    target_semantic_str = target_semantic_data['semantic_audio'][0]
+    # shape: (1, T)
+    target_semantic_tokens = torch.tensor(
+        [int(idx) for idx in target_semantic_str.split(' ')]).unsqueeze(0)
 
-    result = get_batch(
-        prompt_semantic_data=prompt_semantic_data,
-        prompt_acoustic_data=prompt_acoustic_data,
-        target_semantic_data=target_semantic_data,
-        num_quant=4)
-
-    batch = result['batch']
-    prompt_name = result['prompt_name']
-    target_name = result['target_name']
+    batch = get_batch(
+        prompt_semantic_tokens=prompt_semantic_tokens,
+        prompt_acoustic_tokens=prompt_acoustic_tokens,
+        target_semantic_tokens=target_semantic_tokens,
+        num_quant=num_quant)
 
     batch = move_tensors_to_cuda(batch)
 
@@ -161,13 +173,22 @@ def parse_args():
     parser.add_argument(
         '--prompt_semantic_path',
         type=str,
-        default='dump/test/prompt_semantic.tsv',
+        default=None,
         help='should be match with prompt_acoustic')
     parser.add_argument(
         '--prompt_acoustic_path',
         type=str,
-        default='dump/test/acoustic_token/prompt_acoustic.pth',
+        default=None,
         help='should be match with target_acoustic')
+    parser.add_argument(
+        '--prompt_wav_path',
+        type=str,
+        default=None,
+        help='if prompt_semantic_path and prompt_acoustic_path is None, \
+        we should extract them from prompt_wav')
+    # to get semantic tokens from prompt_wav
+    parser.add_argument("--hubert_path", type=str, default=None)
+    parser.add_argument("--quantizer_path", type=str, default=None)
     # the speaker should be different with prompt
     # source 1001_134708_000013_000000 -> 只有一条，所以不在训练集
     # target 98_199_000030_000000
@@ -212,8 +233,18 @@ def main():
     soundstorm.load_state_dict(ckpt["model"])
     soundstorm.eval()
     soundstorm.cuda()
+
+    semantic_tokenizer = None
+
+    if args.hubert_path is not None and args.quantizer_path is not None:
+        # get prompt_semantic from prompt_wav
+        semantic_tokenizer = SemanticTokenizer(
+            hubert_path=args.hubert_path,
+            quantizer_path=args.quantizer_path,
+            duplicate=True)
+
     # cost 14s for a 10s target
-    evaluate(args, hificodec, soundstorm)
+    evaluate(args, hificodec, soundstorm, semantic_tokenizer)
 
 
 if __name__ == "__main__":
