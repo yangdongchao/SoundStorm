@@ -4,8 +4,8 @@ from typing import Union
 
 import librosa
 import torch
-from soundstorm.s2.models.mhubert.abs_tokenizer import AbsTokenizer
-from soundstorm.s2.models.mhubert.hubert_kmeans import HubertWithKmeans
+from soundstorm.s2.models.hubert.abs_tokenizer import AbsTokenizer
+from soundstorm.s2.models.hubert.hubert_kmeans import HubertWithKmeans
 
 
 class SemanticTokenizer(AbsTokenizer):
@@ -34,7 +34,7 @@ class SemanticTokenizer(AbsTokenizer):
 
         # properties
         self.sr = 16 * 1000
-        self.dim_codebook = 1000
+        self.dim_codebook = 500
         self.duplicate = duplicate
 
     def encode(self, wav_path, sr=16000):
@@ -95,8 +95,9 @@ class SemanticTokenizer(AbsTokenizer):
 
 if __name__ == '__main__':
     # mHuBERT sr = 16k, hop_size = 320
-    hubert_path = './mhubert_base_vp_en_es_fr_it3.pt'
-    quantizer_path = './mhubert_base_vp_en_es_fr_it3_L11_km1000.bin'
+    # mHuBERT 和 HuBERT 都是 16k 320
+    hubert_path = './hubert_base_ls960.pt'
+    quantizer_path = './hubert_base_ls960_L9_km500.bin'
     # [1, 142778]
     # LibriTTS-R 中的两条提取结果和 https://github.com/yangdongchao/SoundStorm/blob/master/data_sample/LibriTTS_1000/semantic/test.tsv
     # 中提供的在长度和数值上有些微的差别

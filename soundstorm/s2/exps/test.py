@@ -14,7 +14,7 @@ from soundstorm.s2.utils.io import load_yaml_config
 # 每一条构成一个 batch 过一遍模型
 # 是单条推理还是凑 batch 推理？=> 可以实现两种分别看速度
 # 测试集 batch 是否要有随机性 => 最好是不要，方便对比不同模型的效果
-
+# 1000 for mhubert 500 for en_hubert 
 semantic_token_nums = 1000
 prompt_semantic_end_id = semantic_token_nums + 1
 target_semantic_end_id = semantic_token_nums + 3

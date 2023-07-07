@@ -26,6 +26,7 @@ model:
                         block_activate: GELU2
                         timestep_type: 'adalayernorm'   # adainsnorm or adalayernorm and abs
                         mlp_hidden_times: 4
+                        semantic_token_nums: 500
                         content_emb_config:
                             target: soundstorm.s2.models.dalle_wav.mask_embedding.DalleMaskImageEmbedding
                             params:
@@ -78,6 +79,7 @@ dataloader:
           params:
                 codec_name: hificodec
                 num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
+                semantic_token_nums: 500
                 semantic_path: dump/train/semantic_token.tsv
                 acoustic_path: dump/train/acoustic_token/hificodec.pth
 
@@ -86,5 +88,6 @@ dataloader:
           params:
                 codec_name: hificodec
                 num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
+                semantic_token_nums: 500
                 semantic_path: dump/dev/semantic_token.tsv
                 acoustic_path: dump/dev/acoustic_token/hificodec.pth
