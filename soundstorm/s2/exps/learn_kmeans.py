@@ -2,35 +2,31 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
 import logging
 import os
 import sys
 
+import joblib
 import numpy as np
 from sklearn.cluster import MiniBatchKMeans
-
-import joblib
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     level=os.environ.get("LOGLEVEL", "INFO").upper(),
-    stream=sys.stdout,
-)
+    stream=sys.stdout, )
 logger = logging.getLogger("learn_kmeans")
 
 
 def get_km_model(
-    n_clusters,
-    init,
-    max_iter,
-    batch_size,
-    tol,
-    max_no_improvement,
-    n_init,
-    reassignment_ratio,
-):
+        n_clusters,
+        init,
+        max_iter,
+        batch_size,
+        tol,
+        max_no_improvement,
+        n_init,
+        reassignment_ratio, ):
     return MiniBatchKMeans(
         n_clusters=n_clusters,
         init=init,
@@ -42,8 +38,7 @@ def get_km_model(
         max_no_improvement=max_no_improvement,
         init_size=None,
         n_init=n_init,
-        reassignment_ratio=reassignment_ratio,
-    )
+        reassignment_ratio=reassignment_ratio, )
 
 
 def load_feature_shard(feat_dir, split, nshard, rank, percent):
@@ -60,14 +55,10 @@ def load_feature_shard(feat_dir, split, nshard, rank, percent):
         indices = np.random.choice(len(lengs), nsample, replace=False)
         feat = np.load(feat_path, mmap_mode="r")
         sampled_feat = np.concatenate(
-            [feat[offsets[i]: offsets[i] + lengs[i]] for i in indices], axis=0
-        )
+            [feat[offsets[i]:offsets[i] + lengs[i]] for i in indices], axis=0)
         logger.info(
-            (
-                f"sampled {nsample} utterances, {len(sampled_feat)} frames "
-                f"from shard {rank}/{nshard}"
-            )
-        )
+            (f"sampled {nsample} utterances, {len(sampled_feat)} frames "
+             f"from shard {rank}/{nshard}"))
         return sampled_feat
 
 
@@ -78,28 +69,26 @@ def load_feature(feat_dir, split, nshard, seed, percent):
             load_feature_shard(feat_dir, split, nshard, r, percent)
             for r in range(nshard)
         ],
-        axis=0,
-    )
+        axis=0, )
     logging.info(f"loaded feature with dimension {feat.shape}")
     return feat
 
 
 def learn_kmeans(
-    feat_dir,
-    split,
-    nshard,
-    km_path,
-    n_clusters,
-    seed,
-    percent,
-    init,
-    max_iter,
-    batch_size,
-    tol,
-    n_init,
-    reassignment_ratio,
-    max_no_improvement,
-):
+        feat_dir,
+        split,
+        nshard,
+        km_path,
+        n_clusters,
+        seed,
+        percent,
+        init,
+        max_iter,
+        batch_size,
+        tol,
+        n_init,
+        reassignment_ratio,
+        max_no_improvement, ):
     np.random.seed(seed)
     feat = load_feature(feat_dir, split, nshard, seed, percent)
     km_model = get_km_model(
@@ -110,8 +99,7 @@ def learn_kmeans(
         tol,
         max_no_improvement,
         n_init,
-        reassignment_ratio,
-    )
+        reassignment_ratio, )
     km_model.fit(feat)
     joblib.dump(km_model, km_path)
 
@@ -124,15 +112,16 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("feat_dir", type=str)
-    parser.add_argument("split", type=str)
-    parser.add_argument("nshard", type=int)
-    parser.add_argument("km_path", type=str)
-    parser.add_argument("n_clusters", type=int)
+    parser.add_argument(
+        "--feat_dir", type=str, default='../data/ljspeech/semantic_feature')
+    parser.add_argument("--split", type=str, default='ljspeech')
+    parser.add_argument("--nshard", type=int, default=1)
+    parser.add_argument(
+        "--km_path", type=str, default='../data/ljspeech/kmeans_model')
+    parser.add_argument("--n_clusters", type=int, default=1024)
     parser.add_argument("--seed", default=0, type=int)
     parser.add_argument(
-        "--percent", default=-1, type=float, help="sample a subset; -1 for all"
-    )
+        "--percent", default=-1, type=float, help="sample a subset; -1 for all")
     parser.add_argument("--init", default="k-means++")
     parser.add_argument("--max_iter", default=100, type=int)
     parser.add_argument("--batch_size", default=10000, type=int)
