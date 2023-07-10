@@ -11,7 +11,7 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     python3 ${BIN_DIR}/get_semantic_token.py \
         --data_dir=${data_dir} \
         --dataset=libritts \
-        --dump_dir=${root_dir}/dump_libritts_hubert \
+        --dump_dir=${root_dir}/dump \
         --hubert_path=pretrained_model/hubert/hubert_base_ls960.pt \
         --quantizer_path=pretrained_model/hubert/hubert_base_ls960_L9_km500.bin \
         --num-cpu=20
