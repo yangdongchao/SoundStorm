@@ -66,7 +66,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
 fi
 # learn kmeans
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-    python3 ${BIN_DIR}/learn_kmeans.py \
+    OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python3 ${BIN_DIR}/learn_kmeans.py \
         --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature \
         --nshard=5 \
         --split=audio_files \
