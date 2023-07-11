@@ -12,6 +12,7 @@ data_dir='~/datasets/LibriTTS-R/'
 sub_dataset_name=train-clean-100
 layer=10
 n_clusters=1024
+ckpt_path=pretrained_model/hubert/hubert_base_ls960.pt
 
 
 # with the following command, you can choose the stage range you want to run
@@ -32,36 +33,36 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/dump_hubert_feature.py \
         --tsv_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name} \
         --split=audio_files \
-        --ckpt_path=pretrained_model/hubert/hubert_base_ls960.pt \
-        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature \
+        --ckpt_path=${ckpt_path} \
+        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
         --rank=0 & CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/dump_hubert_feature.py \
         --tsv_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name} \
         --split=audio_files \
-        --ckpt_path=pretrained_model/hubert/hubert_base_ls960.pt \
-        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature \
+        --ckpt_path=${ckpt_path}  \
+        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
         --rank=1 & CUDA_VISIBLE_DEVICES=5 python3 ${BIN_DIR}/dump_hubert_feature.py \
         --tsv_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name} \
         --split=audio_files \
-        --ckpt_path=pretrained_model/hubert/hubert_base_ls960.pt \
-        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature \
+        --ckpt_path=${ckpt_path} \
+        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
         --rank=2 & CUDA_VISIBLE_DEVICES=6 python3 ${BIN_DIR}/dump_hubert_feature.py \
         --tsv_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name} \
         --split=audio_files \
-        --ckpt_path=pretrained_model/hubert/hubert_base_ls960.pt \
-        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature \
+        --ckpt_path=${ckpt_path} \
+        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
         --rank=3 & CUDA_VISIBLE_DEVICES=7 python3 ${BIN_DIR}/dump_hubert_feature.py \
         --tsv_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name} \
         --split=audio_files \
-        --ckpt_path=pretrained_model/hubert/hubert_base_ls960.pt \
-        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature \
+        --ckpt_path=${ckpt_path} \
+        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
         --rank=4
