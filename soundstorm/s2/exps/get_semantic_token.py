@@ -10,7 +10,7 @@ import librosa
 import numpy as np
 import torch
 import tqdm
-from soundstorm.s2.models.mhubert.semantic_tokenizer import SemanticTokenizer
+from soundstorm.s2.models.hubert.semantic_tokenizer import SemanticTokenizer
 
 # ThreadPoolExecutor 适用于 I/O 密集型任务，具有轻量级线程切换的优势
 # ProcessPoolExecutor 适用于 CPU 密集型任务，可以充分利用多核处理器的优势
@@ -112,12 +112,12 @@ def main():
         help="directory to dump feature files.")
 
     parser.add_argument(
-        "--hubert_path", type=str, default='./mhubert_base_vp_en_es_fr_it3.pt')
+        "--hubert_path", type=str, default='./hubert_base_ls960.pt')
 
     parser.add_argument(
         "--quantizer_path",
         type=str,
-        default='./mhubert_base_vp_en_es_fr_it3_L11_km1000.bin')
+        default='./hubert_base_ls960_L9_km500.bin')
 
     parser.add_argument(
         "--num-cpu", type=int, default=1, help="number of process.")

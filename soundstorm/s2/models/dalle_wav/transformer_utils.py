@@ -438,7 +438,9 @@ class Text2ImageTransformer(nn.Module):
             content_emb_config=None,
             condition_emb_config=None,
             mlp_type='fc',
-            checkpoint=False, ):
+            checkpoint=False, 
+            # 1000 for mhubert 500 for en_hubert 
+            semantic_token_nums=1000):
         super().__init__()
         self.use_checkpoint = checkpoint
         self.n_q = n_q
@@ -472,7 +474,7 @@ class Text2ImageTransformer(nn.Module):
                 mlp_type=mlp_type, ) for n in range(n_layer)
         ])
         # final prediction head
-        self.semantic_token_nums = 1000
+        self.semantic_token_nums = semantic_token_nums
         self.prompt_semantic_start_id = self.semantic_token_nums
         self.prompt_semantic_end_id = self.semantic_token_nums + 1
         self.target_semantic_start_id = self.semantic_token_nums + 2

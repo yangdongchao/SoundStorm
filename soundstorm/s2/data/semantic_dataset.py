@@ -14,24 +14,32 @@ import torch.nn.functional as F
 '''
 
 
-def pad_2D(inputs, PAD):
+def pad_2D(inputs, PAD, print_len=False):
     # when each sample in inputs is 2D, this function can be used
     def pad(x, max_len):
         return F.pad(x, (0, max_len - x.shape[-1]), mode="constant", value=PAD)
 
     max_len = max(np.shape(x)[-1] for x in inputs)
+    input_len = len(inputs)
+    if print_len:
+        min_len = min(np.shape(x)[-1] for x in inputs)
+        print("input_len, max_len, min_len, max_len-min_len:", input_len,
+              max_len, min_len, max_len - min_len)
     output = np.stack([pad(x, max_len) for x in inputs])
     return output
 
 
 class SemanticDataset(torch.utils.data.Dataset):
-    def __init__(self,
-                 num_quant,
-                 semantic_path,
-                 acoustic_path,
-                 codec_name='hificodec',
-                 max_length=(250, 250),
-                 max_token_one_batch=10000):
+    def __init__(
+            self,
+            num_quant,
+            semantic_path,
+            acoustic_path,
+            codec_name='hificodec',
+            max_length=(250, 250),
+            max_token_one_batch=10000,
+            # 1000 for mhubert 500 for en_hubert 
+            semantic_token_nums=1000):
         super().__init__()
 
         self.semantic_data = pd.read_csv(semantic_path, delimiter='\t')
@@ -46,7 +54,7 @@ class SemanticDataset(torch.utils.data.Dataset):
         self.segment_size = 3
 
         # NOTE by yuantian: same as SemanticTokenizer.dim_codebook
-        self.semantic_token_nums = 1000
+        self.semantic_token_nums = semantic_token_nums
         # self.prompt_semantic_start_id = self.semantic_token_nums
         self.prompt_semantic_end_id = self.semantic_token_nums + 1
         # self.target_semantic_start_id = self.semantic_token_nums + 2
@@ -63,13 +71,12 @@ class SemanticDataset(torch.utils.data.Dataset):
 
         # 一个 batch 最多多少个 token
         self.max_token_one_batch = max_token_one_batch
-        self.inited=False
+        self.inited = False
 
         if not self.inited:
             # 调用初始化函数
             self.init_batch()
-            self.inited=True
-        
+            self.inited = True
 
     def init_batch(self):
         # this function aims to prepare batch

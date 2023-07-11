@@ -32,8 +32,8 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
         --config_file=${config_path} \
         --ckpt_path=${root_dir}/${train_output_path}/checkpoint/${ckpt_name} \
         --prompt_wav_path=${root_dir}/dump/test/synthesize_input/1001_134708_000013_000000.wav \
-        --hubert_path=pretrained_model/mhubert/mhubert_base_vp_en_es_fr_it3.pt \
-        --quantizer_path=pretrained_model/mhubert/mhubert_base_vp_en_es_fr_it3_L11_km1000.bin \
+        --hubert_path=pretrained_model/hubert/hubert_base_ls960.pt \
+        --quantizer_path=pretrained_model/hubert/hubert_base_ls960_L9_km500.bin \
         --target_semantic_path=${root_dir}/dump/test/synthesize_input/target_semantic.tsv \
         --output_dir=${root_dir}/${train_output_path}/test_output \
         --hificodec_model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \

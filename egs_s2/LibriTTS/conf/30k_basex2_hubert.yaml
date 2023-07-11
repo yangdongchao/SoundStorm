@@ -1,4 +1,5 @@
 # change from o4
+# If you increase the batch size, you should also increase lr related params
 model:
     target: soundstorm.s2.models.dalle_wav.dalle_wav.DALLE
     params:
@@ -37,11 +38,11 @@ model:
                                 pos_emb_type: embedding
 
 solver:
-    base_lr: 3.0e-6
+    base_lr: 0.6e-05 # 3.0e-6 x 8 cause max_token_one_batch is x 8 (the old is 10k)
     adjust_lr: none # not adjust lr according to total batch_size
-    max_epochs: 9200 # 400 for LibriTTS (train-clean-100 + train-clean-360) 9.2k epoch for LJspeech
-    save_epochs: 10
-    dev_epochs: 10
+    max_epochs: 500 # 400 for LibriTTS (train-clean-100 + train-clean-360) 9.2k epoch for LJspeech
+    save_epochs: 1
+    dev_epochs: 1
     ema:
         decay: 0.99
         update_interval: 25
@@ -58,28 +59,28 @@ solver:
             target: torch.optim.AdamW
             params:
                 betas: !!python/tuple [0.9, 0.96]
-                weight_decay: 4.5e-2
+                weight_decay: 1.0e-2
         scheduler:
             step_iteration: 1
             target: soundstorm.s2.engine.lr_scheduler.ReduceLROnPlateauWithWarmup
             params:
                 factor: 0.5
                 patience: 25000
-                min_lr: 1.0e-6
+                min_lr: 2.0e-6
                 threshold: 1.0e-1
                 threshold_mode: rel
-                warmup_lr: 4.5e-4   # the lr to be touched after warmup
-                warmup: 1000
+                warmup_lr: 0.9e-3   # the lr to be touched after warmup
+                warmup: 800  # ~ 2 epoch
 
 dataloader:
-    max_token_one_batch: 96000 # 影响单卡显存占用, 96k for 80G GPU (A100) (LJSpeech)
+    max_token_one_batch: 30000 # 影响单卡显存占用, 81k for 80G GPU (A100) (LibriTTS)
     num_workers: 2
     train_datasets: # a list of configures, so we can combine several schedulers
         - target: soundstorm.s2.data.semantic_dataset.SemanticDataset
           params:
                 codec_name: hificodec
                 num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
-                semantic_token_nums: 500
+                semantic_token_nums: 500 # 1000 for mhubert 500 for en_hubert 
                 semantic_path: dump/train/semantic_token.tsv
                 acoustic_path: dump/train/acoustic_token/hificodec.pth
 
@@ -88,6 +89,6 @@ dataloader:
           params:
                 codec_name: hificodec
                 num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
-                semantic_token_nums: 500
+                semantic_token_nums: 500 # 1000 for mhubert 500 for en_hubert 
                 semantic_path: dump/dev/semantic_token.tsv
                 acoustic_path: dump/dev/acoustic_token/hificodec.pth

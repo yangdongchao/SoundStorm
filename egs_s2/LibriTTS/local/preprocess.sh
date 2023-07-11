@@ -1,19 +1,19 @@
 #!/bin/bash
 stage=0
-stop_stage=1
+stop_stage=0
 root_dir=$1
 data_dir=$2
 
 # extract semantic token by mHubert `.tsv`
-# download mHubert to pretrained_model/mhubert/
+# download Hubert to pretrained_model/hubert/
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     # 需要处理不同数据集格式
     python3 ${BIN_DIR}/get_semantic_token.py \
         --data_dir=${data_dir} \
         --dataset=libritts \
         --dump_dir=${root_dir}/dump \
-        --hubert_path=pretrained_model/mhubert/mhubert_base_vp_en_es_fr_it3.pt \
-        --quantizer_path=pretrained_model/mhubert/mhubert_base_vp_en_es_fr_it3_L11_km1000.bin \
+        --hubert_path=pretrained_model/hubert/hubert_base_ls960.pt \
+        --quantizer_path=pretrained_model/hubert/hubert_base_ls960_L9_km500.bin \
         --num-cpu=20
 fi
 
