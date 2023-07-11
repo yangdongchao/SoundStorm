@@ -83,6 +83,7 @@ class SemanticTokenizer(AbsTokenizer):
         unique_arr = [torch.unique_consecutive(el) for el in t.unbind(dim=0)]
         return unique_arr[0]
 
+    # 似乎也没有地方调用到，所以这里不用每次换 hubert 都改 self.dim_codebook
     @property
     def codebook_length(self):
         return self.dim_codebook

@@ -17,7 +17,7 @@ class DALLE(nn.Module):
             condition_info={'key': 'text_dpe_adapted'},
             learnable_cf=False,
             diffusion_config,
-            init_type: str="kaiming_uniform", ):
+            init_type: str="kaiming_uniform"):
         super().__init__()
         self.n_q = n_q
         self.content_info = content_info
@@ -29,8 +29,6 @@ class DALLE(nn.Module):
         diffusion_config['params']['n_q'] = self.n_q
         self.transformer = instantiate_from_config(diffusion_config)
         self.truncation_forward = False
-        # the last token reprent MASK
-        self.mask_id = 1024
         initialize(self, init_type)
 
     def parameters(self, recurse=True, name=None):
