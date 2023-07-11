@@ -438,7 +438,7 @@ class Text2ImageTransformer(nn.Module):
             content_emb_config=None,
             condition_emb_config=None,
             mlp_type='fc',
-            checkpoint=False, 
+            checkpoint=False,
             # 1000 for mhubert 500 for en_hubert 
             semantic_token_nums=1000):
         super().__init__()
@@ -455,8 +455,9 @@ class Text2ImageTransformer(nn.Module):
         self.inc = (DoubleConv(condition_dim, condition_dim))
         self.down1 = (Down(
             condition_dim, condition_dim, kernel_size=(self.n_q, 1)))
-        self.up1 = (Up(
-            condition_dim * 2, condition_dim, scale_factor=(self.n_q, 1)))
+        self.up1 = (Up(condition_dim * 2,
+                       condition_dim,
+                       scale_factor=(self.n_q, 1)))
 
         all_attn_type = [attn_type] * n_layer
         self.blocks = nn.Sequential(* [
@@ -480,13 +481,19 @@ class Text2ImageTransformer(nn.Module):
         self.target_semantic_start_id = self.semantic_token_nums + 2
         self.target_semantic_end_id = self.semantic_token_nums + 3
 
+        self.hz = 50
+
         # 最长的序列假设为 10s
-        self.prompt_semantic_pos_emb = LearnedPositionEmbeddings(500, n_embd)
+        self.prompt_semantic_pos_emb = LearnedPositionEmbeddings(10 * self.hz,
+                                                                 n_embd)
         # 20s
-        self.target_semantic_pos_emb = LearnedPositionEmbeddings(1000, n_embd)
-        self.prompt_acoustic_pos_emb = LearnedPositionEmbeddings(500, n_embd)
-        # 20s
-        self.target_acoustic_pos_emb = LearnedPositionEmbeddings(3000, n_embd)
+        self.target_semantic_pos_emb = LearnedPositionEmbeddings(20 * self.hz,
+                                                                 n_embd)
+        self.prompt_acoustic_pos_emb = LearnedPositionEmbeddings(10 * self.hz,
+                                                                 n_embd)
+        # 60s
+        self.target_acoustic_pos_emb = LearnedPositionEmbeddings(60 * self.hz,
+                                                                 n_embd)
         # num_embed: 2887
         out_cls = self.content_emb.num_embed - 1
         self.register_buffer('cls_ids', torch.arange(out_cls))
