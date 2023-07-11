@@ -450,7 +450,7 @@ class Text2ImageTransformer(nn.Module):
         # self.condition_emb = instantiate_from_config(condition_emb_config) 
         # 用于semantic token
         self.semantic_embedding = nn.Embedding(
-            1000 + 4, content_emb_config['params']['embed_dim'])
+            semantic_token_nums + 4, content_emb_config['params']['embed_dim'])
         # transformer
         self.inc = (DoubleConv(condition_dim, condition_dim))
         self.down1 = (Down(
@@ -479,8 +479,6 @@ class Text2ImageTransformer(nn.Module):
         self.prompt_semantic_end_id = self.semantic_token_nums + 1
         self.target_semantic_start_id = self.semantic_token_nums + 2
         self.target_semantic_end_id = self.semantic_token_nums + 3
-
-        self.acoustic_token_nums = 1024
 
         # 最长的序列假设为 10s
         self.prompt_semantic_pos_emb = LearnedPositionEmbeddings(500, n_embd)
