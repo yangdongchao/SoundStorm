@@ -78,7 +78,9 @@ def process_sentences(fps: List[Path],
     results.sort(key=itemgetter("utt_id"))
     for item in results:
         utt_id = item["utt_id"]
-        semantic_token = np.load(item["semantic_token_path"]).tolist()
+        # old hubert_kmeans shape is (T,), new hubert_kmeans shape is (1, T)
+        # so add [0] here
+        semantic_token = np.load(item["semantic_token_path"])[0].tolist()
         semantic_token_str = ' '.join(str(x) for x in semantic_token)
         data.append([utt_id, semantic_token_str])
     delimiter = '\t'
