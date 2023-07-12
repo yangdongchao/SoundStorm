@@ -13,6 +13,8 @@ sub_dataset_name=train-clean-100
 layer=10
 n_clusters=1024
 hubert_path=pretrained_model/hubert/hubert_base_ls960.pt
+km_name=hubert_base_ls960_L${layer}_km${n_clusters}.bin
+dump_dir=dump
 
 
 # with the following command, you can choose the stage range you want to run
@@ -24,45 +26,45 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     python3 ${BIN_DIR}/get_tsv_file.py \
         --data_dir=${data_dir} \
         --sub_dataset_name=${sub_dataset_name} \
-        --dump_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name} \
+        --dump_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
         --tsv_name=audio_files.tsv
 fi
 # dump hubert feature
 # generate in parallel
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name} \
+        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
         --split=audio_files \
         --hubert_path=${hubert_path} \
-        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature_L${layer} \
+        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
         --rank=0 & CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name} \
+        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
         --split=audio_files \
         --hubert_path=${hubert_path}  \
-        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature_L${layer} \
+        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
         --rank=1 & CUDA_VISIBLE_DEVICES=5 python3 ${BIN_DIR}/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name} \
+        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
         --split=audio_files \
         --hubert_path=${hubert_path} \
-        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature_L${layer} \
+        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
         --rank=2 & CUDA_VISIBLE_DEVICES=6 python3 ${BIN_DIR}/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name} \
+        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
         --split=audio_files \
         --hubert_path=${hubert_path} \
-        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature_L${layer} \
+        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
         --rank=3 & CUDA_VISIBLE_DEVICES=7 python3 ${BIN_DIR}/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name} \
+        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
         --split=audio_files \
         --hubert_path=${hubert_path} \
-        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature_L${layer} \
+        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
         --rank=4
@@ -70,11 +72,11 @@ fi
 # learn kmeans
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python3 ${BIN_DIR}/learn_kmeans.py \
-        --feat_dir=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/semantic_feature \
+        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature \
         --nshard=5 \
         --split=audio_files \
         --n_clusters=${n_clusters} \
-        --km_path=${root_dir}/dump_libritts/libritts_${sub_dataset_name}/hubert_base_ls960_L${layer}_km${n_clusters}.bin
+        --km_path=${root_dir}/${dump_dir}/${sub_dataset_name}/${km_name}
 fi
 
 
