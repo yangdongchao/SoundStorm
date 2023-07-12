@@ -13,6 +13,7 @@ sub_dataset_name=train-other-500
 layer=12
 n_clusters=1024
 hubert_path=pretrained_model/hubert/hubert_large_ll60k.pt
+km_name=${sub_dataset_name}_hubert_large_ll60k_L${layer}_km${n_clusters}.bin
 dump_dir=dump
 
 
@@ -152,5 +153,5 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --nshard=16 \
         --split=audio_files \
         --n_clusters=${n_clusters} \
-        --km_path=${root_dir}/${dump_dir}/${sub_dataset_name}/hubert_large_ll60k_L${layer}_km${n_clusters}.bin
+        --km_path=${root_dir}/${dump_dir}/${sub_dataset_name}/${km_name}
 fi

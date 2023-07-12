@@ -13,7 +13,7 @@ sub_dataset_name=train-clean-100
 layer=10
 n_clusters=1024
 hubert_path=pretrained_model/hubert/hubert_base_ls960.pt
-km_name=hubert_base_ls960_L${layer}_km${n_clusters}.bin
+km_name=${sub_dataset_name}_hubert_base_ls960_L${layer}_km${n_clusters}.bin
 dump_dir=dump
 
 
