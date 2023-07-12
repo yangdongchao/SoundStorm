@@ -17,6 +17,8 @@ log_frequency=10
 dist_url='tcp://127.0.0.1:29501'
 # use which checkpoint file to test
 ckpt_name=last.pth
+# should be same with ${layer} in hubert_kms.sh
+layer=10
 
 # with the following command, you can choose the stage range you want to run
 # such as `./run.sh --stage 0 --stop-stage 0`
@@ -25,7 +27,7 @@ source ${MAIN_ROOT}/utils/parse_options.sh || exit 1
 
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     # prepare data
-    CUDA_VISIBLE_DEVICES=${gpus} ./local/preprocess.sh ${root_dir} ${data_dir}|| exit -1
+    CUDA_VISIBLE_DEVICES=${gpus} ./local/preprocess.sh ${root_dir} ${data_dir} ${layer}|| exit -1
 fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then

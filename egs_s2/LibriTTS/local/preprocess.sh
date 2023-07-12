@@ -3,6 +3,7 @@ stage=0
 stop_stage=0
 root_dir=$1
 data_dir=$2
+layer=$3
 
 # extract semantic token by mHubert `.tsv`
 # download Hubert to pretrained_model/hubert/
@@ -14,7 +15,8 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
         --dump_dir=${root_dir}/dump \
         --hubert_path=pretrained_model/hubert/hubert_base_ls960.pt \
         --quantizer_path=pretrained_model/hubert/hubert_base_ls960_L9_km500.bin \
-        --num-cpu=20
+        --num-cpu=20 \
+        --layer=${layer}
 fi
 
 # extract acoustic token by HiFi-Codec `.pth`
