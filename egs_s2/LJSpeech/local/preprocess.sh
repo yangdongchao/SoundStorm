@@ -3,7 +3,9 @@ stage=0
 stop_stage=1
 root_dir=$1
 data_dir=$2
-layer=$3
+hubert_path=$3
+quantizer_path=$4
+layer=$5
 
 # extract semantic token by mHubert `.tsv`
 # download Hubert to pretrained_model/hubert/
@@ -13,8 +15,8 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
         --data_dir=${data_dir} \
         --dataset=ljspeech \
         --dump_dir=${root_dir}/dump \
-        --hubert_path=pretrained_model/hubert/hubert_base_ls960.pt \
-        --quantizer_path=pretrained_model/hubert/hubert_base_ls960_L9_km500.bin \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
         --num-cpu=20 \
         --layer=${layer}
 fi

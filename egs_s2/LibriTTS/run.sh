@@ -19,6 +19,9 @@ dist_url='tcp://127.0.0.1:29501'
 ckpt_name=last.pth
 # should be same with ${layer} in hubert_kms.sh
 layer=10
+# should be same with ${hubert_path} in hubert_kms.sh
+hubert_path=pretrained_model/hubert/hubert_base_ls960.pt
+quantizer_path=pretrained_model/hubert/hubert_base_ls960_L9_km500.bin
 
 # with the following command, you can choose the stage range you want to run
 # such as `./run.sh --stage 0 --stop-stage 0`
@@ -27,7 +30,7 @@ source ${MAIN_ROOT}/utils/parse_options.sh || exit 1
 
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     # prepare data
-    CUDA_VISIBLE_DEVICES=${gpus} ./local/preprocess.sh ${root_dir} ${data_dir} ${layer}|| exit -1
+    CUDA_VISIBLE_DEVICES=${gpus} ./local/preprocess.sh ${root_dir} ${data_dir} ${hubert_path} ${quantizer_path} ${layer}|| exit -1
 fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
@@ -42,7 +45,7 @@ fi
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     CUDA_VISIBLE_DEVICES=${gpus} ./local/synthesize.sh \
     ${config_path} ${train_output_path} ${ckpt_name} ${root_dir} \
-    ${prompt_semantic} ${prompt_acoustic} ${target_semantic} ${target_acoustic}|| exit -1
+    ${hubert_path} ${quantizer_path}|| exit -1
 fi
 
 # synthesize_e2e with S1 (text -> semantic token) model
