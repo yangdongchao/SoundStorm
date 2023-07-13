@@ -22,38 +22,26 @@ class Text2SemanticDataset(Dataset):
 
     def __init__(self,
                  metadata_path: Union[str, List[str]],
-                 semantic_token_path: Union[str, List[str]],
-                 max_sample=None) -> None:
+                 semantic_token_path: Union[str, List[str]]) -> None:
         super().__init__()
-        if isinstance(metadata_path, str):
-            self.dataframe: pd.DataFrame = pd.read_csv(
-                os.path.join(metadata_path, 'metadata.csv'), sep='|')
-            self.semantic_tokens: List[List[int]] = self._read_semantic_tokens(
-                semantic_token_path)
-        else:
-            # read data from lits of path and concat
-            dataframes: List[pd.DataFrame] = []
-            self.semantic_tokens: List[List[int]] = []
-            for meta_path, sem_path in zip(metadata_path, semantic_token_path):
-                print(f'loading dataset: {meta_path}')
-                dataframes.append(
-                    pd.read_csv(
-                        os.path.join(meta_path, 'metadata.csv'), sep='|'))
-                self.semantic_tokens += self._read_semantic_tokens(sem_path)
-
-            self.dataframe = pd.concat(dataframes, ignore_index=True)
-            self.dataframe.reset_index(drop=True, inplace=True)
+        
+        # 如何保证两种文件的 idx 一致？
+        self.dataframe: pd.DataFrame = pd.read_csv(
+            os.path.join(metadata_path, 'metadata.csv'), sep='|')
+        self.semantic_tokens: List[List[int]] = self._read_semantic_tokens(
+            semantic_token_path)
+       
 
         assert len(self.dataframe) == len(self.semantic_tokens)
 
-        if max_sample:
-            self.dataframe = self.dataframe[:max_sample]
-            self.semantic_tokens = self.semantic_tokens[:max_sample]
-
         self.phonemizer: GruutPhonemizer = GruutPhonemizer(language='en-us')
         self.max_phoneme_len: int = 256
-        self.max_semantic_len: int = 1536  # 20 seconds
+        # pad for semantic tokens
         self.PAD: int = 1024
+        self.hz=50
+    
+    def init_batch(self):
+        return None
 
     def __len__(self) -> int:
         return len(self.dataframe)
@@ -61,13 +49,9 @@ class Text2SemanticDataset(Dataset):
     def __getitem__(self, idx: int) -> Dict:
         row = self.dataframe.iloc[idx]
 
-        # # raw audio waveform input
-        # audio_path = row['PathToFile']
-        # audio, sr = torchaudio.load(audio_path)
-        # audio = audio.squeeze(0)
-
         # text (phonemes) input
         phonemes = row['Phonemes']
+        # 这里对 phoneme_ids 进行截断了，如何保证和 semantic_ids 对齐？
         phoneme_ids = self.phonemizer.transform(phonemes)[:self.max_phoneme_len]
         phoneme_ids = torch.tensor(phoneme_ids, dtype=torch.long)
         phoneme_len = len(phoneme_ids)
@@ -87,7 +71,7 @@ class Text2SemanticDataset(Dataset):
 
     def get_sample_length(self, idx: int):
         semantic_ids = self.semantic_tokens[idx]
-        sec = 1.0 * len(semantic_ids) / 50
+        sec = 1.0 * len(semantic_ids) / self.hz
         return sec
 
     def collate(self, features: List[Dict]) -> Dict:
@@ -108,6 +92,7 @@ class Text2SemanticDataset(Dataset):
         max_phoneme_ids_len: int = max(phoneme_ids_lens)
         max_semantic_ids_len: int = max(semantic_ids_lens)
 
+        # 按照 batch 里面最长的 pad 0 的过程，可以用一个函数实现
         # collate phonemes
         phoneme_ids_t: torch.Tensor = torch.zeros(
             (batch_size, max_phoneme_ids_len), dtype=torch.long)
@@ -115,7 +100,8 @@ class Text2SemanticDataset(Dataset):
             phoneme_ids_t[i, :phoneme_id_seq.size(0)] = phoneme_id_seq
         phoneme_ids_lens_t: torch.Tensor = torch.tensor(
             phoneme_ids_lens, dtype=torch.long)
-
+    
+        # pad 0 的过程
         # collate audio frames
         semantic_ids_t: torch.Tensor = torch.zeros(
             (batch_size, max_semantic_ids_len), dtype=torch.long) + self.PAD
