@@ -78,7 +78,9 @@ def process_sentences(fps: List[Path],
     results.sort(key=itemgetter("utt_id"))
     for item in results:
         utt_id = item["utt_id"]
-        semantic_token = np.load(item["semantic_token_path"]).tolist()
+        # old hubert_kmeans shape is (T,), new hubert_kmeans shape is (1, T)
+        # so add [0] here
+        semantic_token = np.load(item["semantic_token_path"])[0].tolist()
         semantic_token_str = ' '.join(str(x) for x in semantic_token)
         data.append([utt_id, semantic_token_str])
     delimiter = '\t'
@@ -122,6 +124,13 @@ def main():
     parser.add_argument(
         "--num-cpu", type=int, default=1, help="number of process.")
 
+    parser.add_argument(
+        "--layer",
+        type=int,
+        default=10,
+        help="use which layer of feature of hubert, should be same with it in exp/dump_hubert_feature.py"
+    )
+
     args = parser.parse_args()
 
     data_dir = Path(args.data_dir).expanduser()
@@ -162,9 +171,12 @@ def main():
                 if not file.startswith('.')
             ]
             for speaker in speaker_list:
-                wav_files = sorted(list((sub_dataset_dir / speaker).rglob("*/*.wav")))
+                wav_files = sorted(
+                    list((sub_dataset_dir / speaker).rglob("*/*.wav")))
                 # filter out ._*.wav
-                wav_files = [file for file in wav_files if not file.name.startswith('._')]
+                wav_files = [
+                    file for file in wav_files if not file.name.startswith('._')
+                ]
                 train_wav_files += wav_files[:-sub_num_dev * 2]
                 dev_wav_files += wav_files[-sub_num_dev * 2:-sub_num_dev]
                 test_wav_files += wav_files[-sub_num_dev:]
@@ -182,10 +194,13 @@ def main():
     test_dump_dir = dump_dir / "test"
     test_dump_dir.mkdir(parents=True, exist_ok=True)
 
+    print("args.layer:", args.layer)
+
     semantic_tokenizer = SemanticTokenizer(
         hubert_path=args.hubert_path,
         quantizer_path=args.quantizer_path,
-        duplicate=True)
+        duplicate=True,
+        output_layer=args.layer)
 
     # process for the 3 sections
     if train_wav_files:
