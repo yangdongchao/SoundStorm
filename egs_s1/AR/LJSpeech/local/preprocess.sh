@@ -17,3 +17,4 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
         --num-cpu=20
 fi
 
+# then generate semantic_token (hificodec.pth) in egs1

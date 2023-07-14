@@ -16,4 +16,5 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --num-cpu=20
 fi
+# generate semantic_token (hificodec.pth) in egs1
 
