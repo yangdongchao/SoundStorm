@@ -26,5 +26,5 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
 fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-    CUDA_VISIBLE_DEVICES=${gpus} ./local/train.sh ${config_path} ${root_dir} ${dump_dir}|| exit -1
+    CUDA_VISIBLE_DEVICES=${gpus} ./local/train.sh ${config_path} ${train_output_path} ${root_dir} ${dump_dir}|| exit -1
 fi

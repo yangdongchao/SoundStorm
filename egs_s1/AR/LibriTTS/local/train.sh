@@ -11,4 +11,4 @@ python3 ${BIN_DIR}/train.py \
     --train_phoneme_path=${root_dir}/${dump_dir}/test/phonemes.npy \
     --dev_semantic_path=${root_dir}/${dump_dir}/dev/semantic_token.tsv \
     --dev_phoneme_path=${root_dir}/${dump_dir}/dev/phonemes.npy \
-    --output_path=${root_dir}/${train_output_path}
+    --output_dir=${root_dir}/${train_output_path}

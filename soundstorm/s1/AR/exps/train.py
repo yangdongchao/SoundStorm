@@ -2,6 +2,8 @@
 import argparse
 import logging
 from typing import Dict
+from pathlib import Path
+
 
 import torch
 import yaml
@@ -21,8 +23,13 @@ torch.set_float32_matmul_precision('high')
 
 
 def main(args):
-    wandb.init(dir=args.output_path)
-    wandb.run.name = args.output_path.split("/")[-1]
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    wandb.init(dir=output_dir)
+    wandb.run.name = output_dir.stem
+
+    ckpt_dir = output_dir / 'ckpt'
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
 
     with open(args.config_file, "r") as f:
         config: Dict = yaml.load(f, Loader=yaml.FullLoader)
@@ -31,7 +38,8 @@ def main(args):
     ckpt_callback: ModelCheckpoint = ModelCheckpoint(
         save_top_k=-1,
         save_on_train_epoch_end=False,
-        every_n_epochs=config["train"]["save_every_n_epoch"])
+        every_n_epochs=config["train"]["save_every_n_epoch"],
+        dirpath=ckpt_dir)
     trainer: Trainer = Trainer(
         max_epochs=config["train"]["epochs"],
         accelerator='gpu',
@@ -44,7 +52,7 @@ def main(args):
         callbacks=[ckpt_callback])
 
     model: Text2SemanticLightningModule = Text2SemanticLightningModule(
-        config, args.output_path)
+        config, output_dir)
 
     data_module: Text2SemanticDataModule = Text2SemanticDataModule(
         config,
@@ -75,7 +83,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--dev_phoneme_path', type=str, default='dump/dev/phonemes.npy')
     parser.add_argument(
-        '--output_path',
+        '--output_dir',
         type=str,
         default='exp/default',
         help='directory to save the results')

@@ -10,14 +10,15 @@ from soundstorm.s1.AR.modules.optim import ScaledAdam
 
 
 class Text2SemanticLightningModule(LightningModule):
-    def __init__(self, config, output_path):
+    def __init__(self, config, output_dir):
         super().__init__()
         self.config = config
-        self.model = Text2SemanticDecoder(config=config)
+        self.top_k = 3
+        self.model = Text2SemanticDecoder(config=config, top_k=self.top_k)
         self.automatic_optimization = False
         self.save_hyperparameters()
-        self.ckpt_dir = os.path.join(output_path, 'eval')
-        os.makedirs(self.ckpt_dir, exist_ok=True)
+        self.eval_dir = output_dir / 'eval'
+        self.eval_dir.mkdir(parents=True, exist_ok=True)
 
     def training_step(self, batch: Dict, batch_idx: int):
 
@@ -26,8 +27,6 @@ class Text2SemanticLightningModule(LightningModule):
         loss, acc = self.model.forward(
             batch['phoneme_ids'], batch['phoneme_ids_len'],
             batch['semantic_ids'], batch['semantic_ids_len'])
-        print("loss:", loss)
-        print("acc:", acc)
         self.manual_backward(loss)
 
         if batch_idx > 0 and batch_idx % 4 == 0:
@@ -38,7 +37,11 @@ class Text2SemanticLightningModule(LightningModule):
         self.log("total_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         self.log("lr", scheduler.get_last_lr()[0], on_epoch=True, prog_bar=True)
         self.log(
-            "acc_t2s_top10", acc, on_step=True, on_epoch=True, prog_bar=True)
+            "top_" + str(self.top_k) + "_acc",
+            acc,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True)
 
     def validation_step(self, batch: Dict, batch_idx: int):
 
@@ -48,7 +51,7 @@ class Text2SemanticLightningModule(LightningModule):
         pred_semantic = self.model.infer(batch['phoneme_ids'],
                                          batch['phoneme_ids_len'], prompt)
         save_name = f'semantic_toks_{batch_idx}.pt'
-        save_path = os.path.join(self.ckpt_dir, save_name)
+        save_path = os.path.join(self.eval_dir, save_name)
         torch.save(pred_semantic.detach().cpu(), save_path)
         if batch_idx == 0:
             print('')

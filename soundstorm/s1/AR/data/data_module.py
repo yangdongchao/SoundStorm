@@ -14,6 +14,7 @@ class Text2SemanticDataModule(LightningDataModule):
         self.train_phoneme_path = train_phoneme_path
         self.dev_semantic_path = dev_semantic_path
         self.dev_phoneme_path = dev_phoneme_path
+        self.num_workers = self.config['data']['num_workers']
 
     def prepare_data(self):
         pass
@@ -35,14 +36,16 @@ class Text2SemanticDataModule(LightningDataModule):
             self._train_dataset,
             batch_size=batch_size,
             sampler=sampler,
-            collate_fn=self._train_dataset.collate)
+            collate_fn=self._train_dataset.collate,
+            num_workers=self.num_workers,)
 
     def val_dataloader(self):
         return DataLoader(
             self._dev_dataset,
             batch_size=1,
             shuffle=False,
-            collate_fn=self._train_dataset.collate)
+            collate_fn=self._train_dataset.collate,
+            num_workers=self.num_workers,)
 
     # 这个会使用到嘛？
     def test_dataloader(self):

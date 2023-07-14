@@ -26,7 +26,7 @@ default_config = {
 
 
 class Text2SemanticDecoder(nn.Module):
-    def __init__(self, config, norm_first=False):
+    def __init__(self, config, norm_first=False, top_k=3):
         super(Text2SemanticDecoder, self).__init__()
         self.model_dim = config['model']["hidden_dim"]
         self.embedding_dim = config['model']["embedding_dim"]
@@ -67,7 +67,7 @@ class Text2SemanticDecoder(nn.Module):
 
         self.ar_accuracy_metric = MulticlassAccuracy(
             self.vocab_size,
-            top_k=10,
+            top_k=top_k,
             average="micro",
             multidim_average="global",
             ignore_index=self.EOS, )

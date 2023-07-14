@@ -3,7 +3,7 @@ train:
     epochs: 100
     batch_size: 12
     gradient_accumulation: 4
-    save_every_n_epoch: 1
+    save_every_n_epoch: 20
     precision: 32
     gradient_clip: 1.0
 optimizer:
@@ -14,7 +14,6 @@ optimizer:
     decay_steps: 40000
 data:
     max_eval_sample: 8
-    num_workers: 2
 model:
     vocab_size: 1025
     phoneme_vocab_size: 512
