@@ -22,6 +22,7 @@ torch.set_float32_matmul_precision('high')
 
 def main(args):
     wandb.init(dir=args.output_path)
+    wandb.run.name = args.output_path.split("/")[-1]
 
     with open(args.config_file, "r") as f:
         config: Dict = yaml.load(f, Loader=yaml.FullLoader)
@@ -78,6 +79,7 @@ if __name__ == '__main__':
         type=str,
         default='exp/default',
         help='directory to save the results')
+    
     args = parser.parse_args()
     logging.info(str(args))
     main(args)
