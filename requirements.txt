@@ -2,3 +2,7 @@ fairseq
 einops
 npy_append_array
 tensorboard
+gruut
+torchmetrics
+pytorch-lightning==1.9.5
+wandb
