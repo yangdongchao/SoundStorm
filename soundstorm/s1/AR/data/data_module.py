@@ -6,21 +6,25 @@ from torch.utils.data import DataLoader
 
 
 class Text2SemanticDataModule(LightningDataModule):
-    def __init__(self, config):
+    def __init__(self, config, train_semantic_path, train_phoneme_path,
+                 dev_semantic_path, dev_phoneme_path):
         super().__init__()
         self.config = config
+        self.train_semantic_path = train_semantic_path
+        self.train_phoneme_path = train_phoneme_path
+        self.dev_semantic_path = dev_semantic_path
+        self.dev_phoneme_path = dev_phoneme_path
 
     def prepare_data(self):
         pass
 
     def setup(self, stage=None, output_logs=False):
         self._train_dataset = Text2SemanticDataset(
-            metadata_path=self.config['data']['train_metadata_path'],
-            semantic_token_path=self.config['data'][
-                'train_semantic_token_path'])
-        self._test_dataset = Text2SemanticDataset(
-            metadata_path=self.config['data']['eval_metadata_path'],
-            semantic_token_path=self.config['data']['eval_semantic_token_path'],
+            phoneme_path=self.train_phoneme_path,
+            semantic_path=self.train_semantic_path)
+        self._dev_dataset = Text2SemanticDataset(
+            phoneme_path=self.dev_phoneme_path,
+            semantic_path=self.dev_semantic_path,
             max_sample=self.config['data']['max_eval_sample'])
 
     def train_dataloader(self):
@@ -35,14 +39,15 @@ class Text2SemanticDataModule(LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(
-            self._test_dataset,
+            self._dev_dataset,
             batch_size=1,
             shuffle=False,
             collate_fn=self._train_dataset.collate)
 
+    # 这个会使用到嘛？
     def test_dataloader(self):
         return DataLoader(
-            self._test_dataset,
+            self._dev_dataset,
             batch_size=1,
             shuffle=False,
             collate_fn=self._train_dataset.collate)

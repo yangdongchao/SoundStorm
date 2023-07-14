@@ -1,4 +1,5 @@
 # modified from https://github.com/lifeiteng/vall-e/blob/main/valle/modules/transformer.py
+import copy
 import numbers
 from functools import partial
 from typing import Any
@@ -74,6 +75,23 @@ class LayerNorm(nn.Module):
         return (
             "{normalized_shape}, eps={eps}, "
             "elementwise_affine={elementwise_affine}".format(**self.__dict__))
+
+
+class IdentityNorm(nn.Module):
+    def __init__(
+            self,
+            d_model: int,
+            eps: float=1e-5,
+            device=None,
+            dtype=None, ) -> None:
+        super(IdentityNorm, self).__init__()
+
+    def forward(self, input: Tensor, embedding: Any=None) -> Tensor:
+        if isinstance(input, tuple):
+            return input
+
+        assert embedding is None
+        return input
 
 
 class TransformerEncoder(nn.Module):
@@ -317,3 +335,6 @@ class AdaptiveLayerNorm(nn.Module):
             split_size_or_sections=self.d_model,
             dim=-1, )
         return weight * self.norm(input) + bias
+
+def _get_clones(module, N):
+    return nn.ModuleList([copy.deepcopy(module) for i in range(N)])

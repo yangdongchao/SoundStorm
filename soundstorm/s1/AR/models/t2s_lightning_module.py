@@ -1,20 +1,23 @@
 # modified from https://github.com/feng-yufei/shared_debugging_code/blob/main/model/t2s_lightning_module.py
+import os
 from typing import Dict
 
-import pytorch_lightning
 import torch
+from pytorch_lightning import LightningModule
 from soundstorm.s1.AR.models.t2s_model import Text2SemanticDecoder
 from soundstorm.s1.AR.modules.lr_schedulers import WarmupCosineLRSchedule
 from soundstorm.s1.AR.modules.optim import ScaledAdam
 
 
-class Text2SemanticLightningModule(pytorch_lightning.LightningModule):
-    def __init__(self, config):
+class Text2SemanticLightningModule(LightningModule):
+    def __init__(self, config, output_path):
         super().__init__()
         self.config = config
         self.model = Text2SemanticDecoder(config=config)
         self.automatic_optimization = False
         self.save_hyperparameters()
+        self.ckpt_dir = os.path.join(output_path, 'eval')
+        os.makedirs(self.ckpt_dir, exist_ok=True)
 
     def training_step(self, batch: Dict, batch_idx: int):
 
@@ -23,6 +26,8 @@ class Text2SemanticLightningModule(pytorch_lightning.LightningModule):
         loss, acc = self.model.forward(
             batch['phoneme_ids'], batch['phoneme_ids_len'],
             batch['semantic_ids'], batch['semantic_ids_len'])
+        print("loss:", loss)
+        print("acc:", acc)
         self.manual_backward(loss)
 
         if batch_idx > 0 and batch_idx % 4 == 0:
@@ -42,8 +47,9 @@ class Text2SemanticLightningModule(pytorch_lightning.LightningModule):
         prompt = batch['semantic_ids'][:, :prompt_len]
         pred_semantic = self.model.infer(batch['phoneme_ids'],
                                          batch['phoneme_ids_len'], prompt)
-        torch.save(pred_semantic.detach().cpu(),
-                   f'eval/semantic_toks_{batch_idx}.pt')
+        save_name = f'semantic_toks_{batch_idx}.pt'
+        save_path = os.path.join(self.ckpt_dir, save_name)
+        torch.save(pred_semantic.detach().cpu(), save_path)
         if batch_idx == 0:
             print('')
 

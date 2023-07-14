@@ -22,9 +22,9 @@ source ${MAIN_ROOT}/utils/parse_options.sh || exit 1
 
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     # prepare data
-    CUDA_VISIBLE_DEVICES=${gpus} ./local/preprocess.sh ${root_dir} ${data_dir} ${dump_dir}|| exit -1
+    CUDA_VISIBLE_DEVICES=${gpus} ./local/preprocess.sh ${root_dir} ${train_output_path} ${data_dir} ${dump_dir}|| exit -1
 fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-    CUDA_VISIBLE_DEVICES=${gpus} ./local/train.sh ${config_path} ${train_output_path} ${root_dir} ${log_frequency} ${dist_url} ${dump_dir}|| exit -1
+    CUDA_VISIBLE_DEVICES=${gpus} ./local/train.sh ${config_path} ${root_dir} ${dump_dir}|| exit -1
 fi
