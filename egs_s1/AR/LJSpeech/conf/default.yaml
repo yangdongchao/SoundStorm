@@ -3,7 +3,7 @@ train:
     epochs: 100
     batch_size: 12
     gradient_accumulation: 4
-    save_every_n_epoch: 20
+    save_every_n_epoch: 5
     precision: 32
     gradient_clip: 1.0
 optimizer:
@@ -19,10 +19,10 @@ model:
     phoneme_vocab_size: 512
     embedding_dim: 512
     hidden_dim: 512
-    head: 16
+    head: 8
     linear_units: 2048
     n_layer: 12
     dropout: 0
     EOS: 1024
 inference:
-    top_k: 5
+    top_k: -100
