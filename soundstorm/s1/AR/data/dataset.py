@@ -68,6 +68,8 @@ class Text2SemanticDataset(Dataset):
         print("semantic_data_len:", semantic_data_len)
         print("phoneme_data_len:", phoneme_data_len)
         idx = 0
+        num_not_in = 0
+        num_deleted = 0
         for i in range(semantic_data_len):
             # 先依次遍历
             # get str
@@ -75,7 +77,8 @@ class Text2SemanticDataset(Dataset):
             try:
                 phoneme = self.phoneme_data[item_name]
             except Exception:
-                print(item_name, "not in self.phoneme_data!")
+                # print(item_name, "not in self.phoneme_data!")
+                num_not_in += 1
                 continue
 
             semantic_str = self.semantic_data['semantic_audio'][i]
@@ -84,6 +87,7 @@ class Text2SemanticDataset(Dataset):
             # (T), 是否需要变成 (1, T) -> 不需要，因为需要求 len
             # 过滤掉太长的样本
             if len(semantic_ids) > self.max_sec * self.hz:
+                num_deleted += 1
                 continue
 
             # 在一开始就过一遍会很慢, 所以可以在取 idx 的时候再过
@@ -92,7 +96,13 @@ class Text2SemanticDataset(Dataset):
 
             self.semantic_phoneme[idx] = (semantic_ids, phoneme_ids)
             idx += 1
-
+        if num_not_in > 0:
+            print("!!! there are", num_not_in,
+                  "semantic datas not in phoneme datas !!!!")
+        if num_deleted > 0:
+            print("!!! deleted", num_deleted,
+                  "audios who's duration are bigger than", self.max_sec,
+                  "seconds !!!")
         print("dataset.__len__():", self.__len__())
 
     def __len__(self) -> int:
@@ -170,7 +180,11 @@ if __name__ == '__main__':
     for i, batch in enumerate(dataloader):
         if i == 0:
             print('batch["ids"]:', batch["ids"])
-            print('batch["phoneme_ids"]:', batch["phoneme_ids"], batch["phoneme_ids"].shape)
-            print('batch["phoneme_ids_len"]:', batch["phoneme_ids_len"], batch["phoneme_ids_len"].shape)
-            print('batch["semantic_ids"]:', batch["semantic_ids"], batch["semantic_ids"].shape)
-            print('batch["semantic_ids_len"]:', batch["semantic_ids_len"], batch["semantic_ids_len"].shape)
+            print('batch["phoneme_ids"]:', batch["phoneme_ids"],
+                  batch["phoneme_ids"].shape)
+            print('batch["phoneme_ids_len"]:', batch["phoneme_ids_len"],
+                  batch["phoneme_ids_len"].shape)
+            print('batch["semantic_ids"]:', batch["semantic_ids"],
+                  batch["semantic_ids"].shape)
+            print('batch["semantic_ids_len"]:', batch["semantic_ids_len"],
+                  batch["semantic_ids_len"].shape)
