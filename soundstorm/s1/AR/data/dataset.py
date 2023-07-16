@@ -45,7 +45,7 @@ class Text2SemanticDataset(Dataset):
         self.PAD: int = 1024
         self.hz = 50
         # max seconds of semantic token
-        self.max_sec = 25
+        self.max_sec = 20
         self.phonemizer: GruutPhonemizer = GruutPhonemizer(language='en-us')
 
         if max_sample is not None:

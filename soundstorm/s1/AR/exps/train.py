@@ -1,14 +1,11 @@
 # modified from https://github.com/feng-yufei/shared_debugging_code/blob/main/train_t2s.py
 import argparse
 import logging
-from typing import Dict
 from pathlib import Path
-
+from typing import Dict
 
 import torch
 import yaml
-import wandb
-
 from pytorch_lightning import seed_everything
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -21,13 +18,10 @@ logging.getLogger('matplotlib').setLevel(logging.WARNING)
 torch.set_float32_matmul_precision('high')
 
 
-
 def main(args):
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    wandb.init(dir=output_dir, resume='allow')
-    wandb.run.name = output_dir.stem
-    wandb.finish()
+    # wandb.init(dir=output_dir, resume='allow')
 
     ckpt_dir = output_dir / 'ckpt'
     ckpt_dir.mkdir(parents=True, exist_ok=True)
@@ -49,7 +43,8 @@ def main(args):
         fast_dev_run=False,
         strategy=DDPStrategy(find_unused_parameters=True),
         precision=config["train"]["precision"],
-        logger=WandbLogger(project="AR_S1"),
+        logger=WandbLogger(
+            project="AR_S1", name=output_dir.stem, save_dir=output_dir),
         callbacks=[ckpt_callback])
 
     model: Text2SemanticLightningModule = Text2SemanticLightningModule(
@@ -88,7 +83,7 @@ if __name__ == '__main__':
         type=str,
         default='exp/default',
         help='directory to save the results')
-    
+
     args = parser.parse_args()
     logging.info(str(args))
     main(args)
