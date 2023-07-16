@@ -1,6 +1,8 @@
 # modified from https://github.com/feng-yufei/shared_debugging_code/blob/main/train_t2s.py
 import argparse
 import logging
+import os
+import re
 from pathlib import Path
 from typing import Dict
 
@@ -21,7 +23,6 @@ torch.set_float32_matmul_precision('high')
 def main(args):
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    # wandb.init(dir=output_dir, resume='allow')
 
     ckpt_dir = output_dir / 'ckpt'
     ckpt_dir.mkdir(parents=True, exist_ok=True)
@@ -56,7 +57,17 @@ def main(args):
         train_phoneme_path=args.train_phoneme_path,
         dev_semantic_path=args.dev_semantic_path,
         dev_phoneme_path=args.dev_phoneme_path)
-    trainer.fit(model, data_module)
+
+    try:
+        # 使用正则表达式匹配文件名中的数字部分，并按数字大小进行排序
+        sorted_files = sorted(
+            os.listdir(ckpt_dir),
+            key=lambda x: int(re.findall(r'epoch=(\d+)', x)[0]))
+        ckpt_path = ckpt_dir / sorted_files[-1]
+    except Exception:
+        ckpt_path = None
+    print("ckpt_path:", ckpt_path)
+    trainer.fit(model, data_module, ckpt_path=ckpt_path)
 
 
 # srun --gpus-per-node=1 --ntasks-per-node=1 python train.py --path-to-configuration configurations/default.yaml
