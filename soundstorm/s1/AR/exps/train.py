@@ -25,8 +25,9 @@ torch.set_float32_matmul_precision('high')
 def main(args):
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    wandb.init(dir=output_dir)
+    wandb.init(dir=output_dir, resume='allow')
     wandb.run.name = output_dir.stem
+    wandb.finish()
 
     ckpt_dir = output_dir / 'ckpt'
     ckpt_dir.mkdir(parents=True, exist_ok=True)

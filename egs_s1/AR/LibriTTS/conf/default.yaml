@@ -1,7 +1,7 @@
 train:
     seed: 1234
     epochs: 100
-    batch_size: 12
+    batch_size: 11
     gradient_accumulation: 4
     save_every_n_epoch: 1
     precision: 32
