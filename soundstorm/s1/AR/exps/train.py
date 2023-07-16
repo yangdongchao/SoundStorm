@@ -36,6 +36,14 @@ def main(args):
         save_on_train_epoch_end=False,
         every_n_epochs=config["train"]["save_every_n_epoch"],
         dirpath=ckpt_dir)
+    logger = WandbLogger(
+        project="AR_S1",
+        name=output_dir.stem,
+        save_dir=output_dir,
+        # resume the loss curve
+        # resume='allow',
+        # id='k19kvsq8'
+        )
     trainer: Trainer = Trainer(
         max_epochs=config["train"]["epochs"],
         accelerator='gpu',
@@ -44,8 +52,7 @@ def main(args):
         fast_dev_run=False,
         strategy=DDPStrategy(find_unused_parameters=True),
         precision=config["train"]["precision"],
-        logger=WandbLogger(
-            project="AR_S1", name=output_dir.stem, save_dir=output_dir),
+        logger=logger,
         callbacks=[ckpt_callback])
 
     model: Text2SemanticLightningModule = Text2SemanticLightningModule(
