@@ -74,6 +74,9 @@ class Text2SemanticDataset(Dataset):
             # 先依次遍历
             # get str
             item_name = self.semantic_data['item_name'][i]
+            # first item of test dataset is 1001_134708_000013_000000
+            # if i == 0:
+            #     print("item_name:", item_name)
             try:
                 phoneme = self.phoneme_data[item_name]
             except Exception:
@@ -90,8 +93,7 @@ class Text2SemanticDataset(Dataset):
                 num_deleted += 1
                 continue
 
-            # 在一开始就过一遍会很慢, 所以可以在取 idx 的时候再过
-            # (T, )
+            # (T, ), 这个速度不会很慢，所以可以在一开始就处理，无需在 __getitem__ 里面单个处理
             phoneme_ids = self.phonemizer.transform(phoneme)
 
             self.semantic_phoneme[idx] = (semantic_ids, phoneme_ids)

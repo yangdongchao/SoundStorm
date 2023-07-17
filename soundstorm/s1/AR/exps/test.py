@@ -53,13 +53,13 @@ def main():
 
     batch_size = 1
 
-    # get models
+    # get dataset
     test_dataset = Text2SemanticDataset(
         phoneme_path=args.test_phoneme_path,
         semantic_path=args.test_semantic_path,
         max_sec=100,
         max_sample=None)
-
+    # get model
     t2s_model = Text2SemanticLightningModule.load_from_checkpoint(
         checkpoint_path=args.ckpt_path, config=config)
     t2s_model.cuda()
@@ -78,6 +78,7 @@ def main():
         if i == 0:
             print(batch)
             # bs > 1 时会补零
+            # 与 validation_step() 保持一致
             semantic_len = batch['semantic_ids'].size(1)
             # 多次合成，前 prompt_len 个是一样的，而且和 prompt 一样
             # 为什么每次输出的长度都是 663？
@@ -87,7 +88,6 @@ def main():
             print("prompt.shape:", prompt.shape)
             np.save(output_dir / 'prompt.npy',
                     prompt.detach().cpu().numpy())
-
 
             st = time.time()
             with torch.no_grad():

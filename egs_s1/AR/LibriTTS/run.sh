@@ -32,3 +32,9 @@ fi
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     CUDA_VISIBLE_DEVICES=${gpus} ./local/test.sh ${config_path} ${train_output_path} ${ckpt_name} ${root_dir} ${dump_dir}|| exit -1
 fi
+
+# text-to-semantic 
+# text -> frontend -> semantic
+if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
+    CUDA_VISIBLE_DEVICES=${gpus} ./local/t2s.sh ${config_path} ${train_output_path} ${ckpt_name} ${root_dir} || exit -1
+fi
