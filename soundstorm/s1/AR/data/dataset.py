@@ -35,7 +35,7 @@ class Text2SemanticDataset(Dataset):
     """dataset class for text tokens to semantic model training."""
 
     def __init__(self, phoneme_path: str, semantic_path: str,
-                 max_sample=None) -> None:
+                 max_sample=None, max_sec=100) -> None:
         super().__init__()
 
         self.semantic_data = pd.read_csv(semantic_path, delimiter='\t')
@@ -45,7 +45,7 @@ class Text2SemanticDataset(Dataset):
         self.PAD: int = 1024
         self.hz = 50
         # max seconds of semantic token
-        self.max_sec = 20
+        self.max_sec = max_sec
         self.phonemizer: GruutPhonemizer = GruutPhonemizer(language='en-us')
 
         if max_sample is not None:
