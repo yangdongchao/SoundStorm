@@ -41,7 +41,7 @@ def main(args):
         name=output_dir.stem,
         save_dir=output_dir,
         # resume the loss curve
-        # resume='allow',
+        resume=True,
         # id='k19kvsq8'
         )
     trainer: Trainer = Trainer(
