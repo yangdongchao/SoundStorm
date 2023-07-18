@@ -10,7 +10,7 @@ import soundfile as sf
 import torch
 from academicodec.models.hificodec.vqvae import VQVAE
 from soundstorm.s2.models.dalle_wav.build import build_model
-from soundstorm.s2.models.mhubert.semantic_tokenizer import SemanticTokenizer
+from soundstorm.s2.models.hubert.semantic_tokenizer import SemanticTokenizer
 from soundstorm.s2.utils.io import load_yaml_config
 
 acoustic_token_nums = 1024
@@ -53,6 +53,9 @@ def get_batch(prompt_semantic_tokens,
               target_semantic_tokens,
               num_quant=4):
     hz = 50
+    # transformer_utils.py 里面最大是 20, pad 了一个  stop token, 所以这里最大是 19
+    # 但是训练时最多是 10s, 所以超过 10s 的无法合成出来
+    max_sec = 10
 
     # prompt 最多为 3s
     if prompt_acoustic_tokens.shape[1] > 6 * hz:
@@ -63,7 +66,7 @@ def get_batch(prompt_semantic_tokens,
     prompt_semantic_tokens = prompt_semantic_tokens[:, :prompt_len]
     prompt_acoustic_tokens = prompt_acoustic_tokens[:, :prompt_len]
     # target 最多为 10s
-    target_semantic_tokens = target_semantic_tokens[:, :10 * hz]
+    target_semantic_tokens = target_semantic_tokens[:, :max_sec * hz]
     # acoustic_token 和 semantic_token 长度是对齐的
     target_T = target_semantic_tokens.shape[-1]
     # 伪造的 target_acoustics_tokens

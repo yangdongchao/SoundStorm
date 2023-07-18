@@ -8,7 +8,6 @@ from soundstorm.s1.AR.modules.transformer import LayerNorm
 from soundstorm.s1.AR.modules.transformer import TransformerEncoder
 from soundstorm.s1.AR.modules.transformer import TransformerEncoderLayer
 from torch import nn
-from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics.classification import MulticlassAccuracy
 
@@ -123,7 +122,8 @@ class Text2SemanticDecoder(nn.Module):
         acc = self.ar_accuracy_metric(logits.detach(), targets).item()
         return loss, acc
 
-    def infer(self, x, x_lens, prompts, top_k=-100):
+    # 需要看下这个函数和 forward 的区别以及没有 semantic 的时候 prompts 输入什么
+    def infer(self, x, x_lens, prompts, top_k=-100, early_stop_num=-1):
 
         x = self.ar_text_embedding(x)
         x = self.ar_text_position(x)
@@ -133,8 +133,8 @@ class Text2SemanticDecoder(nn.Module):
         prefix_len = y.shape[1]
         x_len = x.shape[1]
         x_attn_mask = torch.zeros((x_len, x_len), dtype=torch.bool)
+        stop = False
         while True:
-
             y_emb = self.ar_audio_embedding(y)
             y_pos = self.ar_audio_position(y_emb)
 
@@ -160,13 +160,18 @@ class Text2SemanticDecoder(nn.Module):
             samples = topk_sampling(
                 logits, top_k=top_k, top_p=1.0, temperature=1.0)
 
-            if (torch.argmax(logits, dim=-1)[0] == self.EOS or
-                    samples[0, 0] == self.EOS or
-                (y.shape[1] - prefix_len) > 512):
+            if early_stop_num != -1 and (y.shape[1] - prefix_len
+                                         ) > early_stop_num:
+                print("use early stop num:", early_stop_num)
+                stop = True
+
+            if torch.argmax(
+                    logits, dim=-1)[0] == self.EOS or samples[0, 0] == self.EOS:
+                stop = True
+            if stop:
                 if prompts.shape[1] == y.shape[1]:
                     y = torch.concat([y, torch.zeros_like(samples)], dim=1)
                     print('bad zero prediction')
-
                 print(f"T2S Decoding EOS [{prefix_len} -> {y.shape[1]}]")
                 break
             y = torch.concat([y, samples], dim=1)

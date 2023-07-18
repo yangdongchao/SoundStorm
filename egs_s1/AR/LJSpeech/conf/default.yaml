@@ -14,6 +14,8 @@ optimizer:
     decay_steps: 40000
 data:
     max_eval_sample: 8
+    max_sec: 20
+    num_workers: 2
 model:
     vocab_size: 1025
     phoneme_vocab_size: 512

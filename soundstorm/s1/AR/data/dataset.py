@@ -54,6 +54,7 @@ class Text2SemanticDataset(Dataset):
         # {idx: (semantic, phoneme)}
         # semantic list, phoneme list
         self.semantic_phoneme = {}
+        self.item_names = []
 
         self.inited = False
 
@@ -98,6 +99,7 @@ class Text2SemanticDataset(Dataset):
 
             self.semantic_phoneme[idx] = (semantic_ids, phoneme_ids)
             idx += 1
+            self.item_names.append(item_name)
         if num_not_in > 0:
             print("!!! there are", num_not_in,
                   "semantic datas not in phoneme datas !!!!")
@@ -106,6 +108,9 @@ class Text2SemanticDataset(Dataset):
                   "audios who's duration are bigger than", self.max_sec,
                   "seconds !!!")
         print("dataset.__len__():", self.__len__())
+    
+    def __get_item_names__(self) -> List[str]:
+        return self.item_names
 
     def __len__(self) -> int:
         return len(self.semantic_phoneme.keys())

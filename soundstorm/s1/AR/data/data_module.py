@@ -22,11 +22,13 @@ class Text2SemanticDataModule(LightningDataModule):
     def setup(self, stage=None, output_logs=False):
         self._train_dataset = Text2SemanticDataset(
             phoneme_path=self.train_phoneme_path,
-            semantic_path=self.train_semantic_path)
+            semantic_path=self.train_semantic_path,
+            max_sec=self.config['data']['max_sec'])
         self._dev_dataset = Text2SemanticDataset(
             phoneme_path=self.dev_phoneme_path,
             semantic_path=self.dev_semantic_path,
-            max_sample=self.config['data']['max_eval_sample'])
+            max_sample=self.config['data']['max_eval_sample'],
+            max_sec=self.config['data']['max_sec'])
 
     def train_dataloader(self):
         batch_size = self.config['train']['batch_size']
