@@ -35,14 +35,14 @@ class Text2SemanticDataset(Dataset):
     """dataset class for text tokens to semantic model training."""
 
     def __init__(self, phoneme_path: str, semantic_path: str,
-                 max_sample=None, max_sec=100) -> None:
+                 max_sample=None, max_sec=100, pad_val=1024) -> None:
         super().__init__()
 
         self.semantic_data = pd.read_csv(semantic_path, delimiter='\t')
         # get dict
         self.phoneme_data = np.load(phoneme_path, allow_pickle=True).item()
         # pad for semantic tokens
-        self.PAD: int = 1024
+        self.PAD: int = pad_val
         self.hz = 50
         # max seconds of semantic token
         self.max_sec = max_sec

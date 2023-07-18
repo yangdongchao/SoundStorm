@@ -16,7 +16,7 @@ data:
     max_eval_sample: 8
     max_sec: 20
     num_workers: 2
-    pad_val: 1024 # same with EOS in model
+    pad_val: 500 # same with EOS in model
 model:
     vocab_size: 1025
     phoneme_vocab_size: 512
@@ -26,6 +26,6 @@ model:
     linear_units: 2048
     n_layer: 12
     dropout: 0
-    EOS: 1024
+    EOS: 500
 inference:
     top_k: 5
