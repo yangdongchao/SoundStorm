@@ -6,13 +6,13 @@ source path.sh
 gpus=6,7
 stage=0
 stop_stage=100
-train_output_path=exp/default
+train_output_path='exp_libritts/30k_basex2_base_L9_km500'
 # dir to set part/all of dump dataset and experiment result
 root_dir='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm'
 # there should be *.wav 、*/*.wav or */*/*.wav in data_dir
 data_dir='~/datasets/LibriTTS-R'
-config_path=conf/default.yaml
-log_frequency=10
+config_path='conf/30k_basex2_hubert_L9km500.yaml'
+log_frequency=1
 # 'tcp://%s:%s' % (MASTER_ADDR, MASTER_PORT)
 dist_url='tcp://127.0.0.1:29501'
 # use which checkpoint file to test
@@ -22,7 +22,7 @@ layer=9
 # should be same with ${hubert_path} in hubert_kms.sh
 hubert_path=pretrained_model/hubert/hubert_base_ls960.pt
 quantizer_path=pretrained_model/hubert/hubert_base_ls960_L9_km500.bin
-dump_dir=dump
+dump_dir=dump_libritts_base_L9_km500
 
 # with the following command, you can choose the stage range you want to run
 # such as `./run.sh --stage 0 --stop-stage 0`
