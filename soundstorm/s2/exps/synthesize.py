@@ -102,7 +102,7 @@ def evaluate(args, hificodec, soundstorm, semantic_tokenizer=None):
         # get prompt_semantic
         # (T) -> (1, T)
         prompt_semantic_tokens = semantic_tokenizer.tokenize(wav).unsqueeze(0)
-        print("prompt_semantic_tokens.shape:",prompt_semantic_tokens.shape)
+        print("prompt_semantic_tokens.shape:", prompt_semantic_tokens.shape)
 
         # get prompt_acoustic
         # (1, T, 4)
@@ -126,8 +126,9 @@ def evaluate(args, hificodec, soundstorm, semantic_tokenizer=None):
         prompt_acoustic_tokens = prompt_acoustic_str[:num_quant, ...]
 
     # get target
+    # 保留 item_name 前导 0
     target_semantic_data = pd.read_csv(
-        args.target_semantic_path, delimiter='\t')
+        args.target_semantic_path, delimiter='\t', dtype=str)
     target_name = target_semantic_data['item_name'][0]
     target_semantic_str = target_semantic_data['semantic_audio'][0]
     # shape: (1, T)

@@ -82,6 +82,7 @@ batch: {'phoneme_ids': tensor([ 48,  85,  16,  55,  72,  56,  16,  83,  64,  16,
 def get_batch(text, phonemizer):
     # phoneme_ids 和 phoneme_ids_len 是需要的
     phoneme = phonemizer.phonemize(text, espeak=False)
+    print("phoneme:", phoneme)
     phoneme_ids = phonemizer.transform(phoneme)
     phoneme_ids_len = len(phoneme_ids)
     phoneme_ids = np.array(phoneme_ids)
@@ -158,7 +159,6 @@ def main():
     for utt_id, sentence in sentences[1:]:
         # 需要自己构造伪 batch 输入给模型
         batch = get_batch(sentence, phonemizer)
-        print("batch:", batch)
         # 遍历 utt_id
         st = time.time()
         # prompt 是啥东西？？？？？？？
@@ -183,7 +183,7 @@ def main():
         semantic_data.append([utt_id, semantic_token_str])
 
         delimiter = '\t'
-        filename = output_dir / f'{utt_id}_semantic_token.npy'
+        filename = output_dir / f'{utt_id}_semantic_token.tsv'
         with open(filename, 'w', encoding='utf-8') as writer:
             for row in semantic_data:
                 line = delimiter.join(row)
