@@ -18,7 +18,7 @@ data:
     num_workers: 2
     pad_val: 500 # same with EOS in model
 model:
-    vocab_size: 1025
+    vocab_size: 501
     phoneme_vocab_size: 512
     embedding_dim: 512
     hidden_dim: 512

@@ -38,7 +38,8 @@ class Text2SemanticDecoder(nn.Module):
         self.EOS = config['model']["EOS"]
         self.norm_first = norm_first
         assert self.EOS == self.vocab_size - 1
-        assert self.EOS == 1024
+        # should be same as num of kmeans bin
+        # assert self.EOS == 1024
 
         self.ar_text_embedding = TokenEmbedding(
             self.embedding_dim, self.phoneme_vocab_size, self.p_dropout)
