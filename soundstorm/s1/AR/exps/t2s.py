@@ -85,7 +85,8 @@ def get_batch(text, phonemizer):
     phoneme_ids = phonemizer.transform(phoneme)
     phoneme_ids_len = len(phoneme_ids)
     phoneme_ids = np.array(phoneme_ids)
-    phoneme_ids = torch.tensor(phoneme_ids)
+    # add batch axis here
+    phoneme_ids = torch.tensor(phoneme_ids).unsqueeze(0)
     phoneme_ids_lens = torch.tensor([phoneme_ids_len])
     batch = {
         # torch.Tensor (B, max_phoneme_length) 
@@ -134,6 +135,9 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    hz = 50
+    max_sec = config['data']['max_sec']
+
     # get models
     t2s_model = Text2SemanticLightningModule.load_from_checkpoint(
         checkpoint_path=args.ckpt_path, config=config)
@@ -150,27 +154,42 @@ def main():
                 utt_id = items[0]
                 sentence = " ".join(items[1:])
             sentences.append((utt_id, sentence))
-
-    for utt_id, sentence in sentences[:1]:
+    semantic_data = [['item_name', 'semantic_audio']]
+    for utt_id, sentence in sentences[1:]:
         # 需要自己构造伪 batch 输入给模型
         batch = get_batch(sentence, phonemizer)
         print("batch:", batch)
         # 遍历 utt_id
         st = time.time()
-        # with torch.no_grad():
         # prompt 是啥东西？？？？？？？
         # 端到端合成的时候该咋输入？
-
-        # pred_semantic = t2s_model.model.infer(
-        #     batch['phoneme_ids'].cuda(),
-        #     batch['phoneme_ids_len'].cuda(),
-        #     prompt.cuda(),
-        #     top_k=config['inference']['top_k'])
-        # print(f'{time.time() - st} sec used in T2S')
-
+        # zero prompt 
+        # (B, 1)
+        prompt = torch.ones(
+            batch['phoneme_ids'].size(0), 1, dtype=torch.int32) * 0
+        pred_semantic = t2s_model.model.infer(
+            batch['phoneme_ids'].cuda(),
+            batch['phoneme_ids_len'].cuda(),
+            prompt.cuda(),
+            top_k=config['inference']['top_k'],
+            early_stop_num=hz * max_sec)
         print(f'{time.time() - st} sec used in T2S')
-        np.save(output_dir / f'semantic_toks_{utt_id}.npy',
-                pred_semantic.detach().cpu().numpy())
+
+        # bs = 1
+        pred_semantic = pred_semantic[0]
+
+        semantic_token = pred_semantic.detach().cpu().numpy().tolist()
+        semantic_token_str = ' '.join(str(x) for x in semantic_token)
+        semantic_data.append([utt_id, semantic_token_str])
+
+        delimiter = '\t'
+        filename = output_dir / f'{utt_id}_semantic_token.npy'
+        with open(filename, 'w', encoding='utf-8') as writer:
+            for row in semantic_data:
+                line = delimiter.join(row)
+                writer.write(line + '\n')
+        # clean semantic token for next setence
+        semantic_data = [['item_name', 'semantic_audio']]
 
 
 if __name__ == "__main__":
