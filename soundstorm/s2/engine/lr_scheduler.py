@@ -97,6 +97,7 @@ class ReduceLROnPlateauWithWarmup(object):
         self.num_bad_epochs = None
         self.mode_worse = None  # the worse value for the chosen mode
         self.eps = eps
+        # ckpt['optimizer_and_scheduler']['none']['scheduler']['module'] 里面存了 'last_epoch'
         self.last_epoch = 0
         self._init_is_better(
             mode=mode, threshold=threshold, threshold_mode=threshold_mode)
@@ -132,9 +133,11 @@ class ReduceLROnPlateauWithWarmup(object):
     def step(self, metrics):
         # convert `metrics` to float, in case it's a zero-dim Tensor
         current = float(metrics)
+        # 这里说是 epoch 但是 step 是训练时每个 iter 调用一边，其实是 last_iter
+        # 这里 epoch 在每次调用的时候会增加一个那么只在 valid 的时候 step 可能 epoch 并不是全局的 iter
         epoch = self.last_epoch + 1
         self.last_epoch = epoch
-
+        # 这里其实是 iter 之间比较, warmup 的单位也是 iter
         if epoch <= self.warmup:
             self._increase_lr(epoch)
         else:
@@ -266,7 +269,6 @@ class CosineAnnealingLRWithWarmup(object):
     def step(self):
         epoch = self.last_epoch + 1
         self.last_epoch = epoch
-
         if epoch <= self.warmup:
             self._increase_lr(epoch)
         else:
