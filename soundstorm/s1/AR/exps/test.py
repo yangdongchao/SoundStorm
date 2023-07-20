@@ -106,6 +106,11 @@ def main():
 
             st = time.time()
             with torch.no_grad():
+                # calculate acc for test
+                loss, acc = t2s_model.model.forward(
+                    batch['phoneme_ids'], batch['phoneme_ids_len'],
+                    batch['semantic_ids'], batch['semantic_ids_len'])
+                print("top_3_acc of this batch:", acc)
                 # prompt 是啥东西？？？？？？？
                 # 端到端合成的时候该咋输入？
                 print("batch['phoneme_ids'].dtype:", batch['phoneme_ids'].dtype)
@@ -116,7 +121,7 @@ def main():
                     top_k=config['inference']['top_k'],
                     # hz * max_sec in train dataloader
                     # 生成的长度是 1002 应该是有一些 pad
-                    early_stop_num = hz * max_sec)
+                    early_stop_num=hz * max_sec)
                 # bs = 1
                 pred_semantic = pred_semantic[0]
             print(f'{time.time() - st} sec used in T2S')
@@ -124,7 +129,7 @@ def main():
             semantic_token = pred_semantic.detach().cpu().numpy().tolist()
             semantic_token_str = ' '.join(str(x) for x in semantic_token)
             semantic_data.append([utt_id, semantic_token_str])
-            
+
         else:
             break
     delimiter = '\t'
