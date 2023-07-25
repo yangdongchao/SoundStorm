@@ -35,35 +35,35 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/dump_hubert_feature.py \
         --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
         --split=audio_files \
-        --hubert_path=${hubert_path} \
+        --ckpt_path=${hubert_path} \
         --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
         --rank=0 & CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/dump_hubert_feature.py \
         --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
         --split=audio_files \
-        --hubert_path=${hubert_path}  \
+        --ckpt_path=${hubert_path}  \
         --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
         --rank=1 & CUDA_VISIBLE_DEVICES=5 python3 ${BIN_DIR}/dump_hubert_feature.py \
         --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
         --split=audio_files \
-        --hubert_path=${hubert_path} \
+        --ckpt_path=${hubert_path} \
         --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
         --rank=2 & CUDA_VISIBLE_DEVICES=6 python3 ${BIN_DIR}/dump_hubert_feature.py \
         --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
         --split=audio_files \
-        --hubert_path=${hubert_path} \
+        --ckpt_path=${hubert_path} \
         --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
         --rank=3 & CUDA_VISIBLE_DEVICES=7 python3 ${BIN_DIR}/dump_hubert_feature.py \
         --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
         --split=audio_files \
-        --hubert_path=${hubert_path} \
+        --ckpt_path=${hubert_path} \
         --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
         --layer=${layer} \
         --nshard=5 \
@@ -72,7 +72,7 @@ fi
 # learn kmeans
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python3 ${BIN_DIR}/learn_kmeans.py \
-        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature \
+        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
         --nshard=5 \
         --split=audio_files \
         --n_clusters=${n_clusters} \
