@@ -161,9 +161,8 @@ def main():
         batch = get_batch(sentence, phonemizer)
         # 遍历 utt_id
         st = time.time()
-        # prompt 是啥东西？？？？？？？
-        # 端到端合成的时候该咋输入？
-        # zero prompt 
+ 
+        # zero prompt => 输出的 semantic 包含的内容是对的但是音色是乱的
         # (B, 1)
         prompt = torch.ones(
             batch['phoneme_ids'].size(0), 1, dtype=torch.int32) * 0

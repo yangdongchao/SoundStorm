@@ -9,5 +9,5 @@ root_dir=$4
 python3 ${BIN_DIR}/t2s.py \
     --config_file=${config_path} \
     --ckpt_path=${root_dir}/${train_output_path}/ckpt/${ckpt_name} \
-    --output_dir=${root_dir}/${train_output_path}/test_output_t2s \
+    --output_dir=${root_dir}/${train_output_path}/S1_t2s_output \
     --text_file=${BIN_DIR}/text.txt
