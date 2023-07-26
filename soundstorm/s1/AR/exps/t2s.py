@@ -17,16 +17,14 @@ from soundstorm.s2.models.hubert.semantic_tokenizer import SemanticTokenizer
 
 def get_batch(text, phonemizer):
     # phoneme_ids 和 phoneme_ids_len 是需要的
-    print("text:",text)
     phoneme = phonemizer.phonemize(text, espeak=False)
-    print("phoneme:", phoneme)
     phoneme_ids = phonemizer.transform(phoneme)
     phoneme_ids_len = len(phoneme_ids)
     phoneme_ids = np.array(phoneme_ids)
     # add batch axis here
     phoneme_ids = torch.tensor(phoneme_ids).unsqueeze(0)
     phoneme_ids_len = torch.tensor([phoneme_ids_len])
-    print("phoneme_ids:", phoneme_ids)
+    print("phoneme:", phoneme)
     batch = {
         # torch.Tensor (B, max_phoneme_length) 
         "phoneme_ids": phoneme_ids,
@@ -41,13 +39,12 @@ def get_prompt(prompt_wav_path, asr_model, phonemizer, semantic_tokenizer):
     # to get prompt
     prompt_name = os.path.basename(prompt_wav_path).split('.')[0]
     wav, _ = librosa.load(prompt_wav_path, sr=sample_rate)
-    # 取末尾 3s
-    wav = wav[-sample_rate * 3:]
+    # 取末尾 3s, 但是不包含最后 0.1s 防止 AR S1 infer 提前停止
+    wav = wav[-sample_rate * 3:-int(sample_rate * 0.1)]
+    # wav 需要挪出末尾的静音否则也可能提前停住
     prompt_text = asr_model.transcribe(wav)["text"]
-    print("prompt_text:", prompt_text)
-    # 移除最后的句点, 否则 AR S1 infer 可能会提前停住
+    # 移除最后的句点, 防止 AR S1 infer 提前停止, 加了句点可能会有停顿
     prompt_text = prompt_text.replace(".", "")
-    print("prompt_text:", prompt_text)
     prompt_phoneme = phonemizer.phonemize(prompt_text, espeak=False)
     prompt_phoneme_ids = phonemizer.transform(prompt_phoneme)
     prompt_phoneme_ids_len = len(prompt_phoneme_ids)
@@ -59,8 +56,6 @@ def get_prompt(prompt_wav_path, asr_model, phonemizer, semantic_tokenizer):
     prompt_semantic_tokens = semantic_tokenizer.tokenize(wav).to(torch.int32)
     prompt_phoneme_ids = torch.tensor(prompt_phoneme_ids).unsqueeze(0)
     prompt_phoneme_ids_len = torch.tensor([prompt_phoneme_ids_len])
-    print("prompt_phoneme:",prompt_phoneme)
-    print("prompt_phoneme_ids:", prompt_phoneme_ids)
 
     result = {
         'prompt_name': prompt_name,
@@ -150,12 +145,9 @@ def main():
     # prompt = torch.ones(
     #     batch['phoneme_ids'].size(0), 1, dtype=torch.int32) * 0
 
-    # TODO: 从 prompt wav 中提取 prompt semantic 和 phoneme
-    # (1, 149)
     prompt = prompt_result['prompt_semantic_tokens']
     prompt_phoneme_ids_len = prompt_result['prompt_phoneme_ids_len']
     prompt_phoneme_ids = prompt_result['prompt_phoneme_ids']
-    # (1, 52)
 
     sentences = []
     with open(args.text_file, 'rt', encoding='utf-8') as f:
@@ -171,21 +163,11 @@ def main():
         batch = get_batch(sentence, phonemizer)
         # 遍历 utt_id
         st = time.time()
-
-        # 如果不输入 prompt 的 phoneme_ids, 那么生成的 pred_semantic 还是 prompt semantic 的内容
-        """
-        T2S Decoding EOS [149 -> 150]
-        """
         # prompt 和真正的输入拼接
         all_phoneme_ids = torch.cat(
             [prompt_phoneme_ids, batch['phoneme_ids']], dim=1)
         # 或者可以直接求 all_phoneme_ids 的 shape[-1]
         all_phoneme_len = prompt_phoneme_ids_len + batch['phoneme_ids_len']
-        print("all_phoneme_ids:", all_phoneme_ids)
-        print("all_phoneme_len:", all_phoneme_len)
-        # 用 0 做 prompt 可以合成拼接后的文本
-        # 用 prompt 会停掉。。
-        prompt = torch.ones( batch['phoneme_ids'].size(0), 1, dtype=torch.int32) * 0
 
         pred_semantic = t2s_model.model.infer(
             all_phoneme_ids.cuda(),
@@ -193,15 +175,14 @@ def main():
             prompt.cuda(),
             top_k=config['inference']['top_k'],
             early_stop_num=hz * max_sec)
-        print("pred_semantic.shape:", pred_semantic.shape)
-        print("pred_semantic:",pred_semantic)
-
         print(f'{time.time() - st} sec used in T2S')
+
+        # 删除 prompt 对应的部分
+        prompt_len = prompt.shape[-1]
+        pred_semantic = pred_semantic[:, prompt_len:]
 
         # bs = 1
         pred_semantic = pred_semantic[0]
-        # 删除 prompt 对应的部分
-
         semantic_token = pred_semantic.detach().cpu().numpy().tolist()
         semantic_token_str = ' '.join(str(x) for x in semantic_token)
         semantic_data.append([utt_id, semantic_token_str])
