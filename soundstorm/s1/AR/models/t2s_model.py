@@ -73,7 +73,10 @@ class Text2SemanticDecoder(nn.Module):
             ignore_index=self.EOS, )
 
     def forward(self, x, x_lens, y, y_lens):
-
+        '''
+        x: phoneme_ids
+        y: semantic_ids
+        '''
         x = self.ar_text_embedding(x)
         x = self.ar_text_position(x)
         x_mask = make_pad_mask(x_lens)
@@ -112,13 +115,14 @@ class Text2SemanticDecoder(nn.Module):
         new_attn_mask = torch.zeros_like(xy_attn_mask, dtype=x.dtype)
         new_attn_mask.masked_fill_(xy_attn_mask, float("-inf"))
         xy_attn_mask = new_attn_mask
-
+        # x 和完整的 y 一次性输入模型
         xy_pos = torch.concat([x, y_pos], dim=1)
         xy_dec, _ = self.h(
             (xy_pos, None),
             mask=xy_attn_mask, )
         logits = self.ar_predict_layer(xy_dec[:, x_len:]).permute(0, 2, 1)
         # loss
+        # from feiteng: 每次 duration 越多, 梯度更新也应该更多, 所以用 sum
         loss = F.cross_entropy(logits, targets, reduction='sum')
         acc = self.ar_accuracy_metric(logits.detach(), targets).item()
         return loss, acc
@@ -138,7 +142,7 @@ class Text2SemanticDecoder(nn.Module):
         while True:
             y_emb = self.ar_audio_embedding(y)
             y_pos = self.ar_audio_position(y_emb)
-
+            # x 和逐渐增长的 y 一起输入给模型
             xy_pos = torch.concat([x, y_pos], dim=1)
             y_len = y.shape[1]
             x_attn_mask_pad = F.pad(
@@ -175,6 +179,7 @@ class Text2SemanticDecoder(nn.Module):
                     print('bad zero prediction')
                 print(f"T2S Decoding EOS [{prefix_len} -> {y.shape[1]}]")
                 break
+            # 本次生成的 semantic_ids 和之前的 y 构成新的 y
             y = torch.concat([y, samples], dim=1)
         return y
 
@@ -182,5 +187,5 @@ class Text2SemanticDecoder(nn.Module):
         targets = F.pad(
             y, (0, 1), value=0) + eos_id * F.pad(
                 y_mask_int, (0, 1), value=1)
-
+        # 错位
         return targets[:, :-1], targets[:, 1:]

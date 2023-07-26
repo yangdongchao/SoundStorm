@@ -100,13 +100,22 @@ def main():
             prompt = batch['semantic_ids'][:, :prompt_len]
             # # zero prompt => 也可以输出文本内容正确的 semantic token, 但是音色是乱的
             # 证明 semantic token 中还是包含了音色信息
-            # prompt = torch.ones(batch['semantic_ids'].size(0), 1, dtype=torch.int32) * 0 
+            # prompt = torch.ones(
+            #     batch['semantic_ids'].size(0), 1, dtype=torch.int32) * 0
             # print("prompt:", prompt)
             # print("prompt.shape:", prompt.shape)
             np.save(output_dir / 'prompt.npy', prompt.detach().cpu().numpy())
 
             st = time.time()
             with torch.no_grad():
+                # calculate acc for test
+                loss, acc = t2s_model.model.forward(
+                    batch['phoneme_ids'].cuda(),
+                    batch['phoneme_ids_len'].cuda(),
+                    batch['semantic_ids'].cuda(),
+                    batch['semantic_ids_len'].cuda())
+                print("top_3_acc of this batch:", acc)
+                print("batch['phoneme_ids'].dtype:", batch['phoneme_ids'].dtype)
                 pred_semantic = t2s_model.model.infer(
                     batch['phoneme_ids'].cuda(),
                     batch['phoneme_ids_len'].cuda(),
@@ -118,11 +127,9 @@ def main():
                 # bs = 1
                 pred_semantic = pred_semantic[0]
             print(f'{time.time() - st} sec used in T2S')
-
             semantic_token = pred_semantic.detach().cpu().numpy().tolist()
             semantic_token_str = ' '.join(str(x) for x in semantic_token)
             semantic_data.append([utt_id, semantic_token_str])
-
         else:
             break
     delimiter = '\t'
