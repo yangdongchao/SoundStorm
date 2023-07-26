@@ -166,6 +166,7 @@ def main():
         # (B, 1)
         prompt = torch.ones(
             batch['phoneme_ids'].size(0), 1, dtype=torch.int32) * 0
+        # TODO: 从 prompt wav 中提取 prompt semantic 和 phoneme
         pred_semantic = t2s_model.model.infer(
             batch['phoneme_ids'].cuda(),
             batch['phoneme_ids_len'].cuda(),
