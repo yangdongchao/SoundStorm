@@ -79,8 +79,6 @@ def main():
         collate_fn=test_dataset.collate)
 
     item_names = test_dataset.__get_item_names__()
-    print("item_names:", item_names)
-    print("len(item_names):", len(item_names))
 
     # 逐批次读取数据, bs=1、shuffle=False 时可以用 __get_item_names__ 对应
     semantic_data = [['item_name', 'semantic_audio']]
@@ -89,7 +87,6 @@ def main():
         utt_id = item_names[i]
         if i == 0:
             print("utt_id:", utt_id)
-            print(batch)
             # bs > 1 时会补零
             # 与 validation_step() 保持一致
             semantic_len = batch['semantic_ids'].size(1)
@@ -115,7 +112,6 @@ def main():
                     batch['semantic_ids'].cuda(),
                     batch['semantic_ids_len'].cuda())
                 print("top_3_acc of this batch:", acc)
-                print("batch['phoneme_ids'].dtype:", batch['phoneme_ids'].dtype)
                 pred_semantic = t2s_model.model.infer(
                     batch['phoneme_ids'].cuda(),
                     batch['phoneme_ids_len'].cuda(),
