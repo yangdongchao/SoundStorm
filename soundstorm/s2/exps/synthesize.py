@@ -100,8 +100,8 @@ def evaluate(args, hificodec, soundstorm, semantic_tokenizer=None):
         wav = torch.tensor(wav).unsqueeze(0)
         wav = wav.cuda()
         # get prompt_semantic
-        # (T) -> (1, T)
-        prompt_semantic_tokens = semantic_tokenizer.tokenize(wav).unsqueeze(0)
+        # (1, T)
+        prompt_semantic_tokens = semantic_tokenizer.tokenize(wav)
         print("prompt_semantic_tokens.shape:", prompt_semantic_tokens.shape)
 
         # get prompt_acoustic

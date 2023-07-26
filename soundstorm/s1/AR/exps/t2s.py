@@ -1,86 +1,23 @@
 # text to semantic
 import argparse
+import os
 import re
 import time
 from pathlib import Path
 
+import librosa
 import numpy as np
 import torch
+import whisper
 import yaml
 from soundstorm.s1.AR.models.t2s_lightning_module import Text2SemanticLightningModule
 from soundstorm.s1.AR.text_processing.phonemizer import GruutPhonemizer
-"""
-这里 to 转写有点问题
->>> a['1001_134708_000013_000000']
-'fɚ mæn əv ju , jʊɹ kɛɹɪktɚɪstɪk ɹeɪs , hɪɹ meɪ hi hɑɹdi , swit , dʒaɪɡæntɪk ɡɹoʊ , hɪɹ taʊɚ pɹəpɔɹʃənɪt tə neɪtʃɚ , hɪɹ klaɪm ðə væst pjʊɹ speɪsɪz ʌŋkənfaɪnd , ʌntʃɛkt baɪ wɔl ɔɹ ɹuf , hɪɹ læf wɪθ stɔɹm ɔɹ sʌn , hɪɹ dʒɔɪ , hɪɹ peɪʃəntli ɪnjʊɹ , hɪɹ hid hɪmsɛlf , ʌnfoʊld hɪmsɛlf ,  nɑt ʌðɚz  fɔɹmjuləz hid ,  hɪɹ fɪl hɪz taɪm , tə duli fɔl , tə eɪd , ʌnɹɛkt æt læst , tə dɪsəpɪɹ , tə sɚv .'
-For man of you, your characteristic race, Here may he hardy, sweet, gigantic grow, here tower proportionate to Nature, Here climb the vast pure spaces unconfined, uncheck'd by wall or roof, Here laugh with storm or sun, here joy, here patiently inure, Here heed himself, unfold himself, (not others' formulas heed,) here fill his time, To duly fall, to aid, unreck'd at last, To disappear, to serve.
-
-{'ids': [0], 'phoneme_ids': tensor([[ 48,  85,  16,  55,  72,  56,  16,  83,  64,  16,  52,  63,  16,   3,
-          16,  52, 135, 123,  16,  53,  86, 123, 102,  53,  62,  85, 102,  61,
-          62, 102,  53,  16, 123,  47, 102,  61,  16,   3,  16,  50, 102, 123,
-          16,  55,  47, 102,  16,  50,  51,  16,  50,  69, 123,  46,  51,  16,
-           3,  16,  61,  65,  51,  62,  16,   3,  16,  46, 147,  43, 102,  92,
-          72,  56,  62, 102,  53,  16,  92, 123,  57, 135,  16,   3,  16,  50,
-         102, 123,  16,  62,  43, 135,  85,  16,  58, 123,  83,  58,  76, 123,
-         131,  83,  56, 102,  62,  16,  62,  83,  16,  56,  47, 102,  62, 131,
-          85,  16,   3,  16,  50, 102, 123,  16,  53,  54,  43, 102,  55,  16,
-          81,  83,  16,  64,  72,  61,  62,  16,  58,  52, 135, 123,  16,  61,
-          58,  47, 102,  61, 102,  68,  16, 138, 112,  53,  83,  56,  48,  43,
-         102,  56,  46,  16,   3,  16, 138,  56,  62, 131,  86,  53,  62,  16,
-          44,  43, 102,  16,  65,  76,  54,  16,  76, 123,  16, 123,  63,  48,
-          16,   3,  16,  50, 102, 123,  16,  54,  72,  48,  16,  65, 102, 119,
-          16,  61,  62,  76, 123,  55,  16,  76, 123,  16,  61, 138,  56,  16,
-           3,  16,  50, 102, 123,  16,  46, 147,  76, 102,  16,   3,  16,  50,
-         102, 123,  16,  58,  47, 102, 131,  83,  56,  62,  54,  51,  16, 102,
-          56,  52, 135, 123,  16,   3,  16,  50, 102, 123,  16,  50,  51,  46,
-          16,  50, 102,  55,  61,  86,  54,  48,  16,   3,  16, 138,  56,  48,
-          57, 135,  54,  46,  16,  50, 102,  55,  61,  86,  54,  48,  16,   3,
-          16,  16,  56,  69,  62,  16, 138,  81,  85,  68,  16,  16,  48,  76,
-         123,  55,  52,  63,  54,  83,  68,  16,  50,  51,  46,  16,   3,  16,
-          16,  50, 102, 123,  16,  48, 102,  54,  16,  50, 102,  68,  16,  62,
-          43, 102,  55,  16,   3,  16,  62,  83,  16,  46,  63,  54,  51,  16,
-          48,  76,  54,  16,   3,  16,  62,  83,  16,  47, 102,  46,  16,   3,
-          16, 138,  56, 123,  86,  53,  62,  16,  72,  62,  16,  54,  72,  61,
-          62,  16,   3,  16,  62,  83,  16,  46, 102,  61,  83,  58, 102, 123,
-          16,   3,  16,  62,  83,  16,  61,  85,  64,  16,   4]]), 'phoneme_ids_len': tensor([389]), 'semantic_ids': tensor([[475, 475, 641,  ..., 984,  80, 244]]), 'semantic_ids_len': tensor([1845])}
-prompt.shape: torch.Size([1, 150])
-T2S Decoding EOS [150 -> 663]
-33.47231197357178 sec used in T2S
-"""
-'''
-batch: {'phoneme_ids': tensor([ 48,  85,  16,  55,  72,  56,  16,  83,  64,  16,  52,  63,  16,   3,
-         16,  52, 135, 123,  16,  53,  86, 123, 102,  53,  62,  85, 102,  61,
-         62, 102,  53,  16, 123,  47, 102,  61,  16,   3,  16,  50, 102, 123,
-         16,  55,  47, 102,  16,  50,  51,  16,  50,  69, 123,  46,  51,  16,
-          3,  16,  61,  65,  51,  62,  16,   3,  16,  46, 147,  43, 102,  92,
-         72,  56,  62, 102,  53,  16,  92, 123,  57, 135,  16,   3,  16,  50,
-        102, 123,  16,  62,  43, 135,  85,  16,  58, 123,  83,  58,  76, 123,
-        131,  83,  56, 102,  62,  16,  62,  83,  16,  56,  47, 102,  62, 131,
-         85,  16,   3,  16,  50, 102, 123,  16,  53,  54,  43, 102,  55,  16,
-         81,  83,  16,  64,  72,  61,  62,  16,  58,  52, 135, 123,  16,  61,
-         58,  47, 102,  61, 102,  68,  16, 138, 112,  53,  83,  56,  48,  43,
-        102,  56,  46,  16,   3,  16, 138,  56,  62, 131,  86,  53,  62,  16,
-         44,  43, 102,  16,  65,  76,  54,  16,  76, 123,  16, 123,  63,  48,
-         16,   3,  16,  50, 102, 123,  16,  54,  72,  48,  16,  65, 102, 119,
-         16,  61,  62,  76, 123,  55,  16,  76, 123,  16,  61, 138,  56,  16,
-          3,  16,  50, 102, 123,  16,  46, 147,  76, 102,  16,   3,  16,  50,
-        102, 123,  16,  58,  47, 102, 131,  83,  56,  62,  54,  51,  16, 102,
-         56,  52, 135, 123,  16,   3,  16,  50, 102, 123,  16,  50,  51,  46,
-         16,  50, 102,  55,  61,  86,  54,  48,  16,   3,  16, 138,  56,  48,
-         57, 135,  54,  46,  16,  50, 102,  55,  61,  86,  54,  48,  16,   3,
-         16,  16,  56,  69,  62,  16, 138,  81,  85,  68,  16,  16,  48,  76,
-        123,  55,  52,  63,  54,  83,  68,  16,  50,  51,  46,  16,   3,  16,
-         16,  50, 102, 123,  16,  48, 102,  54,  16,  50, 102,  68,  16,  62,
-         43, 102,  55,  16,   3,  16,  62,  83,  16,  46,  63,  54,  51,  16,
-         48,  76,  54,  16,   3,  16,  62,  83,  16,  47, 102,  46,  16,   3,
-         16, 138,  56, 123,  86,  53,  62,  16,  72,  62,  16,  54,  72,  61,
-         62,  16,   3,  16,  62,  83,  16,  46, 102,  61,  83,  58, 102, 123,
-         16,   3,  16,  62,  83,  16,  61,  85,  64,  16,   4]), 'phoneme_ids_len': tensor([389])}
-'''
+from soundstorm.s2.models.hubert.semantic_tokenizer import SemanticTokenizer
 
 
 def get_batch(text, phonemizer):
     # phoneme_ids 和 phoneme_ids_len 是需要的
+    print("text:",text)
     phoneme = phonemizer.phonemize(text, espeak=False)
     print("phoneme:", phoneme)
     phoneme_ids = phonemizer.transform(phoneme)
@@ -88,14 +25,51 @@ def get_batch(text, phonemizer):
     phoneme_ids = np.array(phoneme_ids)
     # add batch axis here
     phoneme_ids = torch.tensor(phoneme_ids).unsqueeze(0)
-    phoneme_ids_lens = torch.tensor([phoneme_ids_len])
+    phoneme_ids_len = torch.tensor([phoneme_ids_len])
+    print("phoneme_ids:", phoneme_ids)
     batch = {
         # torch.Tensor (B, max_phoneme_length) 
         "phoneme_ids": phoneme_ids,
         # torch.Tensor (B)
-        "phoneme_ids_len": phoneme_ids_lens
+        "phoneme_ids_len": phoneme_ids_len
     }
     return batch
+
+
+def get_prompt(prompt_wav_path, asr_model, phonemizer, semantic_tokenizer):
+    sample_rate = 16000
+    # to get prompt
+    prompt_name = os.path.basename(prompt_wav_path).split('.')[0]
+    wav, _ = librosa.load(prompt_wav_path, sr=sample_rate)
+    # 取末尾 3s
+    wav = wav[-sample_rate * 3:]
+    prompt_text = asr_model.transcribe(wav)["text"]
+    print("prompt_text:", prompt_text)
+    # 移除最后的句点, 否则 AR S1 infer 可能会提前停住
+    prompt_text = prompt_text.replace(".", "")
+    print("prompt_text:", prompt_text)
+    prompt_phoneme = phonemizer.phonemize(prompt_text, espeak=False)
+    prompt_phoneme_ids = phonemizer.transform(prompt_phoneme)
+    prompt_phoneme_ids_len = len(prompt_phoneme_ids)
+    # get prompt_semantic
+    # (T) -> (1, T)
+    wav = torch.tensor(wav).unsqueeze(0)
+    wav = wav.cuda()
+    # (1, T)
+    prompt_semantic_tokens = semantic_tokenizer.tokenize(wav).to(torch.int32)
+    prompt_phoneme_ids = torch.tensor(prompt_phoneme_ids).unsqueeze(0)
+    prompt_phoneme_ids_len = torch.tensor([prompt_phoneme_ids_len])
+    print("prompt_phoneme:",prompt_phoneme)
+    print("prompt_phoneme_ids:", prompt_phoneme_ids)
+
+    result = {
+        'prompt_name': prompt_name,
+        'prompt_phoneme_ids': prompt_phoneme_ids,
+        'prompt_semantic_tokens': prompt_semantic_tokens,
+        'prompt_phoneme_ids_len': prompt_phoneme_ids_len
+    }
+
+    return result
 
 
 def parse_args():
@@ -120,6 +94,16 @@ def parse_args():
         type=str,
         default='exp/default/ckpt/epoch=99-step=49000.ckpt',
         help='Checkpoint file of SoundStorm AR S1 model.')
+
+    parser.add_argument(
+        '--prompt_wav_path',
+        type=str,
+        default=None,
+        help='extract prompt semantic and prompt phonemes from prompt wav')
+
+    # to get semantic tokens from prompt_wav
+    parser.add_argument("--hubert_path", type=str, default=None)
+    parser.add_argument("--quantizer_path", type=str, default=None)
 
     parser.add_argument("--output_dir", type=str, help="output dir.")
 
@@ -147,6 +131,32 @@ def main():
 
     phonemizer: GruutPhonemizer = GruutPhonemizer(language='en-us')
 
+    # models for prompt
+    asr_model = whisper.load_model("tiny")
+
+    semantic_tokenizer = SemanticTokenizer(
+        hubert_path=args.hubert_path,
+        quantizer_path=args.quantizer_path,
+        duplicate=True)
+
+    prompt_result = get_prompt(
+        prompt_wav_path=args.prompt_wav_path,
+        asr_model=asr_model,
+        phonemizer=phonemizer,
+        semantic_tokenizer=semantic_tokenizer)
+
+    # zero prompt => 输出的 semantic 包含的内容是对的但是音色是乱的
+    # (B, 1)
+    # prompt = torch.ones(
+    #     batch['phoneme_ids'].size(0), 1, dtype=torch.int32) * 0
+
+    # TODO: 从 prompt wav 中提取 prompt semantic 和 phoneme
+    # (1, 149)
+    prompt = prompt_result['prompt_semantic_tokens']
+    prompt_phoneme_ids_len = prompt_result['prompt_phoneme_ids_len']
+    prompt_phoneme_ids = prompt_result['prompt_phoneme_ids']
+    # (1, 52)
+
     sentences = []
     with open(args.text_file, 'rt', encoding='utf-8') as f:
         for line in f:
@@ -161,29 +171,43 @@ def main():
         batch = get_batch(sentence, phonemizer)
         # 遍历 utt_id
         st = time.time()
- 
-        # zero prompt => 输出的 semantic 包含的内容是对的但是音色是乱的
-        # (B, 1)
-        prompt = torch.ones(
-            batch['phoneme_ids'].size(0), 1, dtype=torch.int32) * 0
-        # TODO: 从 prompt wav 中提取 prompt semantic 和 phoneme
+
+        # 如果不输入 prompt 的 phoneme_ids, 那么生成的 pred_semantic 还是 prompt semantic 的内容
+        """
+        T2S Decoding EOS [149 -> 150]
+        """
+        # prompt 和真正的输入拼接
+        all_phoneme_ids = torch.cat(
+            [prompt_phoneme_ids, batch['phoneme_ids']], dim=1)
+        # 或者可以直接求 all_phoneme_ids 的 shape[-1]
+        all_phoneme_len = prompt_phoneme_ids_len + batch['phoneme_ids_len']
+        print("all_phoneme_ids:", all_phoneme_ids)
+        print("all_phoneme_len:", all_phoneme_len)
+        # 用 0 做 prompt 可以合成拼接后的文本
+        # 用 prompt 会停掉。。
+        prompt = torch.ones( batch['phoneme_ids'].size(0), 1, dtype=torch.int32) * 0
+
         pred_semantic = t2s_model.model.infer(
-            batch['phoneme_ids'].cuda(),
-            batch['phoneme_ids_len'].cuda(),
+            all_phoneme_ids.cuda(),
+            all_phoneme_len.cuda(),
             prompt.cuda(),
             top_k=config['inference']['top_k'],
             early_stop_num=hz * max_sec)
+        print("pred_semantic.shape:", pred_semantic.shape)
+        print("pred_semantic:",pred_semantic)
+
         print(f'{time.time() - st} sec used in T2S')
 
         # bs = 1
         pred_semantic = pred_semantic[0]
+        # 删除 prompt 对应的部分
 
         semantic_token = pred_semantic.detach().cpu().numpy().tolist()
         semantic_token_str = ' '.join(str(x) for x in semantic_token)
         semantic_data.append([utt_id, semantic_token_str])
 
         delimiter = '\t'
-        filename = output_dir / f'{utt_id}_semantic_token.tsv'
+        filename = output_dir / f'{utt_id}_p_{prompt_result["prompt_name"]}_semantic_token.tsv'
         with open(filename, 'w', encoding='utf-8') as writer:
             for row in semantic_data:
                 line = delimiter.join(row)
