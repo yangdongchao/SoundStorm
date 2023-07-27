@@ -51,8 +51,8 @@ def hificodec_decode(hificodec, acoustic_token, rescale=True):
 def get_batch(prompt_semantic_tokens,
               prompt_acoustic_tokens,
               target_semantic_tokens,
-              num_quant=4):
-    hz = 50
+              num_quant=4,
+              hz=50):
     # transformer_utils.py 里面最大是 20, pad 了一个  stop token, 所以这里最大是 19
     # 但是训练时最多是 10s, 所以超过 10s 的无法合成出来
     max_sec = 10
@@ -89,6 +89,7 @@ def get_batch(prompt_semantic_tokens,
 def evaluate(args, hificodec, soundstorm, semantic_tokenizer=None):
     num_quant = 4
     sample_rate = 16000
+    hz = 50
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -139,7 +140,8 @@ def evaluate(args, hificodec, soundstorm, semantic_tokenizer=None):
         prompt_semantic_tokens=prompt_semantic_tokens,
         prompt_acoustic_tokens=prompt_acoustic_tokens,
         target_semantic_tokens=target_semantic_tokens,
-        num_quant=num_quant)
+        num_quant=num_quant,
+        hz=hz)
 
     batch = move_tensors_to_cuda(batch)
 
