@@ -159,20 +159,19 @@ def main():
     for utt_id, sentence in sentences[1:]:
         # 需要自己构造伪 batch 输入给模型
         batch = get_batch(sentence, phonemizer)
-        # 遍历 utt_id
-        st = time.time()
         # prompt 和真正的输入拼接
         all_phoneme_ids = torch.cat(
             [prompt_phoneme_ids, batch['phoneme_ids']], dim=1)
         # 或者可以直接求 all_phoneme_ids 的 shape[-1]
         all_phoneme_len = prompt_phoneme_ids_len + batch['phoneme_ids_len']
-
-        pred_semantic = t2s_model.model.infer(
-            all_phoneme_ids.cuda(),
-            all_phoneme_len.cuda(),
-            prompt.cuda(),
-            top_k=config['inference']['top_k'],
-            early_stop_num=hz * max_sec)
+        st = time.time()
+        with torch.no_grad():
+            pred_semantic = t2s_model.model.infer(
+                all_phoneme_ids.cuda(),
+                all_phoneme_len.cuda(),
+                prompt.cuda(),
+                top_k=config['inference']['top_k'],
+                early_stop_num=hz * max_sec)
         print(f'{time.time() - st} sec used in T2S')
 
         # 删除 prompt 对应的部分
