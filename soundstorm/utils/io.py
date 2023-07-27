@@ -1,4 +1,3 @@
-import json
 import sys
 
 import torch
@@ -16,14 +15,6 @@ def save_config_to_yaml(config, path):
     with open(path, 'w') as f:
         f.write(yaml.dump(config))
         f.close()
-
-
-def save_dict_to_json(d, path, indent=None):
-    json.dump(d, open(path, 'w'), indent=indent)
-
-
-def load_dict_from_json(path):
-    return json.load(open(path, 'r'))
 
 
 def write_args(args, path):

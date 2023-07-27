@@ -9,7 +9,7 @@ import torch
 from academicodec.models.hificodec.vqvae import VQVAE
 from soundstorm.s2.data.semantic_dataset import pad_2D
 from soundstorm.s2.models.dalle_wav.build import build_model
-from soundstorm.s2.utils.io import load_yaml_config
+from soundstorm.utils.io import load_yaml_config
 
 # 每一条构成一个 batch 过一遍模型
 # 是单条推理还是凑 batch 推理？=> 可以实现两种分别看速度

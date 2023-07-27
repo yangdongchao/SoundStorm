@@ -11,7 +11,7 @@ import torch
 from academicodec.models.hificodec.vqvae import VQVAE
 from soundstorm.s2.models.dalle_wav.build import build_model
 from soundstorm.s2.models.hubert.semantic_tokenizer import SemanticTokenizer
-from soundstorm.s2.utils.io import load_yaml_config
+from soundstorm.utils.io import load_yaml_config
 
 acoustic_token_nums = 1024
 

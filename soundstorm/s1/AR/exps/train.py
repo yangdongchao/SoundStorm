@@ -4,10 +4,8 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Dict
 
 import torch
-import yaml
 from pytorch_lightning import seed_everything
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -15,6 +13,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.strategies import DDPStrategy
 from soundstorm.s1.AR.data.data_module import Text2SemanticDataModule
 from soundstorm.s1.AR.models.t2s_lightning_module import Text2SemanticLightningModule
+from soundstorm.utils.io import load_yaml_config
 logging.getLogger('numba').setLevel(logging.WARNING)
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 torch.set_float32_matmul_precision('high')
@@ -27,8 +26,7 @@ def main(args):
     ckpt_dir = output_dir / 'ckpt'
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(args.config_file, "r") as f:
-        config: Dict = yaml.load(f, Loader=yaml.FullLoader)
+    config = load_yaml_config(args.config_file)
 
     seed_everything(config["train"]["seed"], workers=True)
     ckpt_callback: ModelCheckpoint = ModelCheckpoint(
@@ -43,7 +41,7 @@ def main(args):
         # resume the loss curve
         resume=True,
         # id='k19kvsq8'
-        )
+    )
     trainer: Trainer = Trainer(
         max_epochs=config["train"]["epochs"],
         accelerator='gpu',

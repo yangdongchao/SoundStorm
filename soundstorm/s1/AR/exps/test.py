@@ -5,9 +5,9 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import yaml
 from soundstorm.s1.AR.data.dataset import Text2SemanticDataset
 from soundstorm.s1.AR.models.t2s_lightning_module import Text2SemanticLightningModule
+from soundstorm.utils.io import load_yaml_config
 from torch.utils.data import DataLoader
 
 
@@ -45,8 +45,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    with open(args.config_file, "r") as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = load_yaml_config(args.config_file)
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

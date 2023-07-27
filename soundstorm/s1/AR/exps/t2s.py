@@ -9,10 +9,10 @@ import librosa
 import numpy as np
 import torch
 import whisper
-import yaml
 from soundstorm.s1.AR.models.t2s_lightning_module import Text2SemanticLightningModule
 from soundstorm.s1.AR.text_processing.phonemizer import GruutPhonemizer
 from soundstorm.s2.models.hubert.semantic_tokenizer import SemanticTokenizer
+from soundstorm.utils.io import load_yaml_config
 
 
 def get_batch(text, phonemizer):
@@ -108,9 +108,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-
-    with open(args.config_file, "r") as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = load_yaml_config(args.config_file)
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
