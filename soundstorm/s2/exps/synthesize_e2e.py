@@ -1,6 +1,7 @@
 # merge soundstorm/s1/AR/exps/t2s.py and soundstorm/s2/exps/synthesize.py
 import argparse
 import os
+import re
 import time
 from pathlib import Path
 
@@ -69,19 +70,15 @@ def get_S1_batch(text, phonemizer):
     return batch
 
 
-def get_S1_prompt(prompt_wav_path, asr_model, phonemizer, semantic_tokenizer):
-    sample_rate = 16000
-    # to get prompt
-    prompt_name = os.path.basename(prompt_wav_path).split('.')[0]
-    wav, _ = librosa.load(prompt_wav_path, sr=sample_rate)
-    # 取末尾 3s, 但是不包含最后 0.1s 防止 AR S1 infer 提前停止
-    wav = wav[-sample_rate * 3:-int(sample_rate * 0.1)]
+def get_S1_prompt(wav, asr_model, phonemizer, semantic_tokenizer):
     # wav 需要挪出末尾的静音否则也可能提前停住
     prompt_text = asr_model.transcribe(wav)["text"]
+    print("prompt_text:", prompt_text)
     # 移除最后的句点, 防止 AR S1 infer 提前停止, 加了句点可能会有停顿
     prompt_text = prompt_text.replace(".", "")
     prompt_phoneme = phonemizer.phonemize(prompt_text, espeak=False)
     prompt_phoneme_ids = phonemizer.transform(prompt_phoneme)
+    print("prompt_phoneme_ids:", prompt_phoneme_ids)
     prompt_phoneme_ids_len = len(prompt_phoneme_ids)
     # get prompt_semantic
     # (T) -> (1, T)
@@ -93,10 +90,30 @@ def get_S1_prompt(prompt_wav_path, asr_model, phonemizer, semantic_tokenizer):
     prompt_phoneme_ids_len = torch.tensor([prompt_phoneme_ids_len])
 
     result = {
-        'prompt_name': prompt_name,
         'prompt_phoneme_ids': prompt_phoneme_ids,
         'prompt_semantic_tokens': prompt_semantic_tokens,
         'prompt_phoneme_ids_len': prompt_phoneme_ids_len
+    }
+
+    return result
+
+
+def get_S2_prompt(wav, semantic_tokenizer, hificodec):
+    wav = torch.tensor(wav).unsqueeze(0)
+    wav = wav.cuda()
+    # get prompt_semantic
+    # (1, T)
+    prompt_semantic_tokens = semantic_tokenizer.tokenize(wav)
+
+    # get prompt_acoustic
+    # (1, T, 4)
+    acoustic_token = hificodec.encode(wav)
+    # trans acoustic_token.shape to (Nq, T)
+    prompt_acoustic_tokens = acoustic_token.squeeze(0).transpose(0, 1)
+
+    result = {
+        'prompt_semantic_tokens': prompt_semantic_tokens,
+        'prompt_acoustic_tokens': prompt_acoustic_tokens
     }
 
     return result
@@ -106,8 +123,8 @@ def get_S1_prompt(prompt_wav_path, asr_model, phonemizer, semantic_tokenizer):
 def get_S2_batch(prompt_semantic_tokens,
                  prompt_acoustic_tokens,
                  target_semantic_tokens,
-                 num_quant=4):
-    hz = 50
+                 num_quant=4,
+                 hz=50):
     # transformer_utils.py 里面最大是 20, pad 了一个  stop token, 所以这里最大是 19
     # 但是训练时最多是 10s, 所以超过 10s 的无法合成出来
     max_sec = 10
@@ -141,62 +158,109 @@ def get_S2_batch(prompt_semantic_tokens,
     return samples
 
 
-def evaluate(args, S1_model, S2_model, semantic_tokenizer, asr_model, hificodec,
-             phonemizer):
-    num_quant = 4
-    sample_rate = 16000
+def evaluate(args,
+             S1_model,
+             S2_model,
+             semantic_tokenizer,
+             asr_model,
+             hificodec,
+             phonemizer,
+             S1_max_sec=20,
+             S1_top_k=-100):
+
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # get prompt_semantic and prompt_acoustic from prompt_wav
+    num_quant = 4
+    sample_rate = 16000
+    hz = 50
 
+    sentences = []
+    with open(args.text_file, 'rt', encoding='utf-8') as f:
+        for line in f:
+            if line.strip() != "":
+                items = re.split(r"\s+", line.strip(), 1)
+                utt_id = items[0]
+                sentence = " ".join(items[1:])
+            sentences.append((utt_id, sentence))
+
+    sample_rate = 16000
+    # to get prompt
     prompt_name = os.path.basename(args.prompt_wav_path).split('.')[0]
-    wav, _ = librosa.load(args.prompt_wav_path, sr=16000)
-    wav = torch.tensor(wav).unsqueeze(0)
-    wav = wav.cuda()
-    # get prompt_semantic
-    # (1, T)
-    prompt_semantic_tokens = semantic_tokenizer.tokenize(wav)
+    prompt_wav, _ = librosa.load(args.prompt_wav_path, sr=sample_rate)
+    # 取末尾 3s, 但是不包含最后 0.1s 防止 AR S1 infer 提前停止
+    print("prompt_wav.shape:", prompt_wav.shape)
+    prompt_wav, index = librosa.effects.trim(
+        prompt_wav, top_db=20, frame_length=2048, hop_length=512)
+    print("prompt_wav.shape after trim:", prompt_wav.shape)
+    prompt_wav = prompt_wav[:3 * sample_rate]
+    print("prompt_wav.shape after slice:", prompt_wav.shape)
 
-    # get prompt_acoustic
-    # (1, T, 4)
-    acoustic_token = hificodec.encode(wav)
-    # trans acoustic_token.shape to (Nq, T)
-    prompt_acoustic_tokens = acoustic_token.squeeze(0).transpose(0, 1)
-    '''
-    # get target
-    # 保留 item_name 前导 0
-    target_semantic_data = pd.read_csv(
-        args.target_semantic_path, delimiter='\t', dtype=str)
-    target_name = target_semantic_data['item_name'][0]
-    target_semantic_str = target_semantic_data['semantic_audio'][0]
-    # shape: (1, T)
-    target_semantic_tokens = torch.tensor(
-        [int(idx) for idx in target_semantic_str.split(' ')]).unsqueeze(0)
-    '''
-    # get target semnatic from prompt wav and text
+    # get prompt for S1
+    S1_prompt_result = get_S1_prompt(
+        wav=prompt_wav,
+        asr_model=asr_model,
+        phonemizer=phonemizer,
+        semantic_tokenizer=semantic_tokenizer)
 
-    batch = get_S2_batch(
-        prompt_semantic_tokens=prompt_semantic_tokens,
-        prompt_acoustic_tokens=prompt_acoustic_tokens,
-        target_semantic_tokens=target_semantic_tokens,
-        num_quant=num_quant)
+    S1_prompt = S1_prompt_result['prompt_semantic_tokens']
+    S1_prompt_phoneme_ids_len = S1_prompt_result['prompt_phoneme_ids_len']
+    S1_prompt_phoneme_ids = S1_prompt_result['prompt_phoneme_ids']
 
-    batch = move_tensors_to_cuda(batch)
+    # get prompt_semantic and prompt_acoustic from prompt_wav
+    S2_prompt_result = get_S2_prompt(
+        wav=prompt_wav,
+        semantic_tokenizer=semantic_tokenizer,
+        hificodec=hificodec)
+    # prompt input for S2
+    prompt_semantic_tokens = S2_prompt_result['prompt_semantic_tokens']
+    prompt_acoustic_tokens = S2_prompt_result['prompt_acoustic_tokens']
 
-    with torch.no_grad():
-        start = time.time()
-        model_out = soundstorm.infer_one(batch)
-        end = time.time()
-        print("infer time:", end - start)
-    content = model_out['token_pred']
-    # shape (B, Nq x T) -> (B, Nq, T)
-    codes = content.reshape(content.shape[0], num_quant, -1)
-    wav_gen = hificodec_decode(hificodec, codes)
+    # 遍历 utt_id
+    for utt_id, sentence in sentences[1:]:
+        S1_batch = get_S1_batch(sentence, phonemizer)
+        # prompt 和真正的输入拼接
+        S1_all_phoneme_ids = torch.cat(
+            [S1_prompt_phoneme_ids, S1_batch['phoneme_ids']], dim=1)
+        S1_all_phoneme_len = S1_prompt_phoneme_ids_len + S1_batch[
+            'phoneme_ids_len']
+        S1_st = time.time()
+        with torch.no_grad():
+            S1_pred_semantic = S1_model.model.infer(
+                S1_all_phoneme_ids.cuda(),
+                S1_all_phoneme_len.cuda(),
+                S1_prompt.cuda(),
+                top_k=S1_top_k,
+                early_stop_num=hz * S1_max_sec)
+        print(f'{time.time() - S1_st} sec used in T2S')
 
-    sf.write(output_dir /
-             ("s_" + prompt_name + "_t_" + target_name + "_ok5.wav"), wav_gen,
-             sample_rate)
+        # 删除 prompt 对应的部分
+        S1_prompt_len = S1_prompt.shape[-1]
+        # (1, T)
+        S1_pred_semantic = S1_pred_semantic[:, S1_prompt_len:]
+
+        # get target semnatic from prompt wav and text
+        S2_batch = get_S2_batch(
+            prompt_semantic_tokens=prompt_semantic_tokens,
+            prompt_acoustic_tokens=prompt_acoustic_tokens,
+            target_semantic_tokens=S1_pred_semantic,
+            num_quant=num_quant,
+            hz=hz)
+
+        S2_batch = move_tensors_to_cuda(S2_batch)
+
+        S2_st = time.time()
+        with torch.no_grad():
+            model_out = S2_model.infer_one(S2_batch)
+        print(f'{time.time() - S2_st} sec used in S2A')
+
+        content = model_out['token_pred']
+        # shape (B, Nq x T) -> (B, Nq, T)
+        codes = content.reshape(content.shape[0], num_quant, -1)
+        wav_gen = hificodec_decode(hificodec, codes)
+
+        sf.write(output_dir / ("s_" + prompt_name + "_t_" + utt_id + ".wav"),
+                 wav_gen, sample_rate)
 
 
 def parse_args():
@@ -283,10 +347,10 @@ def main():
     # get S2 model
     S2_config = load_yaml_config(args.S2_config_file)
     S2_ckpt = torch.load(args.S2_ckpt_path, map_location="cpu")
-    s2_model = build_model(S2_config)
-    s2_model.load_state_dict(S2_ckpt["model"])
-    s2_model.eval()
-    s2_model.cuda()
+    S2_model = build_model(S2_config)
+    S2_model.load_state_dict(S2_ckpt["model"])
+    S2_model.eval()
+    S2_model.cuda()
 
     # get prompt_semantic from prompt_wav
     semantic_tokenizer = SemanticTokenizer(
@@ -305,7 +369,9 @@ def main():
         semantic_tokenizer=semantic_tokenizer,
         asr_model=asr_model,
         hificodec=hificodec,
-        phonemizer=phonemizer)
+        phonemizer=phonemizer,
+        S1_max_sec=S1_config['data']['max_sec'],
+        S1_top_k=S1_config['inference']['top_k'])
 
 
 if __name__ == "__main__":

@@ -16,13 +16,17 @@ log_frequency=1
 # 'tcp://%s:%s' % (MASTER_ADDR, MASTER_PORT)
 dist_url='tcp://127.0.0.1:29501'
 # use which checkpoint file to test
-ckpt_name=last.pth
+ckpt_name='000301e_471119iter.pth'
 # should be same with ${layer} in hubert_kms.sh
 layer=9
 # should be same with ${hubert_path} in hubert_kms.sh
 hubert_path=pretrained_model/hubert/hubert_base_ls960.pt
 quantizer_path=pretrained_model/hubert/hubert_base_ls960_L9_km500.bin
 dump_dir=dump_libritts_base_L9_km500
+# for synthesize_e2e.sh
+prompt_wav_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_libritts_base_L9_km500/test/synthesize_input/98_199_000030_000000.wav'
+S1_config_file='../../egs_s1/AR/LibriTTS/conf/base_L9bin500.yaml'
+S1_ckpt_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/SoundStorm/exp/base_L9_km500/ckpt/epoch=99-step=49000.ckpt'
 
 # with the following command, you can choose the stage range you want to run
 # such as `./run.sh --stage 0 --stop-stage 0`
@@ -51,5 +55,8 @@ fi
 
 # synthesize_e2e with S1 (text -> semantic token) model
 if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
-    CUDA_VISIBLE_DEVICES=${gpus} ./local/synthesize_e2e.sh || exit -1
+    CUDA_VISIBLE_DEVICES=${gpus} ./local/synthesize_e2e.sh \
+    ${config_path} ${train_output_path} ${ckpt_name} ${root_dir} \
+    ${hubert_path} ${quantizer_path} ${prompt_wav_path} \
+    ${S1_config_file} ${S1_ckpt_path} || exit -1
 fi
