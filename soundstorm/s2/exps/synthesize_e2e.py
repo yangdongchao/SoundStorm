@@ -56,13 +56,15 @@ def hificodec_decode(hificodec, acoustic_token, rescale=True):
 def get_S1_batch(text, phonemizer):
     # phoneme_ids 和 phoneme_ids_len 是需要的
     phoneme = phonemizer.phonemize(text, espeak=False)
+    print("phoneme:", phoneme)
+    phoneme = " " + phoneme
     phoneme_ids = phonemizer.transform(phoneme)
     phoneme_ids_len = len(phoneme_ids)
     phoneme_ids = np.array(phoneme_ids)
     # add batch axis here
     phoneme_ids = torch.tensor(phoneme_ids).unsqueeze(0)
     phoneme_ids_len = torch.tensor([phoneme_ids_len])
-    print("phoneme:", phoneme)
+    print("phoneme_ids:", phoneme_ids)
     batch = {
         # torch.Tensor (B, max_phoneme_length) 
         "phoneme_ids": phoneme_ids,
@@ -76,10 +78,13 @@ def get_S1_prompt(wav, asr_model, phonemizer, semantic_tokenizer):
     # wav 需要挪出末尾的静音否则也可能提前停住
     prompt_text = asr_model.transcribe(wav)["text"]
     print("prompt_text:", prompt_text)
-    # 移除最后的句点, 防止 AR S1 infer 提前停止, 加了句点可能会有停顿
-    prompt_text = prompt_text.replace(".", "")
+    # 移除最后的句点, 防止 AR S1 infer 提前停止, 加了句点可能会有停顿或者噪音
+    # prompt_text = prompt_text.replace(".", "")
     prompt_phoneme = phonemizer.phonemize(prompt_text, espeak=False)
+    # 移除 prompt_phoneme 末尾的 . 但是保留空格, 因为直接移除 prompt_text 会导致 prompt_phoneme 末尾少一个空格
+    prompt_phoneme = prompt_phoneme.rstrip(".")
     print("prompt_phoneme:", prompt_phoneme)
+    # 16 表示空格
     prompt_phoneme_ids = phonemizer.transform(prompt_phoneme)
     print("prompt_phoneme_ids:", prompt_phoneme_ids)
     prompt_phoneme_ids_len = len(prompt_phoneme_ids)
@@ -174,6 +179,11 @@ def get_prompt_wav(prompt_wav_path, sample_rate):
     prompt_wav, index = librosa.effects.trim(
         prompt_wav, top_db=15, frame_length=256, hop_length=64)
     print("prompt_wav.shape after trim:", prompt_wav.shape)
+    # add small sil, sil 太大会导致 S1 无法推理或者开头结果被忽略,
+    # 但是没有 sil 可能导致 S2 结果有噪音
+    # np_zero = np.array([0] * int(sample_rate / 200), dtype='float32')
+    # prompt_wav = np.concatenate([prompt_wav, np_zero])
+    print("prompt_wav.shape after add sil:", prompt_wav.shape)
     return prompt_wav
 
 
@@ -250,11 +260,12 @@ def evaluate(args,
         S1_prompt_len = S1_prompt.shape[-1]
         print("S1_prompt_len:", S1_prompt_len)
         # (1, T)
-        S1_pred_semantic = S1_pred_semantic[:, S1_prompt_len:]
+        # target phone 开头有多余的 " ", 所以这里可以多截掉大约 3 个
+        S1_pred_semantic = S1_pred_semantic[:, S1_prompt_len + 3:]
         # add sil token
-        sil_tensor = torch.tensor([sil_token] * 10).unsqueeze(0).cuda()
-        print("sil_tensor:", sil_tensor)
-        S1_pred_semantic = torch.cat([sil_tensor, S1_pred_semantic], dim=1)
+        # sil_tensor = torch.tensor([sil_token] * 10).unsqueeze(0).cuda()
+        # print("sil_tensor:", sil_tensor)
+        # S1_pred_semantic = torch.cat([sil_tensor, S1_pred_semantic], dim=1)
 
         # get target semnatic from prompt wav and text
         S2_batch = get_S2_batch(
@@ -277,7 +288,7 @@ def evaluate(args,
         wav_gen = hificodec_decode(hificodec, codes)
 
         sf.write(output_dir /
-                 f"temperature_{temperature}_s_{prompt_name}_t_{utt_id}.wav",
+                 f"S1_topk_{S1_top_k}_temperature_{temperature}_s_{prompt_name}_t_{utt_id}.wav",
                  wav_gen, sample_rate)
 
 
