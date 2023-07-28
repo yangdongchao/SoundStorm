@@ -77,6 +77,7 @@ def get_S1_prompt(wav, asr_model, phonemizer, semantic_tokenizer):
     # 移除最后的句点, 防止 AR S1 infer 提前停止, 加了句点可能会有停顿
     prompt_text = prompt_text.replace(".", "")
     prompt_phoneme = phonemizer.phonemize(prompt_text, espeak=False)
+    print("prompt_phoneme:", prompt_phoneme)
     prompt_phoneme_ids = phonemizer.transform(prompt_phoneme)
     print("prompt_phoneme_ids:", prompt_phoneme_ids)
     prompt_phoneme_ids_len = len(prompt_phoneme_ids)
@@ -157,6 +158,21 @@ def get_S2_batch(prompt_semantic_tokens,
 
     return samples
 
+def get_prompt_wav(prompt_wav_path, sample_rate):
+    prompt_wav, _ = librosa.load(prompt_wav_path, sr=sample_rate)
+    # 取末尾 3s, 但是不包含最后 0.1s 防止 AR S1 infer 提前停止
+    print("prompt_wav.shape:", prompt_wav.shape)
+    prompt_wav, index = librosa.effects.trim(
+        prompt_wav, top_db=20, frame_length=2048, hop_length=512)
+    print("prompt_wav.shape after trim:", prompt_wav.shape)
+    # 有可能截取的地方刚好是一个字，所以 asr 的结果和 wav 无法对齐
+    prompt_wav = prompt_wav[-5 * sample_rate:-2 * sample_rate]
+    print("prompt_wav.shape after slice:", prompt_wav.shape)
+    prompt_wav, index = librosa.effects.trim(
+        prompt_wav, top_db=20, frame_length=2048, hop_length=512)
+    print("prompt_wav.shape after trim:", prompt_wav.shape)
+    return prompt_wav
+
 
 def evaluate(args,
              S1_model,
@@ -184,17 +200,10 @@ def evaluate(args,
                 sentence = " ".join(items[1:])
             sentences.append((utt_id, sentence))
 
-    sample_rate = 16000
     # to get prompt
     prompt_name = os.path.basename(args.prompt_wav_path).split('.')[0]
-    prompt_wav, _ = librosa.load(args.prompt_wav_path, sr=sample_rate)
-    # 取末尾 3s, 但是不包含最后 0.1s 防止 AR S1 infer 提前停止
-    print("prompt_wav.shape:", prompt_wav.shape)
-    prompt_wav, index = librosa.effects.trim(
-        prompt_wav, top_db=20, frame_length=2048, hop_length=512)
-    print("prompt_wav.shape after trim:", prompt_wav.shape)
-    prompt_wav = prompt_wav[:3 * sample_rate]
-    print("prompt_wav.shape after slice:", prompt_wav.shape)
+    prompt_wav = get_prompt_wav(args.prompt_wav_path, sample_rate)
+    
 
     # get prompt for S1
     S1_prompt_result = get_S1_prompt(
@@ -217,7 +226,7 @@ def evaluate(args,
     prompt_acoustic_tokens = S2_prompt_result['prompt_acoustic_tokens']
 
     # 遍历 utt_id
-    for utt_id, sentence in sentences[1:]:
+    for utt_id, sentence in sentences:
         S1_batch = get_S1_batch(sentence, phonemizer)
         # prompt 和真正的输入拼接
         S1_all_phoneme_ids = torch.cat(
@@ -236,6 +245,7 @@ def evaluate(args,
 
         # 删除 prompt 对应的部分
         S1_prompt_len = S1_prompt.shape[-1]
+        print("S1_prompt_len:", S1_prompt_len)
         # (1, T)
         S1_pred_semantic = S1_pred_semantic[:, S1_prompt_len:]
 
