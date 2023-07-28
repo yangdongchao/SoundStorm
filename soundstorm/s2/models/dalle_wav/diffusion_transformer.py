@@ -349,7 +349,7 @@ class DiffusionTransformer(nn.Module):
         # ? (log(1e-30))?
         zero_vector = torch.zeros(batch_size, 1,
                                   log_pred.shape[2]).type_as(log_x_t) - 70
-        # 最后一行代表mask_token
+        # 最后一行代表 mask_token
         log_pred = torch.cat((log_pred, zero_vector), dim=1)
         log_pred = torch.clamp(log_pred, -70, 0)
         return log_pred
@@ -631,6 +631,7 @@ class DiffusionTransformer(nn.Module):
         mask_weight = mask_region * self.mask_weight[0] + (
             1. - mask_region) * self.mask_weight[1]
         # 去掉 padding 部分
+        # x_mask 为 True 的部分表示 target_acoustic 的位置
         kl = kl * mask_weight * (~x_mask)
         kl = sum_except_batch(kl)
         # 分类的概率 e_0
@@ -778,7 +779,7 @@ class DiffusionTransformer(nn.Module):
             self.amp = True
         batch_size = input['target_acoustics'].shape[0]
         device = input['target_acoustics'].device
-        # 1) get embeddding for condition and content  prepare input
+        # 1) get embeddding for condition and content prepare input
         content_token = input['target_acoustics'].reshape(batch_size, -1)
         # 目前先不使用 mask, 因为我们直接 padding eos
         content_token_mask = None

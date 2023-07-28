@@ -325,11 +325,15 @@ class Block(nn.Module):
                 nn.Linear(mlp_hidden_times * n_embd, n_embd),
                 nn.Dropout(resid_pdrop), )
 
+    # 输出的长度与 x 一致, 与 encoder_output 无关
+    # 所以感觉 encoder_output 里面没有 prompt semantic 也无所谓? 
     def forward(self, x, encoder_output, x_mask, cond_emb_mask, timestep):
         # encoder_output denotes the conditional information
         # get the max len
+        # x.shape (B, T, n_emb)
         max_len = x.shape[1]
         # get self attention mask 
+        # (B, T) -> (B, T, T)
         slf_x_attn_mask = x_mask.unsqueeze(1).expand(-1, max_len, -1)
         # using cross atten
         if self.attn_type == "selfcross":
@@ -365,6 +369,7 @@ class Block(nn.Module):
         # ? 还需要嘛？
         if x_mask is not None:
             x = x.masked_fill(x_mask.unsqueeze(-1), 0)
+        # x.shape (B, T, n_emb)
         return x, att
 
 
@@ -583,7 +588,7 @@ class Text2ImageTransformer(nn.Module):
             return optim_groups
 
     def forward(self, input, condition, x_mask, cond_emb_mask, t):
-        # cont_emb: B, n_q, len, dim
+        # cont_emb: B, n_q, len, dim, 决定了输出的长度, 是由 target_acoustics 决定的
         cont_emb, pos_emb = self.content_emb(input)
         cont_emb = cont_emb.permute(0, 3, 1, 2)
         x1 = self.inc(cont_emb)
@@ -593,7 +598,7 @@ class Text2ImageTransformer(nn.Module):
         # B, len , dim
         emb = emb.reshape(emb.shape[0], -1, emb.shape[3])
         emb = emb + pos_emb
-        #emb = cont_emb
+        # emb = cont_emb
         prompt_semantic_token_ids = condition['prompt_semantics']
         target_semantic_token_ids = condition['target_semantics']
         prompt_acoustics = condition['prompt_acoustics']
@@ -635,11 +640,22 @@ class Text2ImageTransformer(nn.Module):
         prompt_acoustic_token_emb = prompt_acoustic_token_emb + self.prompt_acoustic_pos_emb(
             prompt_acoustic_token_emb)
 
-        # [B, all, 512]      
+        # [B, all_T, n_embd]
         cond_emb = torch.cat(
             (prompt_semantic_token_emb, target_semantic_token_emb,
              prompt_acoustic_token_emb),
             dim=1)
+        # # (B, 152, n_embd) => 相对于 prompt_acoustic_token_emb 加了 2 个 token
+        # print("prompt_semantic_token_emb.shape:",
+        #       prompt_semantic_token_emb.shape)
+        # # (B, 502, n_embd)
+        # print("target_semantic_token_emb.shape:",
+        #       target_semantic_token_emb.shape)
+        # # (B, 150, n_embd)
+        # print("prompt_acoustic_token_emb.shape:",
+        #       prompt_acoustic_token_emb.shape)
+        # # (B, 804, n_embd)
+        # print("cond_emb.shape:", cond_emb.shape)
 
         for block_idx in range(len(self.blocks)):
             if self.use_checkpoint is False:
@@ -650,9 +666,11 @@ class Text2ImageTransformer(nn.Module):
                 emb, att_weight = checkpoint(self.blocks[block_idx], emb,
                                              cond_emb, x_mask, cond_emb_mask,
                                              t.cuda())
+        # (B, 500, n_embd) => 500 是 target acoustic 的长度
+        # (B, n_embd, 1, 500)
         x3 = emb.unsqueeze(1).permute(0, 3, 1, 2)
-        # 512
         x = self.up1(x3, x1)
+        # (B, n_embd, n_q, 500) => (B, n_q, 500, n_embd)
         x = x.permute(0, 2, 3, 1)
 
         logits = []
@@ -661,8 +679,11 @@ class Text2ImageTransformer(nn.Module):
         index_mat = index_mat.unsqueeze(0).repeat(x.shape[0], 1)
         for index in range(self.n_q):
             weight = self.content_emb.embs[str(index)](index_mat)
+            # (B, 500, num_embed), num_embed 1026
             tmp_logit = torch.bmm(x[:, index, :, :], weight.transpose(1, 2))
             logits.append(tmp_logit)
+        # (B, 500 * 4, num_embed)
         logits = torch.cat(logits, dim=1)
+        # (B, num_embed, 500 * 4)
         out = rearrange(logits, 'b l c -> b c l')
         return out

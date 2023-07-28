@@ -26,7 +26,7 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
         --prompt_semantic_path=${root_dir}/${dump_dir}/test/synthesize_input/prompt_semantic.tsv \
         --prompt_acoustic_path=${root_dir}/${dump_dir}/test/synthesize_input/prompt_acoustic.pth \
         --target_semantic_path=${root_dir}/${dump_dir}/test/synthesize_input/target_semantic.tsv \
-        --output_dir=${root_dir}/${train_output_path}/test_output \
+        --output_dir=${root_dir}/${train_output_path}/syn_output \
         --hificodec_model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \
         --hificodec_config_path=pretrained_model/hificodec/config_16k_320d.json  
 fi
@@ -40,7 +40,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
         --target_semantic_path=${root_dir}/${dump_dir}/test/synthesize_input/target_semantic.tsv \
-        --output_dir=${root_dir}/${train_output_path}/test_output \
+        --output_dir=${root_dir}/${train_output_path}/syn_output \
         --hificodec_model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \
         --hificodec_config_path=pretrained_model/hificodec/config_16k_320d.json
 fi

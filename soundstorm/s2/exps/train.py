@@ -13,11 +13,11 @@ from soundstorm.s2.distributed.launch import launch
 from soundstorm.s2.engine.logger import Logger
 from soundstorm.s2.engine.solver import Solver
 from soundstorm.s2.models.dalle_wav.build import build_model
-from soundstorm.s2.utils.io import load_yaml_config
 from soundstorm.s2.utils.misc import merge_opts_to_config
 from soundstorm.s2.utils.misc import modify_config_for_debug
 from soundstorm.s2.utils.misc import seed_everything
 from soundstorm.utils import str2bool
+from soundstorm.utils.io import load_yaml_config
 
 NODE_RANK = os.environ['INDEX'] if 'INDEX' in os.environ else 0
 NODE_RANK = int(NODE_RANK)

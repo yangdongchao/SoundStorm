@@ -9,15 +9,14 @@ from torch import nn
 
 
 class DALLE(nn.Module):
-    def __init__(
-            self,
-            *,
-            n_q=4,
-            content_info={'key': 'wav_token'},
-            condition_info={'key': 'text_dpe_adapted'},
-            learnable_cf=False,
-            diffusion_config,
-            init_type: str="kaiming_uniform"):
+    def __init__(self,
+                 *,
+                 n_q=4,
+                 content_info={'key': 'wav_token'},
+                 condition_info={'key': 'text_dpe_adapted'},
+                 learnable_cf=False,
+                 diffusion_config,
+                 init_type: str="kaiming_uniform"):
         super().__init__()
         self.n_q = n_q
         self.content_info = content_info
@@ -262,8 +261,8 @@ class DALLE(nn.Module):
         return output
 
     @torch.no_grad()
-    def infer_one(self, batch):
-        output = self.generate_content(batch)
+    def infer_one(self, batch, temperature=1):
+        output = self.generate_content(batch, temperature=temperature)
         return output
 
     def forward(self, batch, name='none', **kwargs):

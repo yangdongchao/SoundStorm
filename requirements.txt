@@ -6,3 +6,4 @@ gruut
 torchmetrics
 pytorch-lightning==1.9.5
 wandb
+openai-whisper==20230124

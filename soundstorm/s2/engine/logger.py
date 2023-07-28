@@ -10,8 +10,8 @@ import os
 import time
 
 from soundstorm.s2.distributed.distributed import is_primary
-from soundstorm.s2.utils.io import save_config_to_yaml
-from soundstorm.s2.utils.io import write_args
+from soundstorm.utils.io import save_config_to_yaml
+from soundstorm.utils.io import write_args
 from torch.utils.tensorboard import SummaryWriter
 
 

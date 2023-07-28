@@ -14,6 +14,9 @@ data_dir='~/datasets/LibriTTS-R'
 config_path=conf/base_L9bin500.yaml
 dump_dir=dump_libritts_base_L9_km500
 ckpt_name='epoch=99-step=49000.ckpt'
+hubert_path=pretrained_model/hubert/hubert_base_ls960.pt
+quantizer_path=pretrained_model/hubert/hubert_base_ls960_L9_km500.bin
+prompt_wav_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_libritts_base_L9_km500/test/synthesize_input/98_199_000030_000000.wav'
 
 # with the following command, you can choose the stage range you want to run
 # such as `./run.sh --stage 0 --stop-stage 0`
@@ -36,5 +39,5 @@ fi
 # text-to-semantic 
 # text -> frontend -> semantic
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
-    CUDA_VISIBLE_DEVICES=${gpus} ./local/t2s.sh ${config_path} ${train_output_path} ${ckpt_name} ${root_dir} || exit -1
+    CUDA_VISIBLE_DEVICES=${gpus} ./local/t2s.sh ${config_path} ${train_output_path} ${ckpt_name} ${root_dir} ${hubert_path} ${quantizer_path} ${prompt_wav_path}|| exit -1
 fi

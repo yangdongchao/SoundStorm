@@ -18,7 +18,7 @@ dist_url='tcp://127.0.0.1:29500'
 # use which checkpoint file to test
 ckpt_name=last.pth
 # should be same with ${layer} in hubert_kms.sh
-layer=10
+layer=9
 hubert_path=pretrained_model/hubert/hubert_base_ls960.pt
 quantizer_path=pretrained_model/hubert/hubert_base_ls960_L9_km500.bin
 dump_dir=dump

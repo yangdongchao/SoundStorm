@@ -390,11 +390,12 @@ class Solver(object):
                             self.clip_grad_norm(self.model.parameters())
                         # update
                         op_sc['optimizer']['module'].step()
-
+                # 更新 lr
                 if 'scheduler' in op_sc:
                     if op_sc['scheduler']['step_iteration'] > 0 and (
                             self.last_iter + 1
                     ) % op_sc['scheduler']['step_iteration'] == 0:
+                        # 每个 iter 调用一次
                         if isinstance(op_sc['scheduler']['module'],
                                       STEP_WITH_LOSS_SCHEDULERS):
                             op_sc['scheduler']['module'].step(
@@ -522,7 +523,7 @@ class Solver(object):
                 self.clip_grad_norm.load_state_dict(
                     state_dict['clip_grad_norm'])
                 self.clip_grad_norm.last_iter = self.last_iter
-
+            # 这里恢复了 optimizer_and_scheduler 的一些参数，包含 ['optimizer_and_scheduler']['none']['scheduler']['module']['last_epoch']
             # handle optimizer and scheduler
             for op_sc_n, op_sc in state_dict['optimizer_and_scheduler'].items():
                 for k in op_sc:
@@ -662,7 +663,7 @@ class Solver(object):
                 self.logger.log_info(info)
             if is_primary():
                 # sample
-                # 用的是最后一个 batch 的数据，有可能太短了，可以换成第一个
+                # 用的是第一个 batch 的数据
                 if (self.last_epoch + 1) % self.sample_epochs == 0:
                     self.sample(first_batch, phase='val', step_type='iteration')
 
@@ -674,7 +675,7 @@ class Solver(object):
             check_primary=False)
 
         for epoch in range(start_epoch, self.max_epochs):
-            self.validate_epoch()
+            # self.validate_epoch()
             self.train_epoch()
             self.save(force=True)
-            # self.validate_epoch()
+            self.validate_epoch()
