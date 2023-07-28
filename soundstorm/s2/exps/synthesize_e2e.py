@@ -190,6 +190,7 @@ def evaluate(args,
     num_quant = 4
     sample_rate = 16000
     hz = 50
+    temperature = 0.8
 
     sentences = []
     with open(args.text_file, 'rt', encoding='utf-8') as f:
@@ -261,7 +262,7 @@ def evaluate(args,
 
         S2_st = time.time()
         with torch.no_grad():
-            model_out = S2_model.infer_one(S2_batch)
+            model_out = S2_model.infer_one(S2_batch, temperature=temperature)
         print(f'{time.time() - S2_st} sec used in S2A')
 
         content = model_out['token_pred']
@@ -269,7 +270,7 @@ def evaluate(args,
         codes = content.reshape(content.shape[0], num_quant, -1)
         wav_gen = hificodec_decode(hificodec, codes)
 
-        sf.write(output_dir / ("s_" + prompt_name + "_t_" + utt_id + ".wav"),
+        sf.write(output_dir / f"temperature_{temperature}_s_{prompt_name}_t_{utt_id}.wav",
                  wav_gen, sample_rate)
 
 
