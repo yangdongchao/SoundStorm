@@ -18,6 +18,8 @@ from soundstorm.s2.models.hubert.semantic_tokenizer import SemanticTokenizer
 from soundstorm.utils.io import load_yaml_config
 
 acoustic_token_nums = 1024
+# sil token of your semantic tokens
+sil_token = 17
 
 
 def move_tensors_to_cuda(d):
@@ -158,18 +160,19 @@ def get_S2_batch(prompt_semantic_tokens,
 
     return samples
 
+
 def get_prompt_wav(prompt_wav_path, sample_rate):
     prompt_wav, _ = librosa.load(prompt_wav_path, sr=sample_rate)
     # 取末尾 3s, 但是不包含最后 0.1s 防止 AR S1 infer 提前停止
     print("prompt_wav.shape:", prompt_wav.shape)
     prompt_wav, index = librosa.effects.trim(
-        prompt_wav, top_db=20, frame_length=2048, hop_length=512)
+        prompt_wav, top_db=15, frame_length=256, hop_length=64)
     print("prompt_wav.shape after trim:", prompt_wav.shape)
     # 有可能截取的地方刚好是一个字，所以 asr 的结果和 wav 无法对齐
-    prompt_wav = prompt_wav[-5 * sample_rate:-2 * sample_rate]
+    prompt_wav = prompt_wav[-3 * sample_rate:]
     print("prompt_wav.shape after slice:", prompt_wav.shape)
     prompt_wav, index = librosa.effects.trim(
-        prompt_wav, top_db=20, frame_length=2048, hop_length=512)
+        prompt_wav, top_db=15, frame_length=256, hop_length=64)
     print("prompt_wav.shape after trim:", prompt_wav.shape)
     return prompt_wav
 
@@ -204,7 +207,6 @@ def evaluate(args,
     # to get prompt
     prompt_name = os.path.basename(args.prompt_wav_path).split('.')[0]
     prompt_wav = get_prompt_wav(args.prompt_wav_path, sample_rate)
-    
 
     # get prompt for S1
     S1_prompt_result = get_S1_prompt(
@@ -249,6 +251,10 @@ def evaluate(args,
         print("S1_prompt_len:", S1_prompt_len)
         # (1, T)
         S1_pred_semantic = S1_pred_semantic[:, S1_prompt_len:]
+        # add sil token
+        sil_tensor = torch.tensor([sil_token] * 10).unsqueeze(0).cuda()
+        print("sil_tensor:", sil_tensor)
+        S1_pred_semantic = torch.cat([sil_tensor, S1_pred_semantic], dim=1)
 
         # get target semnatic from prompt wav and text
         S2_batch = get_S2_batch(
@@ -270,7 +276,8 @@ def evaluate(args,
         codes = content.reshape(content.shape[0], num_quant, -1)
         wav_gen = hificodec_decode(hificodec, codes)
 
-        sf.write(output_dir / f"temperature_{temperature}_s_{prompt_name}_t_{utt_id}.wav",
+        sf.write(output_dir /
+                 f"temperature_{temperature}_s_{prompt_name}_t_{utt_id}.wav",
                  wav_gen, sample_rate)
 
 

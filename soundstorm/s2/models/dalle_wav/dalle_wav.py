@@ -161,7 +161,6 @@ class DALLE(nn.Module):
             self.transformer.cf_predict_start = self.predict_start_with_truncation(
                 cf_predict_start, sample_type.split(',')[0])
             self.truncation_forward = True
-        print("temperature:",temperature)
         trans_out = self.transformer.sample(
             batch=batch,
             filter_ratio=filter_ratio,
