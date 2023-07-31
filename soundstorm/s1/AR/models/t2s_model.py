@@ -172,6 +172,7 @@ class Text2SemanticDecoder(nn.Module):
 
             if torch.argmax(
                     logits, dim=-1)[0] == self.EOS or samples[0, 0] == self.EOS:
+                print(torch.argmax(logits, dim=-1)[0] == self.EOS, samples[0, 0] == self.EOS)
                 stop = True
             if stop:
                 if prompts.shape[1] == y.shape[1]:
