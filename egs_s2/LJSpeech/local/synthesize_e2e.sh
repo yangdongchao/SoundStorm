@@ -1,1 +1,1 @@
-#!/bin/bash
+../../LibriTTS/local/synthesize_e2e.sh
