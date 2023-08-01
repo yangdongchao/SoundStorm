@@ -33,7 +33,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
         --dataset=ljspeech \
         --dump_dir=${root_dir}/${dump_dir} \
         --codec_name=hificodec \
-        --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \
+        --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
         --num-cpu=20
@@ -59,7 +59,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     # HiFi-Codec
     python3 ${BIN_DIR}/codebook2wav.py \
         --codec_name=hificodec \
-        --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \
+        --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
         --input_path=${root_dir}/${dump_dir}/train/acoustic_token/hificodec/LJ050-0078.npy \

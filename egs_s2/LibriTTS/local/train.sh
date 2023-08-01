@@ -16,5 +16,5 @@ python3 ${BIN_DIR}/train.py \
         --output=${root_dir}/${train_output_path} \
         --log_frequency=${log_frequency} \
         --dist_url=${dist_url} \
-        --hificodec_model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \
+        --hificodec_model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --hificodec_config_path=pretrained_model/hificodec/config_16k_320d.json

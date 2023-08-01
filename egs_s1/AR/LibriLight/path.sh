@@ -1,1 +1,0 @@
-../LibriTTS/path.sh

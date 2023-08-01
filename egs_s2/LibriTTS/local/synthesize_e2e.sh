@@ -23,6 +23,6 @@ python3 ${BIN_DIR}/synthesize_e2e.py \
     --hubert_path=${hubert_path} \
     --quantizer_path=${quantizer_path} \
     --output_dir=${root_dir}/${train_output_path}/syn_e2e_output \
-    --hificodec_model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \
+    --hificodec_model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
     --hificodec_config_path=pretrained_model/hificodec/config_16k_320d.json \
     --sil_token=${sil_token}
