@@ -27,18 +27,18 @@ model:
                         block_activate: GELU2
                         timestep_type: 'adalayernorm'   # adainsnorm or adalayernorm and abs
                         mlp_hidden_times: 4
-                        semantic_token_nums: 1024
+                        semantic_token_nums: 500
                         content_emb_config:
                             target: soundstorm.s2.models.dalle_wav.mask_embedding.DalleMaskImageEmbedding
                             params:
-                                num_embed: 1026 # should be quantize_number of acoustic (add mask)
+                                num_embed: 1026 # should be quantize_number
                                 max_size: 16000
                                 embed_dim: 512  # the dim of postion embedding
                                 trainable: True
                                 pos_emb_type: embedding
 
 solver:
-    base_lr: 0.6e-05 # 3.0e-6 x 8 cause max_token_one_batch is x 8 (the old is 10k)
+    base_lr: 0.3e-05 # 3.0e-6 x 8 cause max_token_one_batch is x 8 (the old is 10k)
     adjust_lr: none # not adjust lr according to total batch_size
     max_epochs: 500 # 400 for LibriTTS (train-clean-100 + train-clean-360) 9.2k epoch for LJspeech
     save_epochs: 1
@@ -65,22 +65,22 @@ solver:
             target: soundstorm.s2.engine.lr_scheduler.ReduceLROnPlateauWithWarmup
             params:
                 factor: 0.5
-                patience: 15000
-                min_lr: 2.0e-06
+                patience: 25000
+                min_lr: 1.0e-06
                 threshold: 1.0e-1
                 threshold_mode: rel
-                warmup_lr: 0.9e-3   # the lr to be touched after warmup
+                warmup_lr: 0.45e-3   # the lr to be touched after warmup
                 warmup: 800  # ~ 2 epoch
 
 dataloader:
-    max_token_one_batch: 50000 # 影响单卡显存占用, 81k for 80G GPU (A100) (LibriTTS)
+    max_token_one_batch: 30000 # 影响单卡显存占用, 81k for 80G GPU (A100) (LibriTTS)
     num_workers: 2
     train_datasets: # a list of configures, so we can combine several schedulers
         - target: soundstorm.s2.data.semantic_dataset.SemanticDataset
           params:
                 codec_name: hificodec
                 num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
-                semantic_token_nums: 1024 # 1000 for mhubert 500 for en_hubert 
+                semantic_token_nums: 500 # 1000 for mhubert 500 for en_hubert 
                 semantic_path: dump/train/semantic_token.tsv
                 acoustic_path: dump/train/acoustic_token/hificodec.pth
 
@@ -89,6 +89,6 @@ dataloader:
           params:
                 codec_name: hificodec
                 num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
-                semantic_token_nums: 1024 # 1000 for mhubert 500 for en_hubert 
+                semantic_token_nums: 500 # 1000 for mhubert 500 for en_hubert 
                 semantic_path: dump/dev/semantic_token.tsv
                 acoustic_path: dump/dev/acoustic_token/hificodec.pth
