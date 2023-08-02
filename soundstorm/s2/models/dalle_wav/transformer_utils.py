@@ -445,7 +445,12 @@ class Text2ImageTransformer(nn.Module):
             mlp_type='fc',
             checkpoint=False,
             # 1000 for mhubert 500 for en_hubert 
-            semantic_token_nums=1000):
+            semantic_token_nums=1000,
+            # for pos_emb, target_* 保持一致最好
+            prompt_semantic_emb_len=10,
+            target_semantic_emb_len=20,
+            prompt_acoustic_emb_len=10,
+            target_acoustic_emb_len=60, ):
         super().__init__()
         self.use_checkpoint = checkpoint
         self.n_q = n_q
@@ -489,16 +494,16 @@ class Text2ImageTransformer(nn.Module):
         self.hz = 50
 
         # 最长的序列假设为 10s
-        self.prompt_semantic_pos_emb = LearnedPositionEmbeddings(10 * self.hz,
-                                                                 n_embd)
+        self.prompt_semantic_pos_emb = LearnedPositionEmbeddings(
+            prompt_semantic_emb_len * self.hz, n_embd)
         # 20s
-        self.target_semantic_pos_emb = LearnedPositionEmbeddings(20 * self.hz,
-                                                                 n_embd)
-        self.prompt_acoustic_pos_emb = LearnedPositionEmbeddings(10 * self.hz,
-                                                                 n_embd)
+        self.target_semantic_pos_emb = LearnedPositionEmbeddings(
+            target_semantic_emb_len * self.hz, n_embd)
+        self.prompt_acoustic_pos_emb = LearnedPositionEmbeddings(
+            prompt_acoustic_emb_len * self.hz, n_embd)
         # 60s
-        self.target_acoustic_pos_emb = LearnedPositionEmbeddings(60 * self.hz,
-                                                                 n_embd)
+        self.target_acoustic_pos_emb = LearnedPositionEmbeddings(
+            target_acoustic_emb_len * self.hz, n_embd)
         # num_embed: 2887
         out_cls = self.content_emb.num_embed - 1
         self.register_buffer('cls_ids', torch.arange(out_cls))
@@ -611,6 +616,7 @@ class Text2ImageTransformer(nn.Module):
                                               'b ... -> b (...)')
 
         # 增加和一个 stop token
+        # 所以 target semantic 直接在 dataloader 里面改成 20 s 会报错, 最多 20 * hz - 1 个
         prompt_semantic_token_ids = F.pad(
             prompt_semantic_token_ids, (0, 1),
             value=self.prompt_semantic_end_id)

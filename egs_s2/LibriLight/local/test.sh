@@ -1,0 +1,1 @@
+../../LibriTTS/local/test.sh
