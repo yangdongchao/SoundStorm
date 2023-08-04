@@ -1,6 +1,6 @@
 #!/bin/bash
-stage=0
-stop_stage=0
+stage=6
+stop_stage=6
 root_dir=$1
 data_dir=$2
 hubert_path=$3

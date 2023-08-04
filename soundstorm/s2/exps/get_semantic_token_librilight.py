@@ -96,13 +96,7 @@ def process_sentences(fps: List[Path],
 def main():
     # parse config and args
     parser = argparse.ArgumentParser(
-        description="Preprocess audio and then extract features.")
-
-    parser.add_argument(
-        "--dataset",
-        default="ljspeech",
-        type=str,
-        help="name of dataset, should in {ljspeech, libritts} now")
+        description="Preprocess audio and then extract features for LibriLight.")
 
     parser.add_argument(
         "--data_dir", default=None, type=str, help="directory to dataset.")
@@ -131,6 +125,18 @@ def main():
         help="use which layer of feature of hubert, should be same with it in exp/dump_hubert_feature.py"
     )
 
+    # For LibriLight dataset
+    parser.add_argument(
+        "--sub_dataset",
+        default="small",
+        type=str,
+        help="name of sub dataset of LibriLight",
+        choices=['small', 'medium', 'large', 'duplicate'],)
+    parser.add_argument(
+        "--VAD_path", type=str, default='./VAD/librilight_segment_dict.npy')
+    parser.add_argument("--nshard", type=int, default=5)
+    parser.add_argument("--rank", type=int, default=0)
+
     args = parser.parse_args()
 
     data_dir = Path(args.data_dir).expanduser()
@@ -141,21 +147,8 @@ def main():
 
     assert data_dir.is_dir()
 
-    if args.dataset == "ljspeech":
-        wav_files = sorted(list((data_dir / "wavs").rglob("*.wav")))
-        # split data into 3 sections
-        num_train = 12900
-        num_dev = 100
-        train_wav_files = wav_files[:num_train]
-        dev_wav_files = wav_files[num_train:num_train + num_dev]
-        test_wav_files = wav_files[num_train + num_dev:]
-    elif args.dataset == "libritts":
-        '''
-        we use train-clean-100、train-clean-360、train-other-500 here 
-        and split dev and test from them, don't use test-* and dev-* cause the speakers are disjoint
-        the file structure is LibriTTS_R/train-clean-100/spkid/*/*.wav
-        there are about 2311 in these subsets, we split 1 dev and 1 test wav out from each speaker
-        '''
+   
+ 
         wav_files = []
         train_wav_files = []
         dev_wav_files = []
@@ -184,14 +177,15 @@ def main():
         print("len(dev_wav_files):", len(dev_wav_files))
         print("len(test_wav_files):", len(test_wav_files))
 
-    else:
-        print("dataset should in {ljspeech, libritts} now!")
+    
 
-    train_dump_dir = dump_dir / "train"
+    sub_dataset_dump_dir = dump_dir / args.sub_dataset
+    sub_dataset_dump_dir.mkdir(parents=True, exist_ok=True)
+    train_dump_dir = sub_dataset_dump_dir / "train"
     train_dump_dir.mkdir(parents=True, exist_ok=True)
-    dev_dump_dir = dump_dir / "dev"
+    dev_dump_dir = sub_dataset_dump_dir / "dev"
     dev_dump_dir.mkdir(parents=True, exist_ok=True)
-    test_dump_dir = dump_dir / "test"
+    test_dump_dir = sub_dataset_dump_dir / "test"
     test_dump_dir.mkdir(parents=True, exist_ok=True)
 
     print("args.layer:", args.layer)

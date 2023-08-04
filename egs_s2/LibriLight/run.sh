@@ -4,7 +4,7 @@ set -e
 
 source path.sh
 
-gpus=1,2,3
+gpus=0,1,2,3
 stage=0
 stop_stage=100
 train_output_path='exp_librilight/default'
