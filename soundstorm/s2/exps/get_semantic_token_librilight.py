@@ -2,59 +2,111 @@ import argparse
 import os
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from operator import itemgetter
 from pathlib import Path
-from typing import List
 
 import librosa
 import numpy as np
 import torch
 import tqdm
+from soundstorm.s2.exps.hubert.feature_utils import get_shard_range
 from soundstorm.s2.models.hubert.semantic_tokenizer import SemanticTokenizer
 
 # ThreadPoolExecutor 适用于 I/O 密集型任务，具有轻量级线程切换的优势
 # ProcessPoolExecutor 适用于 CPU 密集型任务，可以充分利用多核处理器的优势
 
 
-def process_sentence(fp: Path, output_dir: Path, semantic_tokenizer):
+def process_sentence(args,
+                     fp: Path,
+                     train_dump_dir: Path,
+                     dev_dump_dir: Path,
+                     test_dump_dir: Path,
+                     VAD_dict,
+                     semantic_tokenizer):
     utt_id = fp.stem
-    # for vctk
-    if utt_id.endswith("_mic2"):
-        utt_id = utt_id[:-5]
-    record = None
-    semantic_token_dir = output_dir / "semantic_token"
-    semantic_token_dir.mkdir(parents=True, exist_ok=True)
+    sr = args.sr
+    record = []
+    train_semantic_token_dir = train_dump_dir / "semantic_token"
+    train_semantic_token_dir.mkdir(parents=True, exist_ok=True)
+
+    dev_semantic_token_dir = dev_dump_dir / "semantic_token"
+    dev_semantic_token_dir.mkdir(parents=True, exist_ok=True)
+
+    test_semantic_token_dir = test_dump_dir / "semantic_token"
+    test_semantic_token_dir.mkdir(parents=True, exist_ok=True)
+
     try:
-        semantic_token_path = semantic_token_dir / (utt_id + ".npy")
-        if os.path.exists(semantic_token_path):
-            # print(semantic_token_path, 'exits!')
-            pass
-        else:
-            # reading, resampling may occur
-            # mHuBERT's sr = 16000
-            wav, _ = librosa.load(str(fp), sr=16000)
-            wav = torch.tensor(wav).unsqueeze(0)
-            semantic_token = semantic_tokenizer.tokenize(wav)
-            semantic_token_np = semantic_token.detach().cpu().numpy()
-            np.save(semantic_token_path, semantic_token_np)
-        record = {"utt_id": utt_id, "semantic_token_path": semantic_token_path}
+        # get info for path
+        wav_path_list = str(fp).strip().split('/')
+        sub_dataset, spk_id, book_name = wav_path_list[-4], wav_path_list[
+            -3], wav_path_list[-2]
+        wav_name = wav_path_list[-1][:-5]
+        assert wav_name == utt_id
+        # key_name for big wav
+        key_name = f'{wav_name}#{sub_dataset}#{spk_id}#{book_name}'
+        # load big wav
+        wav, _ = librosa.load(str(fp), sr=sr)
+        sorted_split_VAD_dict = sorted(VAD_dict[key_name].items())
+        len_dict = len(sorted_split_VAD_dict)
+
+        for index, item in enumerate(sorted_split_VAD_dict):
+            split_name, value = item
+            start, end = value
+            sub_wav = wav[int(start * sr):int(end * sr)]
+            # train | dev | test
+            if index == len_dict - 1:
+                subset = 'test'
+                semantic_token_path = test_semantic_token_dir / (
+                    split_name + ".npy")
+            elif index == len_dict - 2:
+                subset = 'dev'
+                semantic_token_path = dev_semantic_token_dir / (
+                    split_name + ".npy")
+            else:
+                subset = 'train'
+                semantic_token_path = train_semantic_token_dir / (
+                    split_name + ".npy")
+
+            if os.path.exists(semantic_token_path):
+                # print(semantic_token_path, 'exits!')
+                pass
+            else:
+                sub_wav = torch.tensor(sub_wav).unsqueeze(0)
+                semantic_token = semantic_tokenizer.tokenize(sub_wav)
+                semantic_token_np = semantic_token.detach().cpu().numpy()
+                np.save(semantic_token_path, semantic_token_np)
+            sub_record = {
+                "utt_id": split_name,
+                "semantic_token_path": semantic_token_path,
+                "subset": subset
+            }
+            # recodrd 变成 List of Dict
+            record.append(sub_record)
     except Exception:
         print("occur Exception")
         traceback.print_exc()
-        return None
+        # record 有可能是一个不完整的 List
+        return record
     return record
 
 
-def process_sentences(fps: List[Path],
-                      output_dir: Path,
+def process_sentences(args,
+                      fp: Path,
+                      train_dump_dir: Path,
+                      dev_dump_dir: Path,
+                      test_dump_dir: Path,
+                      VAD_dict,
                       semantic_tokenizer,
                       nprocs: int=1):
     if nprocs == 1:
         results = []
         for fp in tqdm.tqdm(fps, total=len(fps)):
             record = process_sentence(
+                args=args,
                 fp=fp,
-                output_dir=output_dir,
+                train_dump_dir=train_dump_dir,
+                dev_dump_dir=dev_dump_dir,
+                test_dump_dir=test_dump_dir,
+                VAD_dict=VAD_dict,
                 semantic_tokenizer=semantic_tokenizer)
             if record:
                 results.append(record)
@@ -63,7 +115,9 @@ def process_sentences(fps: List[Path],
             futures = []
             with tqdm.tqdm(total=len(fps)) as progress:
                 for fp in fps:
-                    future = pool.submit(process_sentence, fp, output_dir,
+                    future = pool.submit(process_sentence, args, fp,
+                                         train_dump_dir, dev_dump_dir,
+                                         test_dump_dir, VAD_dict,
                                          semantic_tokenizer)
                     future.add_done_callback(lambda p: progress.update())
                     futures.append(future)
@@ -74,23 +128,50 @@ def process_sentences(fps: List[Path],
                     if record:
                         results.append(record)
 
-    data = [['item_name', 'semantic_audio']]
-    results.sort(key=itemgetter("utt_id"))
-    for item in results:
-        utt_id = item["utt_id"]
-        # old hubert_kmeans shape is (T,), new hubert_kmeans shape is (1, T)
-        # so add [0] here
-        semantic_token = np.load(item["semantic_token_path"])[0].tolist()
-        semantic_token_str = ' '.join(str(x) for x in semantic_token)
-        data.append([utt_id, semantic_token_str])
-    delimiter = '\t'
-    filename = output_dir / "semantic_token.tsv"
-    with open(filename, 'w', encoding='utf-8') as writer:
-        for row in data:
-            line = delimiter.join(row)  # 使用制表符拼接每行数据
-            writer.write(line + '\n')
+    train_data = [['item_name', 'semantic_audio']]
+    dev_data = [['item_name', 'semantic_audio']]
+    test_data = [['item_name', 'semantic_audio']]
 
-    print(f"tsv file '{filename}' write down")
+    # record 是 List of Dict, 一条大 wav 一个 record，一条小 wav 一个 sub_recored
+    for record in results:
+        for sub_record in record:
+            utt_id = sub_record["utt_id"]
+            subset = sub_record["subset"]
+            # old hubert_kmeans shape is (T,), new hubert_kmeans shape is (1, T)
+            # so add [0] here
+            semantic_token = np.load(
+                sub_record["semantic_token_path"])[0].tolist()
+            semantic_token_str = ' '.join(str(x) for x in semantic_token)
+            if subset == "train":
+                train_data.append([utt_id, semantic_token_str])
+            elif subset == "dev":
+                dev_data.append([utt_id, semantic_token_str])
+            # test
+            else:
+                test_data.append([utt_id, semantic_token_str])
+
+    delimiter = '\t'
+    train_filename = train_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
+    dev_filename = dev_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
+    test_filename = test_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
+
+    with open(train_filename, 'w', encoding='utf-8') as writer:
+        for row in train_data:
+            line = delimiter.join(row)
+            writer.write(line + '\n')
+    print(f"tsv file '{train_filename}' write down")
+
+    with open(dev_filename, 'w', encoding='utf-8') as writer:
+        for row in dev_data:
+            line = delimiter.join(row)
+            writer.write(line + '\n')
+    print(f"tsv file '{dev_filename}' write down")
+
+    with open(test_filename, 'w', encoding='utf-8') as writer:
+        for row in test_data:
+            line = delimiter.join(row)
+            writer.write(line + '\n')
+    print(f"tsv file '{test_filename}' write down")
 
 
 def main():
@@ -131,7 +212,7 @@ def main():
         default="small",
         type=str,
         help="name of sub dataset of LibriLight",
-        choices=['small', 'medium', 'large', 'duplicate'],)
+        choices=['small', 'medium', 'large', 'duplicate'], )
     parser.add_argument(
         "--VAD_path", type=str, default='./VAD/librilight_segment_dict.npy')
     parser.add_argument("--nshard", type=int, default=5)
@@ -147,37 +228,27 @@ def main():
 
     assert data_dir.is_dir()
 
-   
- 
-        wav_files = []
-        train_wav_files = []
-        dev_wav_files = []
-        test_wav_files = []
-        sub_num_dev = 1
-        for sub_dataset_name in {
-                "train-clean-100", "train-clean-360", "train-other-500"
-        }:
-            sub_dataset_dir = data_dir / sub_dataset_name
-            # filter out hidden files
-            speaker_list = [
-                file for file in os.listdir(sub_dataset_dir)
-                if not file.startswith('.')
-            ]
-            for speaker in speaker_list:
-                wav_files = sorted(
-                    list((sub_dataset_dir / speaker).rglob("*/*.wav")))
-                # filter out ._*.wav
-                wav_files = [
-                    file for file in wav_files if not file.name.startswith('._')
-                ]
-                train_wav_files += wav_files[:-sub_num_dev * 2]
-                dev_wav_files += wav_files[-sub_num_dev * 2:-sub_num_dev]
-                test_wav_files += wav_files[-sub_num_dev:]
-        print("len(train_wav_files):", len(train_wav_files))
-        print("len(dev_wav_files):", len(dev_wav_files))
-        print("len(test_wav_files):", len(test_wav_files))
+    # sub_dataset here
+    sub_dataset_dir = data_dir / args.sub_dataset
+    # olny spk_id in list, sort by lexicographical order 
+    speaker_list = sorted(os.listdir(sub_dataset_dir))
+    start, end = get_shard_range(len(speaker_list), args.nshard, args.rank)
+    # speaker_list for this rank
+    speaker_list = speaker_list[start:end]
 
-    
+    all_wav_files = []
+
+    for speaker in speaker_list:
+        wav_files = sorted(list((sub_dataset_dir / speaker).rglob("*/*.flac")))
+        # filter out ._*.flac
+        wav_files = [
+            file for file in wav_files if not file.name.startswith('._')
+        ]
+        all_wav_files += wav_files
+
+    print("len(all_wav_files):", len(all_wav_files))
+    # get VAD info
+    VAD_dict = np.load(args.VAD_path, allow_pickle=True).item()
 
     sub_dataset_dump_dir = dump_dir / args.sub_dataset
     sub_dataset_dump_dir.mkdir(parents=True, exist_ok=True)
@@ -196,23 +267,15 @@ def main():
         duplicate=True,
         output_layer=args.layer)
 
-    # process for the 3 sections
-    if train_wav_files:
+    # 每条大 wav 分出一个 dev 一个 test，比例大概是 96:2:2
+    if all_wav_files:
         process_sentences(
-            fps=train_wav_files,
-            output_dir=train_dump_dir,
-            semantic_tokenizer=semantic_tokenizer,
-            nprocs=args.num_cpu)
-    if dev_wav_files:
-        process_sentences(
-            fps=dev_wav_files,
-            output_dir=dev_dump_dir,
-            semantic_tokenizer=semantic_tokenizer,
-            nprocs=args.num_cpu)
-    if test_wav_files:
-        process_sentences(
-            fps=test_wav_files,
-            output_dir=test_dump_dir,
+            args=args,
+            fps=all_wav_files,
+            train_dump_dir=train_dump_dir,
+            dev_dump_dir=dev_dump_dir,
+            test_dump_dir=test_dump_dir,
+            VAD_dict=VAD_dict,
             semantic_tokenizer=semantic_tokenizer,
             nprocs=args.num_cpu)
 

@@ -1,6 +1,6 @@
 #!/bin/bash
-stage=11
-stop_stage=11
+stage=7
+stop_stage=7
 root_dir=$1
 data_dir=$2
 hubert_path=$3
@@ -124,6 +124,7 @@ if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
 fi
 
 # get acoustic for medium
+# cost ~ 3 hours
 if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
     CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
         --data_dir=${data_dir} \

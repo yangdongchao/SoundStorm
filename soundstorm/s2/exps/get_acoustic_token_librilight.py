@@ -2,7 +2,6 @@ import argparse
 import os
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from operator import itemgetter
 from pathlib import Path
 from typing import List
 
@@ -15,18 +14,19 @@ from academicodec.models.encodec.test import remove_encodec_weight_norm
 from academicodec.models.hificodec.vqvae import VQVAE
 from soundstorm.s2.exps.hubert.feature_utils import get_shard_range
 
+
 # 原本的泄愤，返回的是一个短条的信息
-def process_sentence(args, 
-                    fp: Path, 
-                    train_dump_dir: Path,
-                    dev_dump_dir: Path, 
-                    test_dump_dir: Path, 
-                    VAD_dict,
-                    codec_extractor):
+def process_sentence(args,
+                     fp: Path,
+                     train_dump_dir: Path,
+                     dev_dump_dir: Path,
+                     test_dump_dir: Path,
+                     VAD_dict,
+                     codec_extractor):
     utt_id = fp.stem
     sr = args.sr
-    # for vctk
     record = []
+
     train_acoustic_token_dir = train_dump_dir / "acoustic_token" / args.codec_name
     train_acoustic_token_dir.mkdir(parents=True, exist_ok=True)
 
@@ -39,8 +39,9 @@ def process_sentence(args,
     try:
         # get info for path
         wav_path_list = str(fp).strip().split('/')
-        sub_dataset, spk_id, book_name = wav_path_list[-4], wav_path_list[-3], wav_path_list[-2]
-        wav_name= wav_path_list[-1][:-5]
+        sub_dataset, spk_id, book_name = wav_path_list[-4], wav_path_list[
+            -3], wav_path_list[-2]
+        wav_name = wav_path_list[-1][:-5]
         assert wav_name == utt_id
         # key_name for big wav
         key_name = f'{wav_name}#{sub_dataset}#{spk_id}#{book_name}'
@@ -52,17 +53,21 @@ def process_sentence(args,
         for index, item in enumerate(sorted_split_VAD_dict):
             split_name, value = item
             start, end = value
-            sub_wav = wav[int(start*sr):int(end*sr)]
+            sub_wav = wav[int(start * sr):int(end * sr)]
             # train | dev | test
-            if index == len_dict-1:
+            if index == len_dict - 1:
                 subset = 'test'
-                acoustic_token_path = test_acoustic_token_dir / (split_name + ".npy")
-            elif index == len_dict-2:
+                acoustic_token_path = test_acoustic_token_dir / (
+                    split_name + ".npy")
+            elif index == len_dict - 2:
                 subset = 'dev'
-                acoustic_token_path = dev_acoustic_token_dir / (split_name + ".npy")
+                acoustic_token_path = dev_acoustic_token_dir / (
+                    split_name + ".npy")
             else:
                 subset = 'train'
-                acoustic_token_path = train_acoustic_token_dir / (split_name + ".npy")
+                acoustic_token_path = train_acoustic_token_dir / (
+                    split_name + ".npy")
+            
             if os.path.exists(acoustic_token_path):
                 # print(acoustic_token_path, 'exits!')
                 pass
@@ -88,7 +93,11 @@ def process_sentence(args,
 
                 acoustic_token_np = acoustic_token.detach().cpu().numpy()
                 np.save(acoustic_token_path, acoustic_token_np)
-            sub_record = {"utt_id": split_name, "acoustic_token_path": acoustic_token_path, "subset": subset}
+            sub_record = {
+                "utt_id": split_name,
+                "acoustic_token_path": acoustic_token_path,
+                "subset": subset
+            }
             # recodrd 变成 List of Dict
             record.append(sub_record)
     except Exception:
@@ -127,8 +136,9 @@ def process_sentences(args,
             futures = []
             with tqdm.tqdm(total=len(fps)) as progress:
                 for fp in fps:
-                    future = pool.submit(process_sentence, args, fp, train_dump_dir,
-                                         dev_dump_dir, test_dump_dir, VAD_dict, codec_extractor)
+                    future = pool.submit(
+                        process_sentence, args, fp, train_dump_dir,
+                        dev_dump_dir, test_dump_dir, VAD_dict, codec_extractor)
                     future.add_done_callback(lambda p: progress.update())
                     futures.append(future)
 
@@ -162,7 +172,6 @@ def process_sentences(args,
 
     torch.save(acoustic_token_dict['train'], test_filename)
     print(f"pth file '{test_filename}' write down")
-
 
 
 def main():
@@ -227,7 +236,7 @@ def main():
         default="small",
         type=str,
         help="name of sub dataset of LibriLight",
-        choices=['small', 'medium', 'large', 'duplicate'],)
+        choices=['small', 'medium', 'large', 'duplicate'], )
     parser.add_argument(
         "--VAD_path", type=str, default='./VAD/librilight_segment_dict.npy')
     parser.add_argument("--nshard", type=int, default=5)
@@ -252,20 +261,19 @@ def main():
     speaker_list = speaker_list[start:end]
 
     all_wav_files = []
-   
+
     for speaker in speaker_list:
-        wav_files = sorted(
-            list((sub_dataset_dir / speaker).rglob("*/*.flac")))
+        wav_files = sorted(list((sub_dataset_dir / speaker).rglob("*/*.flac")))
         # filter out ._*.flac
         wav_files = [
             file for file in wav_files if not file.name.startswith('._')
         ]
         all_wav_files += wav_files
-       
+
     print("len(all_wav_files):", len(all_wav_files))
     # get VAD info
     VAD_dict = np.load(args.VAD_path, allow_pickle=True).item()
-    
+
     sub_dataset_dump_dir = dump_dir / args.sub_dataset
     sub_dataset_dump_dir.mkdir(parents=True, exist_ok=True)
     train_dump_dir = sub_dataset_dump_dir / "train"
@@ -309,8 +317,8 @@ def main():
 
     codec_extractor = model
 
-    # 每条大 wav 分出一个 dev 一个 test，比例大概是 96 : 2 : 2
-    if wav_files:
+    # 每条大 wav 分出一个 dev 一个 test，比例大概是 96:2:2
+    if all_wav_files:
         process_sentences(
             args=args,
             fps=all_wav_files,
@@ -320,6 +328,7 @@ def main():
             VAD_dict=VAD_dict,
             codec_extractor=codec_extractor,
             nprocs=args.num_cpu)
+
 
 if __name__ == "__main__":
     main()
