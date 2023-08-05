@@ -90,7 +90,7 @@ def process_sentence(args,
 
 
 def process_sentences(args,
-                      fp: Path,
+                      fps: Path,
                       train_dump_dir: Path,
                       dev_dump_dir: Path,
                       test_dump_dir: Path,
@@ -139,16 +139,20 @@ def process_sentences(args,
             subset = sub_record["subset"]
             # old hubert_kmeans shape is (T,), new hubert_kmeans shape is (1, T)
             # so add [0] here
-            semantic_token = np.load(
-                sub_record["semantic_token_path"])[0].tolist()
-            semantic_token_str = ' '.join(str(x) for x in semantic_token)
-            if subset == "train":
-                train_data.append([utt_id, semantic_token_str])
-            elif subset == "dev":
-                dev_data.append([utt_id, semantic_token_str])
-            # test
-            else:
-                test_data.append([utt_id, semantic_token_str])
+            try:
+                semantic_token = np.load(
+                    sub_record["semantic_token_path"])[0].tolist()
+                semantic_token_str = ' '.join(str(x) for x in semantic_token)
+                if subset == "train":
+                    train_data.append([utt_id, semantic_token_str])
+                elif subset == "dev":
+                    dev_data.append([utt_id, semantic_token_str])
+                # test
+                else:
+                    test_data.append([utt_id, semantic_token_str])
+            except Exception:
+                print(f"{utt_id} occur Exception")
+                traceback.print_exc()
 
     delimiter = '\t'
     train_filename = train_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
@@ -205,6 +209,8 @@ def main():
         default=10,
         help="use which layer of feature of hubert, should be same with it in exp/dump_hubert_feature.py"
     )
+    parser.add_argument(
+        '--sr', type=int, default=16000, help='sample rate of model')
 
     # For LibriLight dataset
     parser.add_argument(

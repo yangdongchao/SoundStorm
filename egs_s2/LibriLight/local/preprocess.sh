@@ -1,6 +1,6 @@
 #!/bin/bash
-stage=7
-stop_stage=7
+stage=1
+stop_stage=1
 root_dir=$1
 data_dir=$2
 hubert_path=$3
@@ -15,33 +15,86 @@ dump_dir=$6
 # get semantic token, download Hubert to pretrained_model/hubert/
 # get semantic for small (489 speakers)
 # ${nshard} can be 1 for small
+# --num-cpu=256 cost 50G GPU of A100
+# cost ~10 mins
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
-    python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+    CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=small \
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=20 \
+        --num-cpu=256 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=3 \
-        --rank=0
+        --rank=0 & CUDA_VISIBLE_DEVICES=1 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=small \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=256 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=3 \
+        --rank=1 & CUDA_VISIBLE_DEVICES=2 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=small \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=256 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=3 \
+        --rank=2
 fi
 
 # get semantic for medium (1596 speakers)
+# cost ~ 2.5 hours
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-    python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+    CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=medium \
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=20 \
+        --num-cpu=256 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
-        --nshard=3 \
-        --rank=0
+        --nshard=4 \
+        --rank=0 & CUDA_VISIBLE_DEVICES=1 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=medium \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=256 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=4 \
+        --rank=1 & CUDA_VISIBLE_DEVICES=2 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=medium \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=256 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=4 \
+        --rank=2 & CUDA_VISIBLE_DEVICES=3 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=medium \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=256 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=4 \
+        --rank=3
 fi
 
 # get semantic for large (6875 speakers)
@@ -85,7 +138,7 @@ fi
 # softlink AcademiCodec/academicodec to ${MAIN_ROOT} first
 
 # get acoustic for small
-# num-cpu=30 for 80G GPU, cost ~ 40mins
+# num-cpu=30 for 80G GPU, cost ~ 40 mins
 if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
     CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
         --data_dir=${data_dir} \
@@ -124,7 +177,7 @@ if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
 fi
 
 # get acoustic for medium
-# cost ~ 3 hours
+# cost ~ 5 hours
 if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
     CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
         --data_dir=${data_dir} \

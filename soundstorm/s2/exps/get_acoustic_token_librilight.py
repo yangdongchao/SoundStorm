@@ -119,8 +119,7 @@ def process_sentences(args,
                       nprocs: int=1):
     if nprocs == 1:
         results = []
-        # for fp in tqdm.tqdm(fps, total=len(fps)):
-        for fp in fps:
+        for fp in tqdm.tqdm(fps, total=len(fps)):
             record = process_sentence(
                 args=args,
                 fp=fp,
@@ -157,9 +156,15 @@ def process_sentences(args,
         for sub_record in record:
             utt_id = sub_record["utt_id"]
             subset = sub_record["subset"]
-            acoustic_token_np = np.load(sub_record["acoustic_token_path"])
-            acoustic_token = torch.tensor(acoustic_token_np)
-            acoustic_token_dict[subset][utt_id] = acoustic_token
+            # 这里加 try, 因为 npy 文件可能损坏
+            try:
+                acoustic_token_np = np.load(sub_record["acoustic_token_path"])
+                acoustic_token = torch.tensor(acoustic_token_np)
+                acoustic_token_dict[subset][utt_id] = acoustic_token
+            except Exception:
+                print(f"{utt_id} occur Exception")
+                traceback.print_exc()
+            
     train_filename = train_dump_dir / "acoustic_token" / f'{args.codec_name}_{args.rank}_{args.nshard}.pth'
     dev_filename = dev_dump_dir / "acoustic_token" / f'{args.codec_name}_{args.rank}_{args.nshard}.pth'
     test_filename = test_dump_dir / "acoustic_token" / f'{args.codec_name}_{args.rank}_{args.nshard}.pth'
