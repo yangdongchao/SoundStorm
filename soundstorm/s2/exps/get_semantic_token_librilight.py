@@ -43,15 +43,17 @@ def process_sentence(args,
         assert wav_name == utt_id
         # key_name for big wav
         key_name = f'{wav_name}#{sub_dataset}#{spk_id}#{book_name}'
+        # 判断 VAD 字典中不存在该条音频信息的情况
+        if key_name not in VAD_dict.keys():
+            print(f"{key_name} not in VAD_dict !")
+            return record
         # load big wav
         wav, _ = librosa.load(str(fp), sr=sr)
         sorted_split_VAD_dict = sorted(VAD_dict[key_name].items())
         len_dict = len(sorted_split_VAD_dict)
-
         for index, item in enumerate(sorted_split_VAD_dict):
             split_name, value = item
             start, end = value
-            sub_wav = wav[int(start * sr):int(end * sr)]
             # train | dev | test
             if index == len_dict - 1:
                 subset = 'test'
@@ -70,6 +72,7 @@ def process_sentence(args,
                 # print(semantic_token_path, 'exits!')
                 pass
             else:
+                sub_wav = wav[int(start * sr):int(end * sr)]
                 sub_wav = torch.tensor(sub_wav).unsqueeze(0)
                 semantic_token = semantic_tokenizer.tokenize(sub_wav)
                 semantic_token_np = semantic_token.detach().cpu().numpy()
@@ -135,11 +138,11 @@ def process_sentences(args,
     # record 是 List of Dict, 一条大 wav 一个 record，一条小 wav 一个 sub_recored
     for record in results:
         for sub_record in record:
-            utt_id = sub_record["utt_id"]
-            subset = sub_record["subset"]
-            # old hubert_kmeans shape is (T,), new hubert_kmeans shape is (1, T)
-            # so add [0] here
             try:
+                utt_id = sub_record["utt_id"]
+                subset = sub_record["subset"]
+                # old hubert_kmeans shape is (T,), new hubert_kmeans shape is (1, T)
+                # so add [0] here
                 semantic_token = np.load(
                     sub_record["semantic_token_path"])[0].tolist()
                 semantic_token_str = ' '.join(str(x) for x in semantic_token)
@@ -153,6 +156,7 @@ def process_sentences(args,
             except Exception:
                 print(f"{utt_id} occur Exception")
                 traceback.print_exc()
+                continue
 
     delimiter = '\t'
     train_filename = train_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'

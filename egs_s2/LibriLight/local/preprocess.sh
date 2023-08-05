@@ -598,7 +598,7 @@ if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=30 \
+        --num-cpu=24 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=4 \
         --rank=0 & CUDA_VISIBLE_DEVICES=5 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -609,7 +609,7 @@ if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=30 \
+        --num-cpu=24 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=4 \
         --rank=1 & CUDA_VISIBLE_DEVICES=6 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -620,7 +620,7 @@ if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=30 \
+        --num-cpu=24 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=4 \
         --rank=2 & CUDA_VISIBLE_DEVICES=7 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -631,7 +631,7 @@ if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=30 \
+        --num-cpu=24 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=4 \
         --rank=3
