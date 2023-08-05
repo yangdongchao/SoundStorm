@@ -1,6 +1,6 @@
 #!/bin/bash
-stage=1
-stop_stage=1
+stage=3
+stop_stage=3
 root_dir=$1
 data_dir=$2
 hubert_path=$3
@@ -99,13 +99,13 @@ fi
 
 # get semantic for large (6875 speakers)
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-    python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+    CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=large \
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=20 \
+        --num-cpu=256 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=12 \
@@ -114,21 +114,51 @@ fi
 
 # get semantic for duplicate (1100 speakers)
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
-    python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+    CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=duplicate \
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=20 \
+        --num-cpu=256 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
-        --nshard=3 \
-        --rank=0
+        --nshard=4 \
+        --rank=0 & CUDA_VISIBLE_DEVICES=1 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=duplicate \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=256 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=4 \
+        --rank=1 & CUDA_VISIBLE_DEVICES=2 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=duplicate \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=256 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=4 \
+        --rank=2 & CUDA_VISIBLE_DEVICES=3 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=duplicate \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=256 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=4 \
+        --rank=3
 fi
 
 # merge semantic tokens
-if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
+if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
     # input file path list (small、medium、large、duplicate)
     python3 ${BIN_DIR}/merge_semantic_token.py
 fi
@@ -139,7 +169,7 @@ fi
 
 # get acoustic for small
 # num-cpu=30 for 80G GPU, cost ~ 40 mins
-if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
+if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=small \
@@ -178,7 +208,7 @@ fi
 
 # get acoustic for medium
 # cost ~ 5 hours
-if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
+if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
     CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=medium \
@@ -228,7 +258,7 @@ fi
 
 # get acoustic for large
 # not test yet
-if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
+if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
     CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=large \
@@ -409,7 +439,7 @@ if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
 fi
 
 # get acoustic for duplicate
-if [ ${stage} -le 9 ] && [ ${stop_stage} -ge 9 ]; then
+if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
     CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=duplicate \
@@ -458,13 +488,13 @@ if [ ${stage} -le 9 ] && [ ${stop_stage} -ge 9 ]; then
 fi
 
 # merge acoustic tokens
-if [ ${stage} -le 10 ] && [ ${stop_stage} -ge 10 ]; then
+if [ ${stage} -le 9 ] && [ ${stop_stage} -ge 9 ]; then
     # input file path list (small、medium、large、duplicate)
     python3 ${BIN_DIR}/merge_acoustic_token.py
 fi
 
 # test the generated acoustic_token
-if [ ${stage} -le 11 ] && [ ${stop_stage} -ge 11 ]; then
+if [ ${stage} -le 10 ] && [ ${stop_stage} -ge 10 ]; then
     mkdir -p codebook2wav_output
     # HiFi-Codec
     python3 ${BIN_DIR}/codebook2wav.py \
