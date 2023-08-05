@@ -1,6 +1,6 @@
 #!/bin/bash
-stage=3
-stop_stage=3
+stage=8
+stop_stage=8
 root_dir=$1
 data_dir=$2
 hubert_path=$3
@@ -105,11 +105,161 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=256 \
+        --num-cpu=128 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
-        --nshard=12 \
-        --rank=0
+        --nshard=16 \
+        --rank=0 & CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=1 & CUDA_VISIBLE_DEVICES=1 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=2 & CUDA_VISIBLE_DEVICES=1 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=3 & CUDA_VISIBLE_DEVICES=2 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=4 & CUDA_VISIBLE_DEVICES=2 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=5 & CUDA_VISIBLE_DEVICES=3 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=6 & CUDA_VISIBLE_DEVICES=3 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=7 & CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=8 & CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=9 & CUDA_VISIBLE_DEVICES=5 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=10 & CUDA_VISIBLE_DEVICES=5 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=11 & CUDA_VISIBLE_DEVICES=6 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=12 & CUDA_VISIBLE_DEVICES=6 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=13 & CUDA_VISIBLE_DEVICES=7 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=14 & CUDA_VISIBLE_DEVICES=7 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --hubert_path=${hubert_path} \
+        --quantizer_path=${quantizer_path} \
+        --num-cpu=128 \
+        --layer=${layer} \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=15
 fi
 
 # get semantic for duplicate (1100 speakers)
@@ -120,7 +270,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=256 \
+        --num-cpu=200 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=4 \
@@ -130,7 +280,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=256 \
+        --num-cpu=200 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=4 \
@@ -140,7 +290,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=256 \
+        --num-cpu=200 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=4 \
@@ -150,7 +300,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=256 \
+        --num-cpu=200 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=4 \
@@ -440,7 +590,7 @@ fi
 
 # get acoustic for duplicate
 if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
-    CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
+    CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=duplicate \
         --dump_dir=${root_dir}/${dump_dir} \
@@ -451,7 +601,7 @@ if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
         --num-cpu=30 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=4 \
-        --rank=0 & CUDA_VISIBLE_DEVICES=1 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
+        --rank=0 & CUDA_VISIBLE_DEVICES=5 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=duplicate \
         --dump_dir=${root_dir}/${dump_dir} \
@@ -462,7 +612,7 @@ if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
         --num-cpu=30 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=4 \
-        --rank=1 & CUDA_VISIBLE_DEVICES=2 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
+        --rank=1 & CUDA_VISIBLE_DEVICES=6 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=duplicate \
         --dump_dir=${root_dir}/${dump_dir} \
@@ -473,7 +623,7 @@ if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
         --num-cpu=30 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=4 \
-        --rank=2 & CUDA_VISIBLE_DEVICES=3 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
+        --rank=2 & CUDA_VISIBLE_DEVICES=7 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=duplicate \
         --dump_dir=${root_dir}/${dump_dir} \
