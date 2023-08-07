@@ -8,6 +8,7 @@ import librosa
 import numpy as np
 import torch
 import tqdm
+import time
 from soundstorm.s2.exps.hubert.feature_utils import get_shard_range
 from soundstorm.s2.models.hubert.semantic_tokenizer import SemanticTokenizer
 
@@ -45,10 +46,9 @@ def process_sentence(args,
         key_name = f'{wav_name}#{sub_dataset}#{spk_id}#{book_name}'
         # 判断 VAD 字典中不存在该条音频信息的情况
         if key_name not in VAD_dict.keys():
-            print(f"{key_name} not in VAD_dict !")
+            print(key_name, 'not in VAD_dict !')
             return record
-        # load big wav
-        wav, _ = librosa.load(str(fp), sr=sr)
+        wav = None
         sorted_split_VAD_dict = sorted(VAD_dict[key_name].items())
         len_dict = len(sorted_split_VAD_dict)
         for index, item in enumerate(sorted_split_VAD_dict):
@@ -72,6 +72,11 @@ def process_sentence(args,
                 # print(semantic_token_path, 'exits!')
                 pass
             else:
+                # 这里加判断保证在 sub wav 的循环中只 load 一次
+                if wav is None:
+                    # load big wav
+                    # 在最外层 load 如果 sub wav 的特征都存在了就会白白消耗 load 的时间
+                    wav, _ = librosa.load(str(fp), sr=sr)
                 sub_wav = wav[int(start * sr):int(end * sr)]
                 sub_wav = torch.tensor(sub_wav).unsqueeze(0)
                 semantic_token = semantic_tokenizer.tokenize(sub_wav)
@@ -162,7 +167,8 @@ def process_sentences(args,
     train_filename = train_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
     dev_filename = dev_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
     test_filename = test_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
-
+    print("start to save...")
+    save_start_time = time.time()
     with open(train_filename, 'w', encoding='utf-8') as writer:
         for row in train_data:
             line = delimiter.join(row)
@@ -180,6 +186,7 @@ def process_sentences(args,
             line = delimiter.join(row)
             writer.write(line + '\n')
     print(f"tsv file '{test_filename}' write down")
+    print('time of save stage:', time.time() - save_start_time)
 
 
 def main():
@@ -256,7 +263,7 @@ def main():
         ]
         all_wav_files += wav_files
 
-    print("len(all_wav_files):", len(all_wav_files))
+    print(f"num of wav files in rank {args.rank}:", len(all_wav_files))
     # get VAD info
     VAD_dict = np.load(args.VAD_path, allow_pickle=True).item()
 

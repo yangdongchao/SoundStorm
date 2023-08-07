@@ -1,5 +1,6 @@
 import argparse
 import os
+import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -47,10 +48,10 @@ def process_sentence(args,
         key_name = f'{wav_name}#{sub_dataset}#{spk_id}#{book_name}'
         # 判断 VAD 字典中不存在该条音频信息的情况
         if key_name not in VAD_dict.keys():
-            print(f"{key_name} not in VAD_dict !")
+            print(key_name, 'not in VAD_dict !')
             return record
-        # load big wav
-        wav, _ = librosa.load(str(fp), sr=sr)
+
+        wav = None
         sorted_split_VAD_dict = sorted(VAD_dict[key_name].items())
         len_dict = len(sorted_split_VAD_dict)
 
@@ -70,11 +71,16 @@ def process_sentence(args,
                 subset = 'train'
                 acoustic_token_path = train_acoustic_token_dir / (
                     split_name + ".npy")
-            
+
             if os.path.exists(acoustic_token_path):
                 # print(acoustic_token_path, 'exits!')
                 pass
             else:
+                # 这里加判断保证在 sub wav 的循环中只 load 一次
+                if wav is None:
+                    # load big wav
+                    # 在最外层 load 如果 sub wav 的特征都存在了就会白白消耗 load 的时间
+                    wav, _ = librosa.load(str(fp), sr=sr)
                 sub_wav = wav[int(start * sr):int(end * sr)]
                 # sub_wav.shape (1, T)
                 sub_wav = torch.tensor(sub_wav).unsqueeze(0)
@@ -156,6 +162,8 @@ def process_sentences(args,
     acoustic_token_dict['dev'] = {}
     acoustic_token_dict['test'] = {}
     # record 是 List of Dict, 一条大 wav 一个 record，一条小 wav 一个 sub_recored
+    print("start to save...")
+    save_start_time = time.time()
     for record in results:
         for sub_record in record:
             # 这里加 try, 因为 npy 文件可能损坏
@@ -169,7 +177,7 @@ def process_sentences(args,
                 print(f"{utt_id} occur Exception")
                 traceback.print_exc()
                 continue
-            
+
     train_filename = train_dump_dir / "acoustic_token" / f'{args.codec_name}_{args.rank}_{args.nshard}.pth'
     dev_filename = dev_dump_dir / "acoustic_token" / f'{args.codec_name}_{args.rank}_{args.nshard}.pth'
     test_filename = test_dump_dir / "acoustic_token" / f'{args.codec_name}_{args.rank}_{args.nshard}.pth'
@@ -182,6 +190,7 @@ def process_sentences(args,
 
     torch.save(acoustic_token_dict['train'], test_filename)
     print(f"pth file '{test_filename}' write down")
+    print('time of save stage:', time.time() - save_start_time)
 
 
 def main():
@@ -280,7 +289,7 @@ def main():
         ]
         all_wav_files += wav_files
 
-    print("len(all_wav_files):", len(all_wav_files))
+    print(f"num of wav files in rank {args.rank}:", len(all_wav_files))
     # get VAD info
     VAD_dict = np.load(args.VAD_path, allow_pickle=True).item()
 

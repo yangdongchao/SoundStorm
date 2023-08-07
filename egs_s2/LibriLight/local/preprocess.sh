@@ -1,6 +1,6 @@
 #!/bin/bash
-stage=8
-stop_stage=8
+stage=203
+stop_stage=203
 root_dir=$1
 data_dir=$2
 hubert_path=$3
@@ -16,6 +16,7 @@ dump_dir=$6
 # get semantic for small (489 speakers)
 # ${nshard} can be 1 for small
 # --num-cpu=256 cost 50G GPU of A100
+# duplicate 的时候 256 会 OOM
 # cost ~10 mins
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
@@ -98,14 +99,14 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
 fi
 
 # get semantic for large (6875 speakers)
-if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
+if [ ${stage} -le 100 ] && [ ${stop_stage} -ge 100 ]; then
     CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=large \
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -115,7 +116,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -125,7 +126,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -135,7 +136,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -145,7 +146,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -155,7 +156,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -165,7 +166,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -175,17 +176,22 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
-        --rank=7 & CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        --rank=7
+fi
+
+
+if [ ${stage} -le 101 ] && [ ${stop_stage} -ge 101 ]; then
+CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=large \
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -195,7 +201,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -205,7 +211,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -215,7 +221,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -225,7 +231,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -235,7 +241,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -245,7 +251,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -255,7 +261,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=128 \
+        --num-cpu=112 \
         --layer=${layer} \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
@@ -263,6 +269,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
 fi
 
 # get semantic for duplicate (1100 speakers)
+# cost ~ 2.5 hours
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_semantic_token_librilight.py \
         --data_dir=${data_dir} \
@@ -407,8 +414,8 @@ if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
 fi
 
 # get acoustic for large
-# not test yet
-if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
+# cost ~ 45 hours
+if [ ${stage} -le 200 ] && [ ${stop_stage} -ge 200 ]; then
     CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=large \
@@ -417,7 +424,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=0 & CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -428,7 +435,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=1 & CUDA_VISIBLE_DEVICES=1 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -439,7 +446,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=2 & CUDA_VISIBLE_DEVICES=1 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -450,7 +457,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=3 & CUDA_VISIBLE_DEVICES=2 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -461,7 +468,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=4 & CUDA_VISIBLE_DEVICES=2 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -472,7 +479,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=5 & CUDA_VISIBLE_DEVICES=3 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -483,7 +490,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=6 & CUDA_VISIBLE_DEVICES=3 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -494,10 +501,15 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
-        --rank=7 & CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
+        --rank=7
+fi
+
+
+if [ ${stage} -le 201 ] && [ ${stop_stage} -ge 201 ]; then
+CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=large \
         --dump_dir=${root_dir}/${dump_dir} \
@@ -505,7 +517,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=8 & CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -516,7 +528,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=9 & CUDA_VISIBLE_DEVICES=5 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -527,7 +539,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=10 & CUDA_VISIBLE_DEVICES=5 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -538,7 +550,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=11 & CUDA_VISIBLE_DEVICES=6 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -549,7 +561,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=12 & CUDA_VISIBLE_DEVICES=6 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -560,7 +572,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=13 & CUDA_VISIBLE_DEVICES=7 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -571,7 +583,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=14 & CUDA_VISIBLE_DEVICES=7 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
@@ -582,10 +594,74 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
-        --num-cpu=15 \
+        --num-cpu=12 \
         --VAD_path=VAD/librilight_segment_dict.npy \
         --nshard=16 \
         --rank=15
+fi
+
+if [ ${stage} -le 202 ] && [ ${stop_stage} -ge 202 ]; then
+CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --codec_name=hificodec \
+        --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
+        --config_path=pretrained_model/hificodec/config_16k_320d.json \
+        --sr=16000 \
+        --num-cpu=12 \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=8 & CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --codec_name=hificodec \
+        --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
+        --config_path=pretrained_model/hificodec/config_16k_320d.json \
+        --sr=16000 \
+        --num-cpu=12 \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=9 & CUDA_VISIBLE_DEVICES=6 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --codec_name=hificodec \
+        --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
+        --config_path=pretrained_model/hificodec/config_16k_320d.json \
+        --sr=16000 \
+        --num-cpu=12 \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=12 & CUDA_VISIBLE_DEVICES=6 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --codec_name=hificodec \
+        --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
+        --config_path=pretrained_model/hificodec/config_16k_320d.json \
+        --sr=16000 \
+        --num-cpu=12 \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=13 
+fi
+
+if [ ${stage} -le 203 ] && [ ${stop_stage} -ge 203 ]; then
+CUDA_VISIBLE_DEVICES=7 python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
+        --data_dir=${data_dir} \
+        --sub_dataset=large \
+        --dump_dir=${root_dir}/${dump_dir} \
+        --codec_name=hificodec \
+        --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
+        --config_path=pretrained_model/hificodec/config_16k_320d.json \
+        --sr=16000 \
+        --num-cpu=12 \
+        --VAD_path=VAD/librilight_segment_dict.npy \
+        --nshard=16 \
+        --rank=14
+
 fi
 
 # get acoustic for duplicate
