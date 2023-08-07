@@ -162,9 +162,9 @@ def process_sentences(args,
     acoustic_token_dict['dev'] = {}
     acoustic_token_dict['test'] = {}
     # record 是 List of Dict, 一条大 wav 一个 record，一条小 wav 一个 sub_recored
-    print("start to save...")
+    print(f"start to save {args.rank}_{args.nshard}.pth ...")
     save_start_time = time.time()
-    for record in results:
+    for record in tqdm.tqdm(results, total=len(results), colour='green'):
         for sub_record in record:
             # 这里加 try, 因为 npy 文件可能损坏
             try:

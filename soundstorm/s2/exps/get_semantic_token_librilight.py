@@ -167,7 +167,7 @@ def process_sentences(args,
     train_filename = train_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
     dev_filename = dev_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
     test_filename = test_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
-    print("start to save...")
+    print(f"start to save {args.rank}_{args.nshard}.tsv ...")
     save_start_time = time.time()
     with open(train_filename, 'w', encoding='utf-8') as writer:
         for row in train_data:
