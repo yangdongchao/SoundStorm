@@ -139,9 +139,10 @@ def process_sentences(args,
     train_data = [['item_name', 'semantic_audio']]
     dev_data = [['item_name', 'semantic_audio']]
     test_data = [['item_name', 'semantic_audio']]
-
+    print(f"start to save {args.rank}_{args.nshard}.tsv ...")
+    save_start_time = time.time()
     # record 是 List of Dict, 一条大 wav 一个 record，一条小 wav 一个 sub_recored
-    for record in results:
+    for record in tqdm.tqdm(results, total=len(results), colour='green'):
         for sub_record in record:
             try:
                 utt_id = sub_record["utt_id"]
@@ -167,8 +168,7 @@ def process_sentences(args,
     train_filename = train_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
     dev_filename = dev_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
     test_filename = test_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
-    print(f"start to save {args.rank}_{args.nshard}.tsv ...")
-    save_start_time = time.time()
+
     with open(train_filename, 'w', encoding='utf-8') as writer:
         for row in train_data:
             line = delimiter.join(row)

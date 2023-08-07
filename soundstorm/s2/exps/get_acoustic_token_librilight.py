@@ -16,7 +16,6 @@ from academicodec.models.hificodec.vqvae import VQVAE
 from soundstorm.s2.exps.hubert.feature_utils import get_shard_range
 
 
-# 原本的泄愤，返回的是一个短条的信息
 def process_sentence(args,
                      fp: Path,
                      train_dump_dir: Path,
