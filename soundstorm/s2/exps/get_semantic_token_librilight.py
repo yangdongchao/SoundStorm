@@ -23,7 +23,8 @@ def check_numpy_file(file_path):
         # print("文件存在且没有损坏。")
         return True
     except Exception:
-        traceback.print_exc()
+        # traceback.print_exc()
+        print(f'Cannot load {file_path}, will return False and regenerate it')
         return False
     return False
 
