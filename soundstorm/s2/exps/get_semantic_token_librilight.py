@@ -14,6 +14,20 @@ from soundstorm.s2.models.hubert.semantic_tokenizer import SemanticTokenizer
 
 # ThreadPoolExecutor 适用于 I/O 密集型任务，具有轻量级线程切换的优势
 # ProcessPoolExecutor 适用于 CPU 密集型任务，可以充分利用多核处理器的优势
+# 损坏的 numpy 会重新生成
+def check_numpy_file(file_path):
+    try:
+        # 尝试加载 numpy 文件
+        np.load(file_path)
+        # print("文件存在且没有损坏。")
+        return True
+    except FileNotFoundError:
+        # print("文件不存在。")
+        return False
+    except OSError:
+        # print("文件损坏或格式错误。")
+        return False
+    return False
 
 
 def process_sentence(args,
@@ -68,7 +82,7 @@ def process_sentence(args,
                 semantic_token_path = train_semantic_token_dir / (
                     split_name + ".npy")
 
-            if os.path.exists(semantic_token_path):
+            if check_numpy_file(semantic_token_path):
                 # print(semantic_token_path, 'exits!')
                 pass
             else:

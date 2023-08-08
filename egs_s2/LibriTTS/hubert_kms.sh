@@ -33,51 +33,18 @@ fi
 # generate in parallel
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     echo "dump_hubert_feature.py start !"
-    CUDA_VISIBLE_DEVICES=0 python3 ${BIN_DIR}/hubert/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
-        --split=audio_files \
-        --ckpt_path=${hubert_path} \
-        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
-        --layer=${layer} \
-        --nshard=5 \
-        --rank=0 &
-    pid0="$!"
-    CUDA_VISIBLE_DEVICES=1 python3 ${BIN_DIR}/hubert/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
-        --split=audio_files \
-        --ckpt_path=${hubert_path}  \
-        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
-        --layer=${layer} \
-        --nshard=5 \
-        --rank=1 &
-    pid1="$!"
-    CUDA_VISIBLE_DEVICES=2 python3 ${BIN_DIR}/hubert/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
-        --split=audio_files \
-        --ckpt_path=${hubert_path} \
-        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
-        --layer=${layer} \
-        --nshard=5 \
-        --rank=2 &
-    pid2="$!"
-    CUDA_VISIBLE_DEVICES=3 python3 ${BIN_DIR}/hubert/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
-        --split=audio_files \
-        --ckpt_path=${hubert_path} \
-        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
-        --layer=${layer} \
-        --nshard=5 \
-        --rank=3 &
-    pid3="$!"
-    CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/hubert/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
-        --split=audio_files \
-        --ckpt_path=${hubert_path} \
-        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
-        --layer=${layer} \
-        --nshard=5 \
-        --rank=4 &
-    pid4="$!"
+    for rank_id in {0..4}; do
+        gpu_id=$((rank_id / 2))
+        CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/hubert/dump_hubert_feature.py \
+            --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
+            --split=audio_files \
+            --ckpt_path=${hubert_path} \
+            --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
+            --layer=${layer} \
+            --nshard=5 \
+            --rank=${rank_id} &
+        eval pid${rank_id}="$!"
+    done
     wait "$pid0" "$pid1" "$pid2" "$pid3" "$pid4"
     echo "dump_hubert_feature.py done !"
 fi
