@@ -21,11 +21,8 @@ def check_numpy_file(file_path):
         np.load(file_path)
         # print("文件存在且没有损坏。")
         return True
-    except FileNotFoundError:
-        # print("文件不存在。")
-        return False
-    except OSError:
-        # print("文件损坏或格式错误。")
+    except Exception:
+        traceback.print_exc()
         return False
     return False
 
