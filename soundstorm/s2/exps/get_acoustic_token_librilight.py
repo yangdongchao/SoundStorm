@@ -202,7 +202,7 @@ def process_sentences(args,
     torch.save(acoustic_token_dict['dev'], dev_filename)
     print(f"pth file '{dev_filename}' write down")
 
-    torch.save(acoustic_token_dict['train'], test_filename)
+    torch.save(acoustic_token_dict['test'], test_filename)
     print(f"pth file '{test_filename}' write down")
     print('time of save stage:', time.time() - save_start_time)
 
