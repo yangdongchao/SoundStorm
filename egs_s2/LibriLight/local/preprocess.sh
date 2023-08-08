@@ -1,6 +1,6 @@
 #!/bin/bash
-stage=101
-stop_stage=101
+stage=7
+stop_stage=7
 root_dir=$1
 data_dir=$2
 hubert_path=$3
@@ -22,7 +22,7 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     sub_dataset=small
     echo "get_semantic_token_librilight.py for ${sub_dataset} start!"
     for rank_id in {0..2}; do
-        gpu_id=$((rank_id / 2))
+        gpu_id=$((rank_id))
         CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_semantic_token_librilight.py \
             --data_dir=${data_dir} \
             --sub_dataset=${sub_dataset} \
@@ -46,7 +46,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     sub_dataset=medium
     echo "get_semantic_token_librilight.py for ${sub_dataset} start!"
     for rank_id in {0..3}; do
-        gpu_id=$((rank_id / 2))
+        gpu_id=$((rank_id))
         CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_semantic_token_librilight.py \
             --data_dir=${data_dir} \
             --sub_dataset=${sub_dataset} \
@@ -115,7 +115,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     sub_dataset=duplicate
     echo "get_semantic_token_librilight.py for ${sub_dataset} start!"
     for rank_id in {0..3}; do
-        gpu_id=$((rank_id / 2))
+        gpu_id=$((rank_id))
         CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_semantic_token_librilight.py \
             --data_dir=${data_dir} \
             --sub_dataset=${sub_dataset} \
@@ -149,7 +149,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     sub_dataset=small
     echo "get_acoustic_token_librilight.py for ${sub_dataset} start!"
     for rank_id in {0..2}; do
-        gpu_id=$((rank_id / 2))
+        gpu_id=$((rank_id))
         CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
             --data_dir=${data_dir} \
             --sub_dataset=${sub_dataset} \
@@ -174,7 +174,7 @@ if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
     sub_dataset=medium
     echo "get_acoustic_token_librilight.py for ${sub_dataset} start!"
     for rank_id in {0..3}; do
-        gpu_id=$((rank_id / 2))
+        gpu_id=$((rank_id))
         CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
             --data_dir=${data_dir} \
             --sub_dataset=${sub_dataset} \
@@ -224,7 +224,7 @@ if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
     sub_dataset=duplicate
     echo "get_acoustic_token_librilight.py for ${sub_dataset} start!"
     for rank_id in {0..3}; do
-        gpu_id=$((rank_id / 2))
+        gpu_id=$((rank_id))
         CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_acoustic_token_librilight.py \
         --data_dir=${data_dir} \
         --sub_dataset=${sub_dataset} \
