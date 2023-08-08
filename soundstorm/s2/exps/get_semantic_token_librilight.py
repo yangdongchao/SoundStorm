@@ -200,6 +200,7 @@ def process_sentences(args,
             line = delimiter.join(row)
             writer.write(line + '\n')
     print(f"tsv file '{test_filename}' write down")
+    # cost 0.5 ~ 1 hour for LibriLight large
     print('time of save stage:', time.time() - save_start_time)
 
 
