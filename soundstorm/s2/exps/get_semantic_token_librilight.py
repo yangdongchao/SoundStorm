@@ -1,5 +1,6 @@
 import argparse
 import os
+import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -8,9 +9,9 @@ import librosa
 import numpy as np
 import torch
 import tqdm
-import time
 from soundstorm.s2.exps.hubert.feature_utils import get_shard_range
 from soundstorm.s2.models.hubert.semantic_tokenizer import SemanticTokenizer
+
 
 # ThreadPoolExecutor 适用于 I/O 密集型任务，具有轻量级线程切换的优势
 # ProcessPoolExecutor 适用于 CPU 密集型任务，可以充分利用多核处理器的优势
@@ -79,7 +80,8 @@ def process_sentence(args,
                 semantic_token_path = train_semantic_token_dir / (
                     split_name + ".npy")
 
-            if check_numpy_file(semantic_token_path):
+            if os.path.exists(semantic_token_path) and check_numpy_file(
+                    semantic_token_path):
                 # print(semantic_token_path, 'exits!')
                 pass
             else:

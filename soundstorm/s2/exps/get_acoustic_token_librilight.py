@@ -15,6 +15,7 @@ from academicodec.models.encodec.test import remove_encodec_weight_norm
 from academicodec.models.hificodec.vqvae import VQVAE
 from soundstorm.s2.exps.hubert.feature_utils import get_shard_range
 
+
 # 损坏的 numpy 会重新生成
 def check_numpy_file(file_path):
     try:
@@ -83,7 +84,8 @@ def process_sentence(args,
                 acoustic_token_path = train_acoustic_token_dir / (
                     split_name + ".npy")
 
-            if check_numpy_file(acoustic_token_path):
+            if os.path.exists(acoustic_token_path) and check_numpy_file(
+                    acoustic_token_path):
                 # print(acoustic_token_path, 'exits!')
                 pass
             else:
