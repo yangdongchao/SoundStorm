@@ -249,6 +249,7 @@ class CosineAnnealingLRWithWarmup(object):
                  warmup_lr=None,
                  warmup=0):
         self.optimizer = optimizer
+        # total iters
         self.T_max = T_max
         self.last_epoch = last_epoch
         self.verbose = verbose

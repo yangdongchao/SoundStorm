@@ -1,3 +1,4 @@
+# train and eval control by iter not epoch
 # ------------------------------------------
 # Diffsound, By Dongchao Yang
 # based on https://github.com/cientgu/VQ-Diffusion
@@ -11,7 +12,6 @@ from academicodec.models.hificodec.vqvae import VQVAE
 from soundstorm.s2.data.build import build_dataloader
 from soundstorm.s2.distributed.launch import launch
 from soundstorm.s2.engine.logger import Logger
-from soundstorm.s2.engine.solver import Solver
 from soundstorm.s2.models.dalle_wav.build import build_model
 from soundstorm.s2.utils.misc import merge_opts_to_config
 from soundstorm.s2.utils.misc import modify_config_for_debug
@@ -147,6 +147,12 @@ def get_args():
         help="Modify config options using the command-line",
         default=None,
         nargs=argparse.REMAINDER, )
+
+    parser.add_argument(
+        "--train_with_iter",
+        type=str2bool,
+        default=False,
+        help="control training with epoch or iter")
     args = parser.parse_args()
     args.cwd = os.path.abspath(os.path.dirname(__file__))
     # modify args for debugging
@@ -217,6 +223,13 @@ def main_worker(local_rank, args):
     # get dataloader
     dataloader_info = build_dataloader(config, args)
     # get solver
+    if args.train_with_iter is True:
+        from soundstorm.s2.engine.solver_iter import Solver
+        print("import Solver from soundstorm.s2.engine.solver_iter...")
+    else:
+        from soundstorm.s2.engine.solver import Solver
+        print("import Solver from soundstorm.s2.engine.solver...")
+
     solver = Solver(
         config=config,
         args=args,
