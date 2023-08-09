@@ -623,6 +623,8 @@ class Solver(object):
                 # 用的是第一个 batch 的数据
                 if self.last_iter % self.sample_iters == 0:
                     self.sample(first_batch, phase='val', step_type='iteration')
+            # add model.train() after validate_iter, cause we only call model.train() in self.train_epoch()'s start
+            self.model.train()
 
     # train.py 先调用 solver.resume() 后调用 solver.train()
     def train(self):

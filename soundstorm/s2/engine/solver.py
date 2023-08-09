@@ -249,7 +249,7 @@ class Solver(object):
             # only save the wav of first 5 in batch
             # target wav in batch is reverse sorted with length
             audio_indexs = []
-            for i in range(10):
+            for i in range(min(10, content_gt.size(0))):
                 save_name_gt_wav = save_path + '/gt_' + str(i) + '.wav'
                 acoustic_token_gt = codes_np_gt[i]
                 # all Nq have same pad length
@@ -300,7 +300,7 @@ class Solver(object):
             # self.hificodec
             np.save(save_name, codes_np)
             if gen_audio:
-                for i in range(10):
+                for i in range(min(10, content_gt.size(0))):
                     save_name_wav = save_path + name_prefix + '_' + str(
                         i) + '.wav'
                     acoustic_token = codes_np[i]
@@ -546,8 +546,6 @@ class Solver(object):
         self.model.train()
         self.last_epoch += 1
 
-        # if self.args.distributed:
-        #     self.dataloader['train_loader'].sampler.set_epoch(self.last_epoch)
         epoch_start = time.time()
         itr_start = time.time()
         itr = -1
@@ -625,8 +623,6 @@ class Solver(object):
             else:
                 val = (self.last_epoch + 1) in self.dev_epochs
         if val:
-            # if self.args.distributed:
-            #     self.dataloader['dev_loader'].sampler.set_epoch(self.last_epoch)
             self.model.eval()
 
             overall_loss = None
