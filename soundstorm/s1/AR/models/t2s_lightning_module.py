@@ -37,7 +37,7 @@ class Text2SemanticLightningModule(LightningModule):
         self.log("total_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         self.log("lr", scheduler.get_last_lr()[0], on_epoch=True, prog_bar=True)
         self.log(
-            "top_" + str(self.top_k) + "_acc",
+            f"top_{self.top_k}_acc",
             acc,
             on_step=True,
             on_epoch=True,
@@ -51,7 +51,7 @@ class Text2SemanticLightningModule(LightningModule):
         
         self.log("val_total_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         self.log(
-            "val_top_" + str(self.top_k) + "_acc",
+            f"val_top_{self.top_k}_acc",
             acc,
             on_step=True,
             on_epoch=True,
