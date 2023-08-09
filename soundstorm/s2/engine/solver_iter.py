@@ -245,7 +245,7 @@ class Solver(object):
             # target wav in batch is reverse sorted with length
             audio_indexs = []
             for i in range(min(10, content_gt.size(0))):
-                save_name_gt_wav = save_path + '/gt_' + str(i) + '.wav'
+                save_name_gt_wav = f'{save_path}/gt_{i}.wav'
                 acoustic_token_gt = codes_np_gt[i]
                 # all Nq have same pad length
                 acoustic_token_gt_0_list = acoustic_token_gt[0].tolist()
@@ -257,7 +257,7 @@ class Solver(object):
                 wav_gt = self.hificodec_decode(acoustic_token_gt)
                 sf.write(save_name_gt_wav, wav_gt, sample_rate)
                 self.logger.add_audio(
-                    tag='gt/audio/' + str(i),
+                    tag=f'gt/audio/{i}',
                     snd_tensor=wav_gt,
                     global_step=step,
                     sample_rate=sample_rate)
@@ -288,15 +288,14 @@ class Solver(object):
             # (100, 4, 354), [B, 4, T]
             codes = content.reshape(content.shape[0], 4, -1)
             codes_np = codes.detach().cpu().numpy()
-            name_prefix = f'/last_iter_{self.last_iter}'
-            save_name = save_path + name_prefix + '.npy'
+            name_prefix = f'iter_{self.last_iter}'
+            save_name = f'{save_path}/{name_prefix}.npy'
 
             # self.hificodec
             np.save(save_name, codes_np)
             if gen_audio:
                 for i in range(min(10, content_gt.size(0))):
-                    save_name_wav = save_path + name_prefix + '_' + str(
-                        i) + '.wav'
+                    save_name_wav = f'{save_path}/{name_prefix}_{i}.wav'
                     acoustic_token = codes_np[i]
                     index = audio_indexs[i]
                     # clip wav via pad value (1025) get from acoustic_token_gt
@@ -304,7 +303,7 @@ class Solver(object):
                     wav = self.hificodec_decode(acoustic_token)
                     sf.write(save_name_wav, wav, sample_rate)
                     self.logger.add_audio(
-                        tag='gen/audio/' + str(i),
+                        tag=f'gen/audio/{i}',
                         snd_tensor=wav,
                         global_step=step,
                         sample_rate=sample_rate)
