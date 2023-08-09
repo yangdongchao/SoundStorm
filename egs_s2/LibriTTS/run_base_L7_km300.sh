@@ -6,17 +6,17 @@ source path.sh
 gpus=0,1,2,3
 stage=0
 stop_stage=100
-train_output_path='exp_libritts/30k_basex2_base_L7_km300'
+train_output_path='exp_libritts/30k_basex1_base_L7_km300_universal'
 # dir to set part/all of dump dataset and experiment result
 root_dir='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm'
 # there should be *.wav 、*/*.wav or */*/*.wav in data_dir
 data_dir='~/datasets/LibriTTS-R'
-config_path='conf/30k_lrx2_L7km300.yaml'
+config_path='conf/30k_lrx1_L7km300.yaml'
 log_frequency=1
 # 'tcp://%s:%s' % (MASTER_ADDR, MASTER_PORT)
 dist_url='tcp://127.0.0.1:29505'
 # use which checkpoint file to test
-ckpt_name='000301e_471119iter.pth'
+ckpt_name='000434e_678599iter.pth'
 # should be same with ${layer} in hubert_kms.sh
 layer=7
 # should be same with ${hubert_path} in hubert_kms.sh
@@ -24,7 +24,8 @@ hubert_path=pretrained_model/hubert/hubert_base_ls960.pt
 quantizer_path=pretrained_model/hubert/train-clean-360_hubert_base_ls960_L7_km300.bin
 dump_dir=dump_libritts_base_L7_km300
 # for synthesize_e2e.sh
-prompt_wav_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_libritts_base_L9_km500/test/synthesize_input/1006_135212_000060_000004.wav'
+prompt_wav_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_l
+ibritts_base_L9_km500/test/synthesize_input/1006_135212_000060_000004.wav'
 S1_config_file='../../egs_s1/AR/LibriTTS/conf/base_L7bin300.yaml'
 S1_ckpt_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/SoundStorm/exp/base_L7_km300/ckpt/epoch=99-step=49000.ckpt'
 # 4 for 300 bin, you should modify this due to your own dum data
