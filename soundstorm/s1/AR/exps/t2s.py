@@ -125,7 +125,7 @@ def main():
     phonemizer: GruutPhonemizer = GruutPhonemizer(language='en-us')
 
     # models for prompt
-    asr_model = whisper.load_model("tiny")
+    asr_model = whisper.load_model("tiny.en")
 
     semantic_tokenizer = SemanticTokenizer(
         hubert_path=args.hubert_path,

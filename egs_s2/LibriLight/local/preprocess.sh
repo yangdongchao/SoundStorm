@@ -1,6 +1,6 @@
 #!/bin/bash
-stage=7
-stop_stage=7
+stage=0
+stop_stage=0
 root_dir=$1
 data_dir=$2
 hubert_path=$3
@@ -65,10 +65,10 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
 fi
 
 # get semantic for large (6875 speakers)
-if [ ${stage} -le 100 ] && [ ${stop_stage} -ge 100 ]; then
+if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     sub_dataset=large
     echo "get_semantic_token_librilight.py for ${sub_dataset} start!"
-    for rank_id in {0..7}; do
+    for rank_id in {0..15}; do
         gpu_id=$((rank_id / 2))
         CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_semantic_token_librilight.py \
             --data_dir=${data_dir} \
@@ -83,29 +83,8 @@ if [ ${stage} -le 100 ] && [ ${stop_stage} -ge 100 ]; then
             --rank=${rank_id} &
         eval pid${rank_id}="$!"
     done
-    wait "$pid0" "$pid1" "$pid2" "$pid3" "$pid4" "$pid5" "$pid6" "$pid7"
-    echo "get_semantic_token_librilight.py for ${sub_dataset} done!"
-fi
-
-if [ ${stage} -le 101 ] && [ ${stop_stage} -ge 101 ]; then
-    sub_dataset=large
-    echo "get_semantic_token_librilight.py for ${sub_dataset} start!"
-    for rank_id in {8..15}; do
-        gpu_id=$((rank_id / 2))
-        CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_semantic_token_librilight.py \
-            --data_dir=${data_dir} \
-            --sub_dataset=${sub_dataset} \
-            --dump_dir=${root_dir}/${dump_dir} \
-            --hubert_path=${hubert_path} \
-            --quantizer_path=${quantizer_path} \
-            --num-cpu=112 \
-            --layer=${layer} \
-            --VAD_path=VAD/librilight_segment_dict.npy \
-            --nshard=16 \
-            --rank=${rank_id} &
-        eval pid${rank_id}="$!"
-    done
-    wait "$pid8" "$pid9" "$pid10" "$pid11" "$pid12" "$pid13" "$pid14" "$pid15"
+    wait "$pid0" "$pid1" "$pid2" "$pid3" "$pid4" "$pid5" "$pid6" "$pid7" \
+    "$pid8" "$pid9" "$pid10" "$pid11" "$pid12" "$pid13" "$pid14" "$pid15"
     echo "get_semantic_token_librilight.py for ${sub_dataset} done!"
 fi
 
