@@ -27,6 +27,10 @@ model:
                         timestep_type: 'adalayernorm'   # adainsnorm or adalayernorm and abs
                         mlp_hidden_times: 4
                         semantic_token_nums: 300
+                        prompt_semantic_emb_len: 10 # should > max_prompt_sec in dataset
+                        target_semantic_emb_len: 30 # should > max_target_sec in dataset
+                        prompt_acoustic_emb_len: 10 # can be same with prompt_semantic
+                        target_acoustic_emb_len: 30 # can be same with target_semantic
                         content_emb_config:
                             target: soundstorm.s2.models.dalle_wav.mask_embedding.DalleMaskImageEmbedding
                             params:
@@ -37,11 +41,11 @@ model:
                                 pos_emb_type: embedding
 
 solver:
-    base_lr: 0.3e-05 # 3.0e-6 x 8 cause max_token_one_batch is x 8 (the old is 10k)
-    adjust_lr: none # not adjust lr according to total batch_size
+    base_lr: 0.3e-05  # 3.0e-6 x 8 cause max_token_one_batch is x 8 (the old is 10k)
+    adjust_lr: none   # not adjust lr according to total batch_size
     max_iters: 550000 # 55w iter for 8 GPU for small + medium, ~70 epochs, ~7.8k iter/epoch, training 2.5h/epoch
-    save_iters: 1000 # 1k, ~ cost 0.5h to save a ckpt
-    dev_iters: 1000
+    save_iters: 1500  # 1.5k, ~ cost 0.3h to save a ckpt
+    dev_iters: 1500   # num of iter for each gpu, for 8 gpu here, should x2 when use 4 gpus to make model see same number of samples
     ema:
         decay: 0.99
         update_interval: 25
@@ -69,7 +73,7 @@ solver:
                 threshold: 1.0e-1
                 threshold_mode: rel
                 warmup_lr: 0.45e-3   # the lr to be touched after warmup
-                warmup: 800  # 这个是 warm up iter 数
+                warmup: 800  # num of iter to warmup
 
 dataloader:
     max_token_one_batch: 30000 # 影响单卡显存占用, 81k for 80G GPU (A100) (LibriTTS)
@@ -79,7 +83,9 @@ dataloader:
           params:
                 codec_name: hificodec
                 num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
-                semantic_token_nums: 300 # 1000 for mhubert 500 for en_hubert 
+                semantic_token_nums: 300 # same with num of kmeans bins
+                max_prompt_sec: 3        # be same with LibriTTS
+                max_target_sec: 20       # LibriTTS is 10, use 20 here for longer TTS
                 semantic_path: dump/train/semantic_token.tsv
                 acoustic_path: dump/train/acoustic_token/hificodec.pth
 
@@ -88,6 +94,8 @@ dataloader:
           params:
                 codec_name: hificodec
                 num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
-                semantic_token_nums: 300 # 1000 for mhubert 500 for en_hubert 
+                semantic_token_nums: 300 # same with num of kmeans bins
+                max_prompt_sec: 3        # be same with LibriTTS
+                max_target_sec: 20       # LibriTTS is 10, use 20 here for longer TTS
                 semantic_path: dump/dev/semantic_token.tsv
                 acoustic_path: dump/dev/acoustic_token/hificodec.pth

@@ -35,23 +35,24 @@ class SemanticDataset(torch.utils.data.Dataset):
             num_quant,
             semantic_path,
             acoustic_path,
-            codec_name='hificodec',
-            max_length=(250, 250),
-            max_token_one_batch=10000,
-            # 1000 for mhubert 500 for en_hubert 
-            semantic_token_nums=1000):
+            codec_name: str='hificodec',
+            max_token_one_batch: int=10000,
+            semantic_token_nums: int=1000,
+            max_prompt_sec: int=3,
+            max_target_sec: int=10):
         super().__init__()
 
         self.semantic_data = pd.read_csv(semantic_path, delimiter='\t')
         # get dict
         self.acoustic_data = torch.load(acoustic_path)
 
-        self.max_length = max_length
         self.num_quant = 4 if codec_name == 'hificodec' else num_quant
         # 16000 / 320 = 50
         self.hz = 50  # 分辨率
-        # 默认使用 3s 一个segments
-        self.segment_size = 3
+
+        self.max_prompt_sec = max_prompt_sec
+        self.max_target_sec = max_target_sec
+        self.max_sec = self.max_prompt_sec + self.max_target_sec
 
         # NOTE by yuantian: same as SemanticTokenizer.dim_codebook
         self.semantic_token_nums = semantic_token_nums
@@ -80,10 +81,8 @@ class SemanticDataset(torch.utils.data.Dataset):
 
     def init_batch(self):
         # this function aims to prepare batch
-        # 一个 batch 的总 token 数量设为 5600 ❓
         # 先根据 semantic_data 的 长度进行排序
         # target 最长设为 10s, prompt 3s, 1s 对应 50 个 token,
-        # 因此，若使用 10s，则一条数据有 500*3 + 500 + 150+ 150 = 2300 个 token, 则只能放 2 条数据 *3 是什么意思❓
         max_token_one_batch = self.max_token_one_batch
         sementic_ls = []
         len_ls = []
@@ -104,7 +103,7 @@ class SemanticDataset(torch.utils.data.Dataset):
             range(len(len_ls)), key=lambda k: len_ls[k], reverse=True)
         start_batch_id = 0
         # 最大长度为 13s
-        max_len = 13 * self.hz
+        max_len = self.max_sec * self.hz
         tmp_prompt_semantics = []
         tmp_target_semantics = []
         tmp_prompt_acoustics = []
@@ -129,8 +128,8 @@ class SemanticDataset(torch.utils.data.Dataset):
             over_semantic_len = over_semantic.shape[1]
             if over_semantic_len > max_len:
                 # 若音频长度大于 13s，则考虑切成 3 + 10, prompt 3s, target 10s
-                prompt_len = 3 * self.hz
-                targen_len = 10 * self.hz
+                prompt_len = self.max_prompt_sec * self.hz
+                targen_len = self.max_target_sec * self.hz
                 # 先随机选一个 prompt 起始点，max 为最后 13s
                 # 总长度剪去 13s
                 max_prompt_index = over_semantic_len - max_len
@@ -144,9 +143,9 @@ class SemanticDataset(torch.utils.data.Dataset):
                 target_acoustic = over_acoustic[:, prompt_end:prompt_end +
                                                 targen_len]
             # 如果长度大于 6s 小于 13s
-            elif over_semantic_len > 6 * self.hz and over_semantic_len < max_len:
+            elif over_semantic_len > 2 * self.max_prompt_sec * self.hz and over_semantic_len < max_len:
                 # 3s 的 prompt, 其后全为 target
-                prompt_len = 3 * self.hz
+                prompt_len = self.max_prompt_sec * self.hz
                 prompt_semantic = over_semantic[:, :prompt_len]
                 prompt_acoustic = over_acoustic[:, :prompt_len]
                 # 前 3s 以后，全做为 target  
