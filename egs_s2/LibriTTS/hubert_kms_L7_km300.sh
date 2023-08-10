@@ -9,12 +9,12 @@ stop_stage=100
 # dir to set part/all of dump dataset and experiment result
 root_dir='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm'
 data_dir='~/datasets/LibriTTS-R/'
-sub_dataset_name=train-other-500
-layer=12
-n_clusters=1024
-hubert_path=pretrained_model/hubert/hubert_large_ll60k.pt
-km_name=${sub_dataset_name}_hubert_large_ll60k_L${layer}_km${n_clusters}.bin
-dump_dir=dump
+sub_dataset_name=train-clean-360
+layer=7
+n_clusters=300
+hubert_path=pretrained_model/hubert/hubert_base_ls960.pt
+km_name=${sub_dataset_name}_hubert_base_ls960_L${layer}_km${n_clusters}.bin
+dump_dir=dump_libritts_base_L${layer}_km${n_clusters}
 
 
 # with the following command, you can choose the stage range you want to run

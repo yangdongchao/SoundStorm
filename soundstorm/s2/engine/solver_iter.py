@@ -1,3 +1,5 @@
+# train and eval control by iter not epoch
+# 相应地 learning rate 的下降策略也要用 iter 控制
 # ------------------------------------------
 # Diffsound
 # written by Dongchao Yang
@@ -39,25 +41,22 @@ class Solver(object):
         self.dataloader = dataloader
         self.logger = logger
 
-        self.max_epochs = config['solver']['max_epochs']
-        self.save_epochs = config['solver']['save_epochs']
-        self.save_iterations = config['solver'].get('save_iterations', -1)
+        self.max_iters = config['solver']['max_iters']
+        self.save_iters = config['solver']['save_iters']
         # 多少个 epoch 验证一次
-        self.dev_epochs = config['solver'].get('dev_epochs', 2)
+        self.dev_iters = config['solver'].get('dev_iters', 1000)
         # sample() 很耗时，需要 70s 
-        # self.sample_epochs = self.dev_epochs * 2
-        self.sample_epochs = 1
+        self.sample_iters = self.dev_iters
 
-        assert isinstance(self.save_epochs, (int, list))
-        assert isinstance(self.dev_epochs, (int, list))
+        assert isinstance(self.save_iters, (int, list))
+        assert isinstance(self.dev_iters, (int, list))
         self.debug = config['solver'].get('debug', False)
 
-        self.last_epoch = -1
         self.last_iter = -1
-        self.epoch_time = 0
-
-        self.total_iters = self.max_epochs * self.dataloader['train_iterations']
-
+        self.total_iters = self.max_iters
+        self.total_epochs = self.total_iters / self.dataloader[
+            'train_iterations']
+        print("self.total_epochs:", self.total_epochs)
         self.ckpt_dir = os.path.join(args.output, 'checkpoint')
         self.audio_dir = os.path.join(args.output, 'audios')
 
@@ -181,8 +180,7 @@ class Solver(object):
                 if sc_cfg['target'].split('.')[-1] in [
                         'CosineAnnealingLRWithWarmup', 'CosineAnnealingLR'
                 ]:
-                    T_max = self.max_epochs * self.dataloader[
-                        'train_iterations']
+                    T_max = self.max_iters
                     sc_cfg['params']['T_max'] = T_max
                 scheduler = instantiate_from_config(sc_cfg)
                 op_sc['scheduler'] = {
@@ -236,7 +234,7 @@ class Solver(object):
                gen_audio=True):
         tic = time.time()
         self.logger.log_info('Begin to sample...')
-        step = self.last_iter if step_type == 'iteration' else self.last_epoch
+        step = self.last_iter
         sample_rate = 16000
         save_path = self.audio_dir
         save_name_gt = save_path + '/gt.npy'
@@ -293,7 +291,7 @@ class Solver(object):
             # (100, 4, 354), [B, 4, T]
             codes = content.reshape(content.shape[0], 4, -1)
             codes_np = codes.detach().cpu().numpy()
-            name_prefix = f'epoch_{self.last_epoch}_iter_{self.last_iter}'
+            name_prefix = f'iter_{self.last_iter}'
             save_name = f'{save_path}/{name_prefix}.npy'
 
             # self.hificodec
@@ -337,13 +335,6 @@ class Solver(object):
                 # pass
                 if op_sc['end_iteration'] > 0 and op_sc[
                         'end_iteration'] <= self.last_iter:
-                    continue
-                # pass
-                if op_sc['start_epoch'] > self.last_epoch:
-                    continue
-                # pass 
-                if op_sc['end_epoch'] > 0 and op_sc[
-                        'end_epoch'] <= self.last_epoch:
                     continue
 
             input = {
@@ -410,24 +401,11 @@ class Solver(object):
             }
         return loss
 
-    def save(self, force=False):
+    def save_iter(self, force=False):
         if is_primary():
-            # save with the epoch specified name
-            if self.save_iterations > 0:
-                if (self.last_iter + 1) % self.save_iterations == 0:
-                    save = True
-                else:
-                    save = False
-            else:
-                if isinstance(self.save_epochs, int):
-                    save = (self.last_epoch + 1) % self.save_epochs == 0
-                else:
-                    save = (self.last_epoch + 1) in self.save_epochs
-
+            save = True
             if save or force:
                 state_dict = {
-                    'last_epoch':
-                    self.last_epoch,
                     'last_iter':
                     self.last_iter,
                     'model':
@@ -462,8 +440,7 @@ class Solver(object):
                 # save per save_epochs
                 if save:
                     save_path = os.path.join(
-                        self.ckpt_dir, '{}e_{}iter.pth'.format(
-                            str(self.last_epoch).zfill(6), self.last_iter))
+                        self.ckpt_dir, '{}iter.pth'.format(self.last_iter))
                     torch.save(state_dict, save_path)
                     self.logger.log_info('saved in {}'.format(save_path))
 
@@ -475,17 +452,18 @@ class Solver(object):
 
     def resume(
             self,
-            path=None,  # The path of last.pth
-            load_optimizer_and_scheduler=True,  # whether to load optimizers and scheduler
-            load_others=True  # load other informations
-    ):
+            # The path of last.pth
+            path=None,
+            # whether to load optimizers and scheduler
+            load_optimizer_and_scheduler=True,
+            # load other informations
+            load_others=True):
         if path is None:
             path = os.path.join(self.ckpt_dir, 'last.pth')
         if os.path.exists(path):
             state_dict = torch.load(
                 path, map_location='cuda:{}'.format(self.args.local_rank))
             if load_others:
-                self.last_epoch = state_dict['last_epoch']
                 self.last_iter = state_dict['last_iter']
 
             if isinstance(self.model,
@@ -522,6 +500,7 @@ class Solver(object):
                     state_dict['clip_grad_norm'])
                 self.clip_grad_norm.last_iter = self.last_iter
             # 这里恢复了 optimizer_and_scheduler 的一些参数，包含 ['optimizer_and_scheduler']['none']['scheduler']['module']['last_epoch']
+            # 这个参数其实是 last_iter
             # handle optimizer and scheduler
             for op_sc_n, op_sc in state_dict['optimizer_and_scheduler'].items():
                 for k in op_sc:
@@ -542,11 +521,8 @@ class Solver(object):
 
     def train_epoch(self):
         self.model.train()
-        self.last_epoch += 1
 
-        epoch_start = time.time()
         itr_start = time.time()
-        itr = -1
         for itr, batch in enumerate(self.dataloader['train_loader']):
             # (B, 1, T), B, T 动态
             # print("batch['prompt_semantics'].shape:",batch['prompt_semantics'].shape)
@@ -556,24 +532,18 @@ class Solver(object):
             loss = self.step(batch, phase='train')
             # logging info
             if self.logger and self.last_iter % self.args.log_frequency == 0:
-                cur_iter_in_epoch = (self.last_iter - self.last_epoch *
-                                     self.dataloader['train_iterations']
-                                     ) % self.dataloader['train_iterations']
-                info = 'Train: Epoch {}/{} iter {}/{}'.format(
-                    self.last_epoch, self.max_epochs, cur_iter_in_epoch,
-                    self.dataloader['train_iterations'])
+                info = 'Train: iter {}/{}'.format(self.last_iter,
+                                                  self.max_iters)
                 for loss_n, loss_dict in loss.items():
                     info += ' ||'
                     loss_dict = reduce_dict(loss_dict)
                     info += '' if loss_n == 'none' else ' {}'.format(loss_n)
-                    # info = info + ': Epoch {}/{} iter {}/{}'.format(self.last_epoch, self.max_epochs, self.last_iter%self.dataloader['train_iterations'], self.dataloader['train_iterations'])
                     for k in loss_dict:
                         info += ' | {}: {:.4f}'.format(k, float(loss_dict[k]))
                         self.logger.add_scalar(
                             tag='train/{}/{}'.format(loss_n, k),
                             scalar_value=float(loss_dict[k]),
                             global_step=self.last_iter)
-
                 # log lr
                 lrs = self._get_lr(return_type='dict')
                 for k in lrs.keys():
@@ -591,38 +561,35 @@ class Solver(object):
                 forward_time = time.time() - step_start
                 # 1 卡 -> n 卡，iter_time 不变
                 iter_time = time.time() - itr_start
-                epoch_time = time.time() - epoch_start
-                info += ' || data_time: {dt}s | fbward_time: {fbt}s | iter_time: {it}s | epoch_time: {et}s| left_time: {lt}'.format(
+                info += ' || data_time: {dt}s | fbward_time: {fbt}s | iter_time: {it}s | left_time: {lt}'.format(
                     dt=round(data_time, 1),
                     it=round(iter_time, 1),
                     fbt=round(forward_time, 1),
-                    et=self.epoch_time,
                     # self.dataloader['train_iterations']: iter per epoch
                     # 1 卡 -> n 卡，self.max_epochs 不变，self.dataloader['train_iterations'] 为原来的 1/n，单卡显存占用不变
-                    # max_token_one_batch 变为 n 倍，self.dataloader['train_iterations'] 为原来的 1/n，单卡显存占用变为 n 倍
+                    # 用 iter 控制训练时 self.max_iters 不变，1 卡 -> n 卡，total_epochs 变为原来的 n 倍，模型见到的 samples 数变为 n 倍
+                    # 若要保持见到的总 samples 数不变，则 self.max_iters 需要变为 1/n
+                    # max_token_one_batch 变为 n 倍，self.dataloader['train_iterations'] 为原来的 1/n，单卡显存占用变为 n 倍, iter_time 变为 n 倍
                     lt=format_seconds(iter_time *
                                       (self.total_iters - self.last_iter)))
                 self.logger.log_info(info)
-
             itr_start = time.time()
-        self.epoch_time = time.time() - epoch_start
 
-        # modify here to make sure dataloader['train_iterations'] is correct
-        assert itr >= 0, "The data is too less to form one iteration!"
-        self.dataloader['train_iterations'] = itr + 1
+            if self.last_iter % self.dev_iters == 0:
+                self.validate_iter()
+            if self.last_iter % self.save_iters == 0:
+                self.save_iter()
 
-    def validate_epoch(self):
+            if self.last_iter >= self.max_iters:
+                print("training done......")
+                break
+
+    def validate_iter(self):
+        val = True
         if 'dev_loader' not in self.dataloader:
             val = False
-        else:
-            if isinstance(self.dev_epochs, int):
-                # 能否整除
-                val = (self.last_epoch + 1) % self.dev_epochs == 0
-            else:
-                val = (self.last_epoch + 1) in self.dev_epochs
         if val:
             self.model.eval()
-
             overall_loss = None
             first_batch = None
             # 求所有 dev batch loss 的均值
@@ -646,8 +613,8 @@ class Solver(object):
                 info = ''
                 for loss_n, loss_dict in overall_loss.items():
                     info += '' if loss_n == 'none' else ' {}'.format(loss_n)
-                    info += 'Eval: Epoch {}/{}'.format(self.last_epoch,
-                                                       self.max_epochs)
+                    info += 'Eval: iter {}/{}'.format(self.last_iter,
+                                                      self.max_iters)
                     for k in loss_dict:
                         info += ' | {}: {:.4f}'.format(k, float(loss_dict[k]))
                         self.logger.add_scalar(
@@ -658,18 +625,21 @@ class Solver(object):
             if is_primary():
                 # sample
                 # 用的是第一个 batch 的数据
-                if (self.last_epoch + 1) % self.sample_epochs == 0:
+                if self.last_iter % self.sample_iters == 0:
                     self.sample(first_batch, phase='val', step_type='iteration')
+            # add model.train() after validate_iter, cause we only call model.train() in self.train_epoch()'s start
+            self.model.train()
 
+    # train.py 先调用 solver.resume() 后调用 solver.train()
     def train(self):
-        start_epoch = self.last_epoch + 1
+        start_iter = self.last_iter + 1
         self.start_train_time = time.time()
         self.logger.log_info(
             'global rank {}: start training...'.format(self.args.global_rank),
             check_primary=False)
 
-        for epoch in range(start_epoch, self.max_epochs):
-            # self.validate_epoch()
+        if self.last_iter >= self.max_iters:
+            print("training done......")
+
+        while self.last_iter < self.max_iters:
             self.train_epoch()
-            self.save(force=True)
-            self.validate_epoch()

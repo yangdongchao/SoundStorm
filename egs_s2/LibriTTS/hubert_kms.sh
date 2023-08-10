@@ -23,7 +23,7 @@ dump_dir=dump
 source ${MAIN_ROOT}/utils/parse_options.sh || exit 1
 # get tsv file
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
-    python3 ${BIN_DIR}/get_tsv_file.py \
+    python3 ${BIN_DIR}/hubert/get_tsv_file.py \
         --data_dir=${data_dir} \
         --sub_dataset_name=${sub_dataset_name} \
         --dump_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
@@ -32,52 +32,28 @@ fi
 # dump hubert feature
 # generate in parallel
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-    CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
-        --split=audio_files \
-        --ckpt_path=${hubert_path} \
-        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
-        --layer=${layer} \
-        --nshard=5 \
-        --rank=0 & CUDA_VISIBLE_DEVICES=4 python3 ${BIN_DIR}/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
-        --split=audio_files \
-        --ckpt_path=${hubert_path}  \
-        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
-        --layer=${layer} \
-        --nshard=5 \
-        --rank=1 & CUDA_VISIBLE_DEVICES=5 python3 ${BIN_DIR}/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
-        --split=audio_files \
-        --ckpt_path=${hubert_path} \
-        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
-        --layer=${layer} \
-        --nshard=5 \
-        --rank=2 & CUDA_VISIBLE_DEVICES=6 python3 ${BIN_DIR}/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
-        --split=audio_files \
-        --ckpt_path=${hubert_path} \
-        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
-        --layer=${layer} \
-        --nshard=5 \
-        --rank=3 & CUDA_VISIBLE_DEVICES=7 python3 ${BIN_DIR}/dump_hubert_feature.py \
-        --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
-        --split=audio_files \
-        --ckpt_path=${hubert_path} \
-        --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
-        --layer=${layer} \
-        --nshard=5 \
-        --rank=4
+    echo "dump_hubert_feature.py start !"
+    for rank_id in {0..4}; do
+        gpu_id=$((rank_id / 2))
+        CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/hubert/dump_hubert_feature.py \
+            --tsv_dir=${root_dir}/${dump_dir}/${sub_dataset_name} \
+            --split=audio_files \
+            --ckpt_path=${hubert_path} \
+            --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
+            --layer=${layer} \
+            --nshard=5 \
+            --rank=${rank_id} &
+        eval pid${rank_id}="$!"
+    done
+    wait "$pid0" "$pid1" "$pid2" "$pid3" "$pid4"
+    echo "dump_hubert_feature.py done !"
 fi
 # learn kmeans
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-    OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python3 ${BIN_DIR}/learn_kmeans.py \
+    OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python3 ${BIN_DIR}/hubert/learn_kmeans.py \
         --feat_dir=${root_dir}/${dump_dir}/${sub_dataset_name}/semantic_feature_L${layer} \
         --nshard=5 \
         --split=audio_files \
         --n_clusters=${n_clusters} \
         --km_path=${root_dir}/${dump_dir}/${sub_dataset_name}/${km_name}
 fi
-
-
-

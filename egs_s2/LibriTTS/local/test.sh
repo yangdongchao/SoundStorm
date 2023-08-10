@@ -13,5 +13,5 @@ python3 ${BIN_DIR}/test.py \
         --test_semantic_path=${root_dir}/${dump_dir}/test/semantic_token.tsv \
         --test_acoustic_path=${root_dir}/${dump_dir}/test/acoustic_token/hificodec.pth \
         --output_dir=${root_dir}/${train_output_path}/test_output \
-        --hificodec_model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \
+        --hificodec_model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --hificodec_config_path=pretrained_model/hificodec/config_16k_320d.json

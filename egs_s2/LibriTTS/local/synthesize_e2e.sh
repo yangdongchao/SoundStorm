@@ -11,6 +11,7 @@ prompt_wav_path=$7
 # for S1
 S1_config_file=$8
 S1_ckpt_path=$9
+sil_token=${10}
 
 python3 ${BIN_DIR}/synthesize_e2e.py \
     --S2_config_file=${config_path} \
@@ -22,5 +23,6 @@ python3 ${BIN_DIR}/synthesize_e2e.py \
     --hubert_path=${hubert_path} \
     --quantizer_path=${quantizer_path} \
     --output_dir=${root_dir}/${train_output_path}/syn_e2e_output \
-    --hificodec_model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \
-    --hificodec_config_path=pretrained_model/hificodec/config_16k_320d.json
+    --hificodec_model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
+    --hificodec_config_path=pretrained_model/hificodec/config_16k_320d.json \
+    --sil_token=${sil_token}

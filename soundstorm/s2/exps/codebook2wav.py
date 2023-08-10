@@ -148,8 +148,7 @@ def main():
     utt_id = args.input_path.split("/")[-1].split(".")[0]
     output_dir = Path(args.output_dir).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_name = utt_id + "_" + args.codec_name + "_" + str(
-        args.num_quant) + "Nq.wav"
+    output_name = f'{utt_id}_{args.codec_name}_{args.num_quant}Nq.wav'
     output_path = output_dir / output_name
     sf.write(output_path, wav, args.sr)
 

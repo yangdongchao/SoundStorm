@@ -156,7 +156,6 @@ def main():
         the file structure is LibriTTS_R/train-clean-100/spkid/*/*.wav
         there are about 2311 in these subsets, we split 1 dev and 1 test wav out from each speaker
         '''
-        wav_files = []
         train_wav_files = []
         dev_wav_files = []
         test_wav_files = []

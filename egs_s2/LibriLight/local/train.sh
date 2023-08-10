@@ -7,7 +7,7 @@ log_frequency=$4
 dist_url=$5
 dump_dir=$6
 
-python3 ${BIN_DIR}/train.py \
+python3 ${BIN_DIR}/train_large.py \
         --config_file=${config_path} \
         --train_semantic_path=${root_dir}/${dump_dir}/train/semantic_token.tsv \
         --train_acoustic_path=${root_dir}/${dump_dir}/train/acoustic_token/hificodec.pth \

@@ -33,7 +33,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
         --dataset=libritts \
         --dump_dir=${root_dir}/${dump_dir} \
         --codec_name=hificodec \
-        --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \
+        --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
         --num-cpu=20
@@ -59,7 +59,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     # HiFi-Codec
     python3 ${BIN_DIR}/codebook2wav.py \
         --codec_name=hificodec \
-        --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d \
+        --model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --config_path=pretrained_model/hificodec/config_16k_320d.json \
         --sr=16000 \
         --input_path=${root_dir}/${dump_dir}/test/acoustic_token/hificodec/986_129388_000067_000000.npy \
@@ -79,14 +79,3 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     #     --output_dir=codebook2wav_output/ \
     #     # --num_quant=3 # default Nq of Encodec is 24
 fi
-
-# align the lengths of semantic token and acoustic token
-# acoustic token 和 semantic token 求交集，因为可能数据预处理报错
-# 如 1092_134562_000013_000004.wav 文件损坏
-# 如何对齐，剪裁掉长的部分吗？
-# 需要看下在训练时的 dataset 是否有对齐的操作
-if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
-    echo "11111"
-  
-fi
-

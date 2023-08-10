@@ -18,8 +18,6 @@ from soundstorm.s2.models.hubert.semantic_tokenizer import SemanticTokenizer
 from soundstorm.utils.io import load_yaml_config
 
 acoustic_token_nums = 1024
-# sil token of your semantic tokens
-sil_token = 17
 
 
 def move_tensors_to_cuda(d):
@@ -74,7 +72,7 @@ def get_S1_batch(text, phonemizer):
     return batch
 
 
-def get_S1_prompt(wav, asr_model, phonemizer, semantic_tokenizer):
+def get_S1_prompt(wav, asr_model, phonemizer, semantic_tokenizer, sil_token):
     # wav 需要挪出末尾的静音否则也可能提前停住
     prompt_text = asr_model.transcribe(wav)["text"]
     print("prompt_text:", prompt_text)
@@ -84,6 +82,9 @@ def get_S1_prompt(wav, asr_model, phonemizer, semantic_tokenizer):
     # 移除 prompt_phoneme 末尾的 . 但是保留空格, 因为直接移除 prompt_text 会导致 prompt_phoneme 末尾少一个空格
     prompt_phoneme = prompt_phoneme.rstrip(".")
     print("prompt_phoneme:", prompt_phoneme)
+    # 末尾不是空格的则加一个空格
+    if not prompt_phoneme.endswith(' '):
+        prompt_phoneme = prompt_phoneme + ' '
     # 16 表示空格
     prompt_phoneme_ids = phonemizer.transform(prompt_phoneme)
     print("prompt_phoneme_ids:", prompt_phoneme_ids)
@@ -94,6 +95,11 @@ def get_S1_prompt(wav, asr_model, phonemizer, semantic_tokenizer):
     wav = wav.cuda()
     # (1, T)
     prompt_semantic_tokens = semantic_tokenizer.tokenize(wav).to(torch.int32)
+    print("prompt_semantic_tokens:", prompt_semantic_tokens)
+    # remove sil token in the end
+    while prompt_semantic_tokens[0][-1] == sil_token:
+        prompt_semantic_tokens = prompt_semantic_tokens[..., :-1]
+        print("prompt_semantic_tokens:", prompt_semantic_tokens)
     prompt_phoneme_ids = torch.tensor(prompt_phoneme_ids).unsqueeze(0)
     prompt_phoneme_ids_len = torch.tensor([prompt_phoneme_ids_len])
 
@@ -170,11 +176,14 @@ def get_prompt_wav(prompt_wav_path, sample_rate):
     prompt_wav, _ = librosa.load(prompt_wav_path, sr=sample_rate)
     # 取末尾 3s, 但是不包含最后 0.1s 防止 AR S1 infer 提前停止
     print("prompt_wav.shape:", prompt_wav.shape)
+    # 减小 top_db 数值，在末尾有长拖音时可以适当裁剪，减少 early stop 的概率
     prompt_wav, index = librosa.effects.trim(
         prompt_wav, top_db=15, frame_length=256, hop_length=64)
     print("prompt_wav.shape after trim:", prompt_wav.shape)
     # 有可能截取的地方刚好是一个字，所以 asr 的结果和 wav 无法对齐
-    prompt_wav = prompt_wav[-3 * sample_rate:]
+    # 会裁掉 2 个 semantic token
+    prompt_wav = prompt_wav[-3 * sample_rate:int(-0.05 * sample_rate)]
+    # prompt_wav = prompt_wav[-3 * sample_rate:]
     print("prompt_wav.shape after slice:", prompt_wav.shape)
     prompt_wav, index = librosa.effects.trim(
         prompt_wav, top_db=15, frame_length=256, hop_length=64)
@@ -223,9 +232,11 @@ def evaluate(args,
         wav=prompt_wav,
         asr_model=asr_model,
         phonemizer=phonemizer,
-        semantic_tokenizer=semantic_tokenizer)
+        semantic_tokenizer=semantic_tokenizer,
+        sil_token=args.sil_token)
 
     S1_prompt = S1_prompt_result['prompt_semantic_tokens']
+
     S1_prompt_phoneme_ids_len = S1_prompt_result['prompt_phoneme_ids_len']
     S1_prompt_phoneme_ids = S1_prompt_result['prompt_phoneme_ids']
 
@@ -262,10 +273,6 @@ def evaluate(args,
         # (1, T)
         # target phone 开头有多余的 " ", 所以这里可以多截掉大约 3 个
         S1_pred_semantic = S1_pred_semantic[:, S1_prompt_len + 3:]
-        # add sil token
-        # sil_tensor = torch.tensor([sil_token] * 10).unsqueeze(0).cuda()
-        # print("sil_tensor:", sil_tensor)
-        # S1_pred_semantic = torch.cat([sil_tensor, S1_pred_semantic], dim=1)
 
         # get target semnatic from prompt wav and text
         S2_batch = get_S2_batch(
@@ -286,10 +293,11 @@ def evaluate(args,
         # shape (B, Nq x T) -> (B, Nq, T)
         codes = content.reshape(content.shape[0], num_quant, -1)
         wav_gen = hificodec_decode(hificodec, codes)
-
-        sf.write(output_dir /
-                 f"S1_topk_{S1_top_k}_temperature_{temperature}_s_{prompt_name}_t_{utt_id}.wav",
-                 wav_gen, sample_rate)
+        print("S1_top_k:", S1_top_k)
+        sf.write(
+            output_dir /
+            f"S1_topk_{S1_top_k}_temperature_{temperature}_s_{prompt_name}_t_{utt_id}.wav",
+            np.concatenate([prompt_wav, wav_gen]), sample_rate)
 
 
 def parse_args():
@@ -324,6 +332,10 @@ def parse_args():
         type=str,
         default=None,
         help='extract prompt semantic and prompt phonemes from prompt wav')
+    parser.add_argument(
+        '--sil_token',
+        type=int,
+        help='sil token of your semantic token, 193 for 500 bin')
 
     # to get semantic tokens from prompt_wav
     parser.add_argument("--hubert_path", type=str, default=None)
