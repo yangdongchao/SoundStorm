@@ -157,7 +157,7 @@ def process_sentences(args,
                 if asr_result is not False:
                     txt_dict[subset][utt_id] = asr_result
                 else:
-                    print('asr result of {utt_id} is False')
+                    print(f'asr result of {utt_id} is False')
             except Exception:
                 print(f"{utt_id} occur Exception")
                 traceback.print_exc()

@@ -79,23 +79,23 @@ dataloader:
     max_token_one_batch: 30000 # 影响单卡显存占用, 81k for 80G GPU (A100) (LibriTTS)
     num_workers: 2
     train_datasets: # a list of configures, so we can combine several schedulers
-        - target: soundstorm.s2.data.semantic_dataset.SemanticDataset
+        - target: soundstorm.s2.data.semantic_dataset_librilight_6k.SemanticDataset
           params:
                 codec_name: hificodec
                 num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
                 semantic_token_nums: 300 # same with num of kmeans bins
                 max_prompt_sec: 3        # be same with LibriTTS
                 max_target_sec: 20       # LibriTTS is 10, use 20 here for longer TTS
-                semantic_path: dump/train/semantic_token.tsv
-                acoustic_path: dump/train/acoustic_token/hificodec.pth
+                semantic_dirs: ['dump/small/train/']
+                acoustic_dirs: ['dump/small/train/acoustic_token/']
 
     dev_datasets:
-        - target: soundstorm.s2.data.semantic_dataset.SemanticDataset
+        - target: soundstorm.s2.data.semantic_dataset_librilight_6k.SemanticDataset
           params:
                 codec_name: hificodec
                 num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
                 semantic_token_nums: 300 # same with num of kmeans bins
                 max_prompt_sec: 3        # be same with LibriTTS
                 max_target_sec: 20       # LibriTTS is 10, use 20 here for longer TTS
-                semantic_path: dump/dev/semantic_token.tsv
-                acoustic_path: dump/dev/acoustic_token/hificodec.pth
+                semantic_dirs: ['dump/small/dev/']
+                acoustic_dirs: ['dump/small/dev/acoustic_token/']
