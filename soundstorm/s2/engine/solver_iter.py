@@ -54,6 +54,9 @@ class Solver(object):
 
         self.last_iter = -1
         self.total_iters = self.max_iters
+        self.total_epochs = self.total_iters / self.dataloader[
+            'train_iterations']
+        print("self.total_epochs:", self.total_epochs)
         self.ckpt_dir = os.path.join(args.output, 'checkpoint')
         self.audio_dir = os.path.join(args.output, 'audios')
 
@@ -564,7 +567,9 @@ class Solver(object):
                     fbt=round(forward_time, 1),
                     # self.dataloader['train_iterations']: iter per epoch
                     # 1 卡 -> n 卡，self.max_epochs 不变，self.dataloader['train_iterations'] 为原来的 1/n，单卡显存占用不变
-                    # max_token_one_batch 变为 n 倍，self.dataloader['train_iterations'] 为原来的 1/n，单卡显存占用变为 n 倍
+                    # 用 iter 控制训练时 self.max_iters 不变，1 卡 -> n 卡，total_epochs 变为原来的 n 倍，模型见到的 samples 数变为 n 倍
+                    # 若要保持见到的总 samples 数不变，则 self.max_iters 需要变为 1/n
+                    # max_token_one_batch 变为 n 倍，self.dataloader['train_iterations'] 为原来的 1/n，单卡显存占用变为 n 倍, iter_time 变为 n 倍
                     lt=format_seconds(iter_time *
                                       (self.total_iters - self.last_iter)))
                 self.logger.log_info(info)
