@@ -23,7 +23,7 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     echo "get_semantic_token_librilight.py for ${sub_dataset} start!"
     for rank_id in {0..2}; do
         gpu_id=$((rank_id))
-        CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        OMP_NUM_THREADS=1 CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_semantic_token_librilight.py \
             --data_dir=${data_dir} \
             --sub_dataset=${sub_dataset} \
             --dump_dir=${root_dir}/${dump_dir} \
@@ -47,7 +47,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     echo "get_semantic_token_librilight.py for ${sub_dataset} start!"
     for rank_id in {0..3}; do
         gpu_id=$((rank_id))
-        CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        OMP_NUM_THREADS=1 CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_semantic_token_librilight.py \
             --data_dir=${data_dir} \
             --sub_dataset=${sub_dataset} \
             --dump_dir=${root_dir}/${dump_dir} \
@@ -70,7 +70,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     echo "get_semantic_token_librilight.py for ${sub_dataset} start!"
     for rank_id in {0..15}; do
         gpu_id=$((rank_id / 2))
-        CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        OMP_NUM_THREADS=1 CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_semantic_token_librilight.py \
             --data_dir=${data_dir} \
             --sub_dataset=${sub_dataset} \
             --dump_dir=${root_dir}/${dump_dir} \
@@ -95,13 +95,13 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     echo "get_semantic_token_librilight.py for ${sub_dataset} start!"
     for rank_id in {0..3}; do
         gpu_id=$((rank_id))
-        CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_semantic_token_librilight.py \
+        OMP_NUM_THREADS=1 CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_semantic_token_librilight.py \
             --data_dir=${data_dir} \
             --sub_dataset=${sub_dataset} \
             --dump_dir=${root_dir}/${dump_dir} \
             --hubert_path=${hubert_path} \
             --quantizer_path=${quantizer_path} \
-            --num-cpu=200 \
+            --num-cpu=256 \
             --layer=${layer} \
             --VAD_path=VAD/librilight_segment_dict.npy \
             --nshard=4 \
