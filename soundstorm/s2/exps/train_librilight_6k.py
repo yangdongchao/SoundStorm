@@ -5,6 +5,7 @@
 # ------------------------------------------
 import argparse
 import os
+import time
 import warnings
 
 import torch
@@ -234,7 +235,7 @@ def main_worker(local_rank, args):
     # get logger
     logger = Logger(args)
     logger.save_config(config)
-    
+
     # get model 
     model = build_model(config)
     if args.sync_bn:
@@ -251,10 +252,12 @@ def main_worker(local_rank, args):
         hificodec.eval()
     else:
         hificodec = None
-    
+
     # get dataloader
     print("start build dataloader...")
+    start_build_time = time.time()
     dataloader_info = build_dataloader(config, args)
+    print(f"time of build dataloader: {time.time() - start_build_time}")
     # get solver
     if args.train_with_iter is True:
         from soundstorm.s2.engine.solver_iter import Solver

@@ -10,7 +10,7 @@ dump_dir=$6
 # 注意 *_dirs 参数后面不可以有 ''='
 python3 ${BIN_DIR}/train_librilight_6k.py \
         --config_file=${config_path} \
-        --train_semantic_dirs ''${root_dir}'/'${dump_dir}'/small/train/' ''${root_dir}'/'${dump_dir}'/large/train/' \
+        --train_semantic_dirs ''${root_dir}'/'${dump_dir}'/small/train/' ''${root_dir}'/'${dump_dir}'/medium/train/' \
         --train_acoustic_dirs ''${root_dir}'/'${dump_dir}'/small/train/acoustic_token/' ''${root_dir}'/'${dump_dir}'/medium/train/acoustic_token/' \
         --dev_semantic_dirs ''${root_dir}'/'${dump_dir}'/small/dev/' ''${root_dir}'/'${dump_dir}'/medium/dev/' \
         --dev_acoustic_dirs ''${root_dir}'/'${dump_dir}'/small/dev/acoustic_token/' ''${root_dir}'/'${dump_dir}'/medium/dev/acoustic_token/' \

@@ -1,5 +1,6 @@
 #!/bin/bash
 # run_base_L7_km300
+# train LibriLight 6k (small + medium) by default
 set -e
 
 source path.sh
@@ -7,12 +8,12 @@ source path.sh
 gpus=0,1,2,3
 stage=0
 stop_stage=100
-train_output_path='exp_librilight/small_medium'
+train_output_path='exp_librilight/default'
 # dir to set part/all of dump dataset and experiment result
 root_dir='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm'
 # there should be *.wav 、*/*.wav or */*/*.wav in data_dir
 data_dir='~/datasets/LibriLight'
-config_path='conf/small_medium_iter.yaml'
+config_path='conf/default.yaml'
 log_frequency=1
 # 'tcp://%s:%s' % (MASTER_ADDR, MASTER_PORT)
 dist_url='tcp://127.0.0.1:29505'
