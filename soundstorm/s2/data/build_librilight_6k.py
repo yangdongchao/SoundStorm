@@ -48,6 +48,7 @@ def build_dataloader(config, args=None, return_dataset=False):
         train_iters = len(train_dataset) // batch_size
         dev_iters = len(dev_dataset) // batch_size
     num_workers = dataset_cfg['num_workers']
+    prefetch_factor = dataset_cfg.get('prefetch_factor', 2)
     persistent_workers = True if num_workers > 0 else False
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -60,7 +61,8 @@ def build_dataloader(config, args=None, return_dataset=False):
         collate_fn=train_dataset.collater,
         persistent_workers=persistent_workers,
         # 解决 num_workers>0 时的 bad value(s) in fds_to_keep 报错
-        multiprocessing_context='fork')
+        multiprocessing_context='fork',
+        prefetch_factor=prefetch_factor)
 
     dev_loader = torch.utils.data.DataLoader(
         dev_dataset,
@@ -73,7 +75,8 @@ def build_dataloader(config, args=None, return_dataset=False):
         pin_memory=True,
         collate_fn=train_dataset.collater,
         persistent_workers=persistent_workers,
-        multiprocessing_context='fork')
+        multiprocessing_context='fork',
+        prefetch_factor=prefetch_factor)
 
     dataload_info = {
         'train_loader': train_loader,
