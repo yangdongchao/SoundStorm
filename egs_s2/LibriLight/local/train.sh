@@ -7,8 +7,10 @@ log_frequency=$4
 dist_url=$5
 dump_dir=$6
 
+opm_num=8
+
 # 注意 *_dirs 参数后面不可以有 ''='
-python3 ${BIN_DIR}/train_librilight_6k.py \
+OMP_NUM_THREADS=${opm_num} python3 ${BIN_DIR}/train_librilight_6k.py \
         --config_file=${config_path} \
         --train_semantic_dirs ''${root_dir}'/'${dump_dir}'/small/train/' ''${root_dir}'/'${dump_dir}'/medium/train/' \
         --train_acoustic_dirs ''${root_dir}'/'${dump_dir}'/small/train/acoustic_token/' ''${root_dir}'/'${dump_dir}'/medium/train/acoustic_token/' \
