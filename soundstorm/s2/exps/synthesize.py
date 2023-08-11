@@ -51,22 +51,23 @@ def hificodec_decode(hificodec, acoustic_token, rescale=True):
 def get_batch(prompt_semantic_tokens,
               prompt_acoustic_tokens,
               target_semantic_tokens,
-              num_quant=4,
-              hz=50):
+              num_quant: int=4,
+              hz: int=50,
+              max_prompt_sec: int=3,
+              max_target_sec: int=10):
     # transformer_utils.py 里面最大是 20, pad 了一个  stop token, 所以这里最大是 19
     # 但是训练时最多是 10s, 所以超过 10s 的无法合成出来
-    max_sec = 10
 
     # prompt 最多为 3s
-    if prompt_acoustic_tokens.shape[1] > 6 * hz:
-        prompt_len = 3 * hz
+    if prompt_acoustic_tokens.shape[1] > 2 * max_prompt_sec * hz:
+        prompt_len = max_prompt_sec * hz
     else:
         prompt_len = prompt_acoustic_tokens.shape[1] // 2
 
     prompt_semantic_tokens = prompt_semantic_tokens[:, :prompt_len]
     prompt_acoustic_tokens = prompt_acoustic_tokens[:, :prompt_len]
     # target 最多为 10s
-    target_semantic_tokens = target_semantic_tokens[:, :max_sec * hz]
+    target_semantic_tokens = target_semantic_tokens[:, :max_target_sec * hz]
     # acoustic_token 和 semantic_token 长度是对齐的
     target_T = target_semantic_tokens.shape[-1]
     # 伪造的 target_acoustics_tokens
@@ -86,8 +87,14 @@ def get_batch(prompt_semantic_tokens,
     return samples
 
 
-def evaluate(args, hificodec, soundstorm, semantic_tokenizer=None):
-    num_quant = 4
+def evaluate(args,
+             hificodec,
+             soundstorm,
+             semantic_tokenizer=None,
+             num_quant: int=4,
+             max_prompt_sec: int=3,
+             max_target_sec: int=10):
+
     sample_rate = 16000
     hz = 50
     output_dir = Path(args.output_dir)
@@ -141,7 +148,9 @@ def evaluate(args, hificodec, soundstorm, semantic_tokenizer=None):
         prompt_acoustic_tokens=prompt_acoustic_tokens,
         target_semantic_tokens=target_semantic_tokens,
         num_quant=num_quant,
-        hz=hz)
+        hz=hz,
+        max_prompt_sec=max_prompt_sec,
+        max_target_sec=max_target_sec)
 
     batch = move_tensors_to_cuda(batch)
 
@@ -250,7 +259,17 @@ def main():
             duplicate=True)
 
     # cost 14s for a 10s target
-    evaluate(args, hificodec, soundstorm, semantic_tokenizer)
+    num_quant = 4
+    max_prompt_sec = 3
+    max_target_sec = 10
+    evaluate(
+        args,
+        hificodec,
+        soundstorm,
+        semantic_tokenizer,
+        num_quant=num_quant,
+        max_prompt_sec=max_prompt_sec,
+        max_target_sec=max_target_sec)
 
 
 if __name__ == "__main__":

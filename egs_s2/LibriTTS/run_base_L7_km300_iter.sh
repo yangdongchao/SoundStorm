@@ -24,8 +24,7 @@ hubert_path=pretrained_model/hubert/hubert_base_ls960.pt
 quantizer_path=pretrained_model/hubert/train-clean-360_hubert_base_ls960_L7_km300.bin
 dump_dir=dump_libritts_universal_hificodec
 # for synthesize_e2e.sh
-prompt_wav_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_l
-ibritts_base_L9_km500/test/synthesize_input/1006_135212_000060_000004.wav'
+prompt_wav_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_libritts_base_L9_km500/test/synthesize_input/1006_135212_000060_000004.wav'
 S1_config_file='../../egs_s1/AR/LibriTTS/conf/base_L7bin300.yaml'
 S1_ckpt_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/SoundStorm/exp/base_L7_km300/ckpt/epoch=99-step=49000.ckpt'
 # 4 for 300 bin, you should modify this due to your own dum data
@@ -61,5 +60,5 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
     CUDA_VISIBLE_DEVICES=${gpus} ./local/synthesize_e2e.sh \
     ${config_path} ${train_output_path} ${ckpt_name} ${root_dir} \
     ${hubert_path} ${quantizer_path} ${prompt_wav_path} \
-    ${S1_config_file} ${S1_ckpt_path} ${sil_token}|| exit -1
+    ${S1_config_file} ${S1_ckpt_path} ${sil_token} || exit -1
 fi
