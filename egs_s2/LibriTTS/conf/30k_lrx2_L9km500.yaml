@@ -74,7 +74,7 @@ solver:
 
 dataloader:
     max_token_one_batch: 30000 # 影响单卡显存占用, 81k for 80G GPU (A100) (LibriTTS)
-    num_workers: 2
+    num_workers: 4
     train_datasets: # a list of configures, so we can combine several schedulers
         - target: soundstorm.s2.data.semantic_dataset.SemanticDataset
           params:
