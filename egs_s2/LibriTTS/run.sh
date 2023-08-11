@@ -61,5 +61,5 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
     CUDA_VISIBLE_DEVICES=${gpus} ./local/synthesize_e2e.sh \
     ${config_path} ${train_output_path} ${ckpt_name} ${root_dir} \
     ${hubert_path} ${quantizer_path} ${prompt_wav_path} \
-    ${S1_config_file} ${S1_ckpt_path} ${sil_token}|| exit -1
+    ${S1_config_file} ${S1_ckpt_path} ${sil_token} || exit -1
 fi

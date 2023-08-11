@@ -10,8 +10,8 @@ def build_dataloader(config, args=None, return_dataset=False):
     batch_size = 1
     train_dataset = []
     for ds_cfg in dataset_cfg['train_datasets']:
-        ds_cfg['params']['semantic_path'] = args.train_semantic_path
-        ds_cfg['params']['acoustic_path'] = args.train_acoustic_path
+        ds_cfg['params']['semantic_dirs'] = args.train_semantic_dirs
+        ds_cfg['params']['acoustic_dirs'] = args.train_acoustic_dirs
         ds_cfg['params']['max_token_one_batch'] = dataset_cfg[
             'max_token_one_batch']
         ds = instantiate_from_config(ds_cfg)
@@ -22,8 +22,8 @@ def build_dataloader(config, args=None, return_dataset=False):
         train_dataset = train_dataset[0]
     dev_dataset = []
     for ds_cfg in dataset_cfg['dev_datasets']:
-        ds_cfg['params']['semantic_path'] = args.dev_semantic_path
-        ds_cfg['params']['acoustic_path'] = args.dev_acoustic_path
+        ds_cfg['params']['semantic_dirs'] = args.dev_semantic_dirs
+        ds_cfg['params']['acoustic_dirs'] = args.dev_acoustic_dirs
         ds_cfg['params']['max_token_one_batch'] = dataset_cfg[
             'max_token_one_batch']
         ds = instantiate_from_config(ds_cfg)

@@ -10,7 +10,7 @@ import warnings
 
 import torch
 from academicodec.models.hificodec.vqvae import VQVAE
-from soundstorm.s2.data.build import build_dataloader
+from soundstorm.s2.data.build_librilight_6k import build_dataloader
 from soundstorm.s2.distributed.launch import launch
 from soundstorm.s2.engine.logger import Logger
 from soundstorm.s2.models.dalle_wav.build import build_model
@@ -60,19 +60,29 @@ def get_args():
         help="automatically resume the training")
     # args for dataset
     parser.add_argument(
-        '--train_semantic_path',
-        type=str,
-        default='dump/train/semantic_token.tsv')
+        '--train_semantic_dirs',
+        type=list,
+        nargs='+',
+        default=["dump/large/dev/"],
+        help='dirs of train semantic')
     parser.add_argument(
-        '--train_acoustic_path',
-        type=str,
-        default='dump/train/acoustic_token/hificodec.pth')
+        '--train_acoustic_dirs',
+        type=list,
+        nargs='+',
+        default=["dump/small/train/acoustic/"],
+        help='dirs of train acoustic')
     parser.add_argument(
-        '--dev_semantic_path', type=str, default='dump/dev/semantic_token.tsv')
+        '--dev_semantic_dirs',
+        type=list,
+        nargs='+',
+        default=["dump/small/dev/"],
+        help='dirs of dev semantic')
     parser.add_argument(
-        '--dev_acoustic_path',
-        type=str,
-        default='dump/dev/acoustic_token/hificodec.pth')
+        '--dev_acoustic_dirs',
+        type=list,
+        nargs='+',
+        default=["dump/small/dev/acoustic/"],
+        help='dirs of dev acoustic')
 
     # args for ddp
     parser.add_argument(
@@ -156,6 +166,28 @@ def get_args():
         help="control training with epoch or iter")
     args = parser.parse_args()
     args.cwd = os.path.abspath(os.path.dirname(__file__))
+
+    new_train_semantic_dirs = []
+    new_train_acoustic_dirs = []
+    new_dev_semantic_dirs = []
+    new_dev_acoustic_dirs = []
+    # format dataset dirs
+    for item in args.train_semantic_dirs:
+        new_train_semantic_dirs.append(''.join(item))
+    args.train_semantic_dirs = new_train_semantic_dirs
+
+    for item in args.train_acoustic_dirs:
+        new_train_acoustic_dirs.append(''.join(item))
+    args.train_acoustic_dirs = new_train_acoustic_dirs
+
+    for item in args.dev_semantic_dirs:
+        new_dev_semantic_dirs.append(''.join(item))
+    args.dev_semantic_dirs = new_dev_semantic_dirs
+
+    for item in args.dev_acoustic_dirs:
+        new_dev_acoustic_dirs.append(''.join(item))
+    args.dev_acoustic_dirs = new_dev_acoustic_dirs
+
     # modify args for debugging
     if args.debug:
         if args.gpu is None:

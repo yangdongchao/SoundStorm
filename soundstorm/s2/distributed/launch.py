@@ -2,6 +2,7 @@
 # Diffsound
 # code based https://github.com/cientgu/VQ-Diffusion
 # ------------------------------------------
+import os
 import soundstorm.s2.distributed.distributed as dist_fn
 import torch
 from torch import distributed as dist
@@ -29,8 +30,8 @@ def launch(fn,
     world_size = n_machine * n_gpu_per_machine
 
     if world_size > 1:
-        # if "OMP_NUM_THREADS" not in os.environ:
-        #     os.environ["OMP_NUM_THREADS"] = "1"
+        if "OMP_NUM_THREADS" not in os.environ:
+            os.environ["OMP_NUM_THREADS"] = "1"
 
         if dist_url == "auto":
             if n_machine != 1:

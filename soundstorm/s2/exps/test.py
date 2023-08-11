@@ -29,7 +29,7 @@ def move_tensors_to_cuda(d):
     return d
 
 
-def hificodec_decode(hificodec, acoustic_token, rescale=True):
+def hificodec_decode(hificodec, acoustic_token, rescale: bool=True):
     """
     acoustic_token: shape [B, Nq, T]
     """
@@ -51,7 +51,13 @@ def hificodec_decode(hificodec, acoustic_token, rescale=True):
     return wav
 
 
-def get_one_sample(acoustic_data, semantic_data, index, num_quant, hz):
+def get_one_sample(acoustic_data,
+                   semantic_data,
+                   index: int,
+                   num_quant: int=4,
+                   hz: int=50,
+                   max_prompt_sec: int=3,
+                   max_target_sec: int=10):
     '''
     一条数据构成一个 batch
     (1) 若总长度大于 6s, 前 3s 为 prompt, 剩余为 target 
@@ -70,20 +76,21 @@ def get_one_sample(acoustic_data, semantic_data, index, num_quant, hz):
     # shape (4, T)
     # acoustic_tokens 的 T 与 semantic_tokens 的 T 可能有误差
     acoustic_tokens = acoustic_str[:num_quant, ...]
-    if acoustic_tokens.shape[1] > 6 * hz:
-        prompt_len = 3 * hz
+    if acoustic_tokens.shape[1] > 2 * max_prompt_sec * hz:
+        prompt_len = max_prompt_sec * hz
     else:
         prompt_len = acoustic_tokens.shape[1] // 2
 
     prompt_acoustic_tokens = acoustic_tokens[:, :prompt_len]
     prompt_semantic_tokens = semantic_tokens[:, :prompt_len]
-    target_semantic_tokens = semantic_tokens[:, prompt_len:prompt_len + 10 * hz]
+    target_semantic_tokens = semantic_tokens[:, prompt_len:prompt_len +
+                                             max_target_sec * hz]
     prompt_semantic_tokens = prompt_semantic_tokens
     target_semantic_tokens = target_semantic_tokens
     prompt_acoustic_tokens = prompt_acoustic_tokens
 
-    target_acoustics_tokens = acoustic_tokens[:, prompt_len:prompt_len + 10 *
-                                              hz]
+    target_acoustics_tokens = acoustic_tokens[:, prompt_len:prompt_len +
+                                              max_target_sec * hz]
     target_acoustics_tokens = target_acoustics_tokens
 
     result = {}
@@ -96,13 +103,21 @@ def get_one_sample(acoustic_data, semantic_data, index, num_quant, hz):
 
 
 # one wav per batch
-def get_batch(acoustic_data, semantic_data, index, num_quant=4, hz=50):
+def get_batch(acoustic_data,
+              semantic_data,
+              index: int,
+              num_quant: int=4,
+              hz: int=50,
+              max_prompt_sec: int=3,
+              max_target_sec: int=10):
     result = get_one_sample(
         acoustic_data=acoustic_data,
         semantic_data=semantic_data,
         index=index,
         num_quant=num_quant,
-        hz=hz)
+        hz=hz,
+        max_prompt_sec=max_prompt_sec,
+        max_target_sec=max_target_sec)
     prompt_acoustic_tokens = result['prompt_acoustic_tokens']
     prompt_semantic_tokens = result['prompt_semantic_tokens']
     target_semantic_tokens = result['target_semantic_tokens']
@@ -119,14 +134,15 @@ def get_batch(acoustic_data, semantic_data, index, num_quant=4, hz=50):
     return samples
 
 
-def get_big_batch(
-        acoustic_data,
-        semantic_data,
-        index_list,
-        prompt_semantic_end_id,
-        target_semantic_end_id,
-        num_quant=4,
-        hz=50, ):
+def get_big_batch(acoustic_data,
+                  semantic_data,
+                  index_list,
+                  prompt_semantic_end_id: int,
+                  target_semantic_end_id: int,
+                  num_quant: int=4,
+                  hz: int=50,
+                  max_prompt_sec: int=3,
+                  max_target_sec: int=10):
     tmp_prompt_semantics = []
     tmp_target_semantics = []
     tmp_prompt_acoustics = []
@@ -137,7 +153,9 @@ def get_big_batch(
             semantic_data=semantic_data,
             index=index,
             num_quant=num_quant,
-            hz=hz)
+            hz=hz,
+            max_prompt_sec=max_prompt_sec,
+            max_target_sec=max_target_sec)
 
         prompt_semantic = result['prompt_semantic_tokens']
         target_semantic = result['target_semantic_tokens']
@@ -172,8 +190,13 @@ def get_big_batch(
 
 
 # evaluate one wav per batch
-def evaluate(args, hificodec, soundstorm):
-    num_quant = 4
+def evaluate(args,
+             hificodec,
+             soundstorm,
+             num_quant: int=4,
+             max_prompt_sec: int=3,
+             max_target_sec: int=10):
+
     sample_rate = 16000
     hz = 50
     output_dir = Path(args.output_dir)
@@ -185,7 +208,13 @@ def evaluate(args, hificodec, soundstorm):
     for index, utt_id in enumerate(semantic_data['item_name'][:20]):
         # 需要处理 item_name 不在 acoustic_data 中的情况
         batch = get_batch(
-            acoustic_data, semantic_data, index, num_quant=num_quant, hz=hz)
+            acoustic_data,
+            semantic_data,
+            index,
+            num_quant=num_quant,
+            hz=hz,
+            max_prompt_sec=max_prompt_sec,
+            max_target_sec=max_target_sec)
         batch = move_tensors_to_cuda(batch)
         # some wrong with this index od data
         if batch is None:
@@ -211,13 +240,16 @@ def evaluate(args, hificodec, soundstorm):
 def evaluate_batch(args,
                    hificodec,
                    soundstorm,
-                   prompt_semantic_end_id,
-                   target_semantic_end_id,
-                   batch_size=2):
+                   prompt_semantic_end_id: int,
+                   target_semantic_end_id: int,
+                   batch_size: int=2,
+                   num_quant: int=4,
+                   max_prompt_sec: int=3,
+                   max_target_sec: int=10):
     # 按照顺序读取测试集，若干调音频组成一个 batch
-    num_quant = 4
     sample_rate = 16000
     hz = 50
+
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     acoustic_data = torch.load(args.test_acoustic_path)
@@ -236,7 +268,7 @@ def evaluate_batch(args,
         for i in range(0, len(all_indexs), batch_size)
     ]
 
-    for i, index_list in enumerate(index_lists):
+    for i, index_list in enumerate(index_lists[:10]):
         utt_ids = utt_id_lists[i]
         batch = get_big_batch(
             acoustic_data,
@@ -244,8 +276,10 @@ def evaluate_batch(args,
             index_list,
             prompt_semantic_end_id=prompt_semantic_end_id,
             target_semantic_end_id=target_semantic_end_id,
-            num_quant=4,
-            hz=hz, )
+            num_quant=num_quant,
+            hz=hz,
+            max_prompt_sec=max_prompt_sec,
+            max_target_sec=max_target_sec)
         batch = move_tensors_to_cuda(batch)
         # some wrong with this index od data
         if batch is None:
@@ -345,18 +379,33 @@ def main():
 
     semantic_token_nums = config['dataloader']['train_datasets'][0]['params'][
         'semantic_token_nums']
+    num_quant = config['dataloader']['train_datasets'][0]['params']['num_quant']
+    max_prompt_sec = config['dataloader']['train_datasets'][0]['params'].get(
+        'max_prompt_sec', 3)
+    max_target_sec = config['dataloader']['train_datasets'][0]['params'].get(
+        'max_target_sec', 10)
+
     prompt_semantic_end_id = semantic_token_nums + 1
     target_semantic_end_id = semantic_token_nums + 3
 
     # cost 14s for a 10s target
-    evaluate(args, hificodec, soundstorm)
+    evaluate(
+        args,
+        hificodec,
+        soundstorm,
+        num_quant=num_quant,
+        max_prompt_sec=max_prompt_sec,
+        max_target_sec=max_target_sec)
     # evaluate_batch(
     #     args,
     #     hificodec=hificodec,
     #     soundstorm=soundstorm,
     #     prompt_semantic_end_id=prompt_semantic_end_id,
     #     target_semantic_end_id=target_semantic_end_id,
-    #     batch_size=2)
+    #     batch_size=2,
+    #     num_quant=num_quant,
+    #     max_prompt_sec=max_prompt_sec,
+    #     max_target_sec=max_target_sec)
 
 
 if __name__ == "__main__":
