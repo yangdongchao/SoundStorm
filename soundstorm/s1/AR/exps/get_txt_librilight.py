@@ -206,7 +206,7 @@ def main():
         choices=['small', 'medium', 'large', 'duplicate'], )
     parser.add_argument(
         "--VAD_path", type=str, default='./VAD/librilight_segment_dict.npy')
-    parser.add_argument("--nshard", type=int, default=5)
+    parser.add_argument("--nshard", type=int, default=3)
     parser.add_argument("--rank", type=int, default=0)
 
     args = parser.parse_args()
