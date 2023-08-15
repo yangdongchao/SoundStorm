@@ -8,7 +8,9 @@ np.save(output_filename, my_dict)
 my_dict = np.load(output_filename, allow_pickle=True).item()
 """
 import argparse
+import os
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
 from pathlib import Path
@@ -28,11 +30,32 @@ def read_txts(txt_file: Path, nprocs: int=1):
     return return_list
 
 
-def process_sentence(item, phonemizer):
-    utt_id, text = item
+# 文本存在且不为空时 return True
+def check_txt_file(file_path):
     try:
-        phonemes = phonemizer.phonemize(text, espeak=False)
-        record = {"utt_id": utt_id, "phonemes": phonemes}
+        with open(file_path, 'r') as file:
+            text = file.readline().strip()
+        assert text.strip() != ''
+        return text
+    except Exception:
+        return False
+    return False
+
+
+def process_sentence(item, phonemizer, output_dir):
+    utt_id, text = item
+    phonemes_dir = output_dir / "phonemes"
+    phonemes_dir.mkdir(parents=True, exist_ok=True)
+    phonemes_path = phonemes_dir / (utt_id + ".txt")
+    try:
+        if os.path.exists(phonemes_path) and check_txt_file(phonemes_path):
+            # print(phonemes_path, 'exits!')
+            pass
+        else:
+            phonemes = phonemizer.phonemize(text, espeak=False)
+            with open(phonemes_path, 'w') as f:
+                f.write(phonemes)
+        record = {"utt_id": utt_id, "phonemes_path": phonemes_path}
     except Exception:
         print("occur Exception")
         traceback.print_exc()
@@ -45,7 +68,8 @@ def process_sentences(args, items, phonemizer, output_dir, nprocs: int=1):
     if nprocs == 1:
         results = []
         for item in tqdm.tqdm(items, total=len(items)):
-            record = process_sentence(item=item, phonemizer=phonemizer)
+            record = process_sentence(
+                item=item, phonemizer=phonemizer, output_dir=output_dir)
             if record:
                 results.append(record)
     else:
@@ -53,7 +77,8 @@ def process_sentences(args, items, phonemizer, output_dir, nprocs: int=1):
             futures = []
             with tqdm.tqdm(total=len(items)) as progress:
                 for item in items:
-                    future = pool.submit(process_sentence, item, phonemizer)
+                    future = pool.submit(process_sentence, item, phonemizer,
+                                         output_dir)
                     future.add_done_callback(lambda p: progress.update())
                     futures.append(future)
 
@@ -69,9 +94,19 @@ def process_sentences(args, items, phonemizer, output_dir, nprocs: int=1):
     print(f"start to save {args.rank}_{args.nshard}.npy ...")
     save_start_time = time.time()
     for item in tqdm.tqdm(results, total=len(results), colour='green'):
-        utt_id = item["utt_id"]
-        phonemes = item["phonemes"]
-        npy_dict[utt_id] = phonemes
+        # 这里加 try, 因为 txt 文件可能损坏
+        try:
+            utt_id = item["utt_id"]
+            phonemes = check_txt_file(item["phonemes_path"])
+            if phonemes is not False:
+                npy_dict[utt_id] = phonemes
+            else:
+                print(f'phonemes of {utt_id} is False')
+        except Exception:
+            print(f"{utt_id} occur Exception")
+            traceback.print_exc()
+            continue
+
     filename = output_dir / f'phonemes_{args.rank}_{args.nshard}.npy'
     np.save(filename, npy_dict)
     print(f"npy file '{filename}' write down")
@@ -117,6 +152,7 @@ def main():
     parser.add_argument("--rank", type=int, default=0)
 
     args = parser.parse_args()
+    print(f"nshard: {args.nshard}, rank: {args.rank}")
 
     train_txt_dir = Path(args.train_txt_dir)
     dev_txt_dir = Path(args.dev_txt_dir)
