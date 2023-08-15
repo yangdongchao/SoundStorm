@@ -1,6 +1,6 @@
 #!/bin/bash
-stage=3
-stop_stage=3
+stage=5
+stop_stage=5
 root_dir=$1
 data_dir=$2
 dump_dir=$3
@@ -89,19 +89,18 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     echo "get_txt_librilight.py for ${sub_dataset} done!"
 fi
 
-# generate phonemes_*.npy from txt_*.npy
+# generate phonemes_*.npy from txt_*.npy use CPU only
 if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
     sub_dataset=small
     echo "get_phones_librilight.py for ${sub_dataset} start!"
     for rank_id in {0..2}; do
-        gpu_id=$((rank_id))
-        OMP_NUM_THREADS=1 CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_phones_librilight.py \
+        OMP_NUM_THREADS=1 python3 ${BIN_DIR}/get_phones_librilight.py \
             --sub_dataset=${sub_dataset} \
             --dump_dir=${root_dir}/${dump_dir} \
-            --train_txt_dir=${root_dir}/${dump_dir}${sub_dataset}/train/ \
-            --dev_txt_dir=${root_dir}/${dump_dir}${sub_dataset}/dev/ \
-            --test_txt_dir=${root_dir}/${dump_dir}${sub_dataset}/test/ \
-            --num-cpu=340 \
+            --train_txt_dir=${root_dir}/${dump_dir}/${sub_dataset}/train/ \
+            --dev_txt_dir=${root_dir}/${dump_dir}/${sub_dataset}/dev/ \
+            --test_txt_dir=${root_dir}/${dump_dir}/${sub_dataset}/test/ \
+            --num-cpu=30 \
             --nshard=3 \
             --rank=${rank_id} &
         eval pid${rank_id}="$!"
@@ -114,14 +113,13 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     sub_dataset=medium
     echo "get_phones_librilight.py for ${sub_dataset} start!"
     for rank_id in {0..3}; do
-        gpu_id=$((rank_id))
-        OMP_NUM_THREADS=1 CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_phones_librilight.py \
+        OMP_NUM_THREADS=1 python3 ${BIN_DIR}/get_phones_librilight.py \
             --sub_dataset=${sub_dataset} \
             --dump_dir=${root_dir}/${dump_dir} \
-            --train_txt_dir=${root_dir}/${dump_dir}${sub_dataset}/train/ \
-            --dev_txt_dir=${root_dir}/${dump_dir}${sub_dataset}/dev/ \
-            --test_txt_dir=${root_dir}/${dump_dir}${sub_dataset}/test/ \
-            --num-cpu=340 \
+            --train_txt_dir=${root_dir}/${dump_dir}/${sub_dataset}/train/ \
+            --dev_txt_dir=${root_dir}/${dump_dir}/${sub_dataset}/dev/ \
+            --test_txt_dir=${root_dir}/${dump_dir}/${sub_dataset}/test/ \
+            --num-cpu=30 \
             --nshard=4 \
             --rank=${rank_id} &
         eval pid${rank_id}="$!"
@@ -130,19 +128,17 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "get_phones_librilight.py for ${sub_dataset} done!"
 fi
 
-
 if [ ${stage} -le 6 ] && [ ${stop_stage} -ge 6 ]; then
     sub_dataset=large
     echo "get_phones_librilight.py for ${sub_dataset} start!"
     for rank_id in {0..15}; do
-        gpu_id=$((rank_id / 2))
-        OMP_NUM_THREADS=1 CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_phones_librilight.py \
+        OMP_NUM_THREADS=1 python3 ${BIN_DIR}/get_phones_librilight.py \
             --sub_dataset=${sub_dataset} \
             --dump_dir=${root_dir}/${dump_dir} \
-            --train_txt_dir=${root_dir}/${dump_dir}${sub_dataset}/train/ \
-            --dev_txt_dir=${root_dir}/${dump_dir}${sub_dataset}/dev/ \
-            --test_txt_dir=${root_dir}/${dump_dir}${sub_dataset}/test/ \
-            --num-cpu=170 \
+            --train_txt_dir=${root_dir}/${dump_dir}/${sub_dataset}/train/ \
+            --dev_txt_dir=${root_dir}/${dump_dir}/${sub_dataset}/dev/ \
+            --test_txt_dir=${root_dir}/${dump_dir}/${sub_dataset}/test/ \
+            --num-cpu=30 \
             --nshard=16 \
             --rank=${rank_id} &
         eval pid${rank_id}="$!"
@@ -156,14 +152,13 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
     sub_dataset=duplicate
     echo "get_phones_librilight.py for ${sub_dataset} start!"
     for rank_id in {0..3}; do
-        gpu_id=$((rank_id))
-        OMP_NUM_THREADS=1 CUDA_VISIBLE_DEVICES=${gpu_id} python3 ${BIN_DIR}/get_phones_librilight.py \
+        OMP_NUM_THREADS=1 python3 ${BIN_DIR}/get_phones_librilight.py \
             --sub_dataset=${sub_dataset} \
             --dump_dir=${root_dir}/${dump_dir} \
-            --train_txt_dir=${root_dir}/${dump_dir}${sub_dataset}/train/ \
-            --dev_txt_dir=${root_dir}/${dump_dir}${sub_dataset}/dev/ \
-            --test_txt_dir=${root_dir}/${dump_dir}${sub_dataset}/test/ \
-            --num-cpu=340 \
+            --train_txt_dir=${root_dir}/${dump_dir}/${sub_dataset}/train/ \
+            --dev_txt_dir=${root_dir}/${dump_dir}/${sub_dataset}/dev/ \
+            --test_txt_dir=${root_dir}/${dump_dir}/${sub_dataset}/test/ \
+            --num-cpu=30 \
             --nshard=4 \
             --rank=${rank_id} &
         eval pid${rank_id}="$!"

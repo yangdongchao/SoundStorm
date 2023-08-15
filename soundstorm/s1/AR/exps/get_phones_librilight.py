@@ -40,7 +40,8 @@ def process_sentence(item, phonemizer):
     return record
 
 
-def process_sentences(items, phonemizer, output_dir, nprocs: int=1):
+def process_sentences(args, items, phonemizer, output_dir, nprocs: int=1):
+    print("nprocs:", nprocs)
     if nprocs == 1:
         results = []
         for item in tqdm.tqdm(items, total=len(items)):
@@ -67,7 +68,7 @@ def process_sentences(items, phonemizer, output_dir, nprocs: int=1):
     npy_dict = {}
     print(f"start to save {args.rank}_{args.nshard}.npy ...")
     save_start_time = time.time()
-    for item in results:
+    for item in tqdm.tqdm(results, total=len(results), colour='green'):
         utt_id = item["utt_id"]
         phonemes = item["phonemes"]
         npy_dict[utt_id] = phonemes
@@ -142,24 +143,26 @@ def main():
     dev_dump_dir.mkdir(parents=True, exist_ok=True)
     test_dump_dir = sub_dataset_dump_dir / "test"
     test_dump_dir.mkdir(parents=True, exist_ok=True)
-    # 不确定是否需要 GPU
     phonemizer = GruutPhonemizer(language='en-us')
 
     # process for the 3 sections
     if train_txts:
         process_sentences(
+            args=args,
             items=train_txts,
             output_dir=train_dump_dir,
             phonemizer=phonemizer,
             nprocs=args.num_cpu)
     if dev_txts:
         process_sentences(
+            args=args,
             items=dev_txts,
             output_dir=dev_dump_dir,
             phonemizer=phonemizer,
             nprocs=args.num_cpu)
     if test_txts:
         process_sentences(
+            args=args,
             items=test_txts,
             output_dir=test_dump_dir,
             phonemizer=phonemizer,
