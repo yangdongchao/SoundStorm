@@ -1,19 +1,23 @@
 # modified from https://github.com/feng-yufei/shared_debugging_code/blob/main/data_module.py
 from pytorch_lightning import LightningDataModule
 from soundstorm.s1.AR.data.bucket_sampler import DistributedBucketSampler
-from soundstorm.s1.AR.data.dataset import Text2SemanticDataset
+from soundstorm.s1.AR.data.dataset_librilight_6k import Text2SemanticDataset
 from torch.utils.data import DataLoader
 
 
 class Text2SemanticDataModule(LightningDataModule):
-    def __init__(self, config, train_semantic_path, train_phoneme_path,
-                 dev_semantic_path, dev_phoneme_path):
+    def __init__(self, 
+                 config, 
+                 train_semantic_dirs, 
+                 train_phoneme_dirs,
+                 dev_semantic_dirs, 
+                 dev_phoneme_dirs):
         super().__init__()
         self.config = config
-        self.train_semantic_path = train_semantic_path
-        self.train_phoneme_path = train_phoneme_path
-        self.dev_semantic_path = dev_semantic_path
-        self.dev_phoneme_path = dev_phoneme_path
+        self.train_semantic_dirs = train_semantic_dirs
+        self.train_phoneme_dirs = train_phoneme_dirs
+        self.dev_semantic_dirs = dev_semantic_dirs
+        self.dev_phoneme_dirs = dev_phoneme_dirs
         self.num_workers = self.config['data']['num_workers']
 
     def prepare_data(self):
@@ -21,13 +25,13 @@ class Text2SemanticDataModule(LightningDataModule):
 
     def setup(self, stage=None, output_logs=False):
         self._train_dataset = Text2SemanticDataset(
-            phoneme_path=self.train_phoneme_path,
-            semantic_path=self.train_semantic_path,
+            phoneme_dirs=self.train_phoneme_path,
+            semantic_dirs=self.train_semantic_path,
             max_sec=self.config['data']['max_sec'],
             pad_val=self.config['data']['pad_val'])
         self._dev_dataset = Text2SemanticDataset(
-            phoneme_path=self.dev_phoneme_path,
-            semantic_path=self.dev_semantic_path,
+            phoneme_dirs=self.dev_phoneme_path,
+            semantic_dirs=self.dev_semantic_path,
             max_sample=self.config['data']['max_eval_sample'],
             max_sec=self.config['data']['max_sec'],
             pad_val=self.config['data']['pad_val'])

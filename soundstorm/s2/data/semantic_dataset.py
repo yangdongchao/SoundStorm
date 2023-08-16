@@ -1,4 +1,5 @@
 import random
+from typing import List
 
 import numpy as np
 import pandas as pd
@@ -14,9 +15,9 @@ import torch.nn.functional as F
 '''
 
 
-def pad_2D(inputs, PAD, print_len=False):
+def pad_2D(inputs: List[torch.Tensor], PAD: int, print_len: bool=False):
     # when each sample in inputs is 2D, this function can be used
-    def pad(x, max_len):
+    def pad(x: torch.Tensor, max_len: int):
         return F.pad(x, (0, max_len - x.shape[-1]), mode="constant", value=PAD)
 
     max_len = max(np.shape(x)[-1] for x in inputs)
@@ -30,16 +31,15 @@ def pad_2D(inputs, PAD, print_len=False):
 
 
 class SemanticDataset(torch.utils.data.Dataset):
-    def __init__(
-            self,
-            num_quant,
-            semantic_path,
-            acoustic_path,
-            codec_name: str='hificodec',
-            max_token_one_batch: int=10000,
-            semantic_token_nums: int=1000,
-            max_prompt_sec: int=3,
-            max_target_sec: int=10):
+    def __init__(self,
+                 num_quant,
+                 semantic_path,
+                 acoustic_path,
+                 codec_name: str='hificodec',
+                 max_token_one_batch: int=10000,
+                 semantic_token_nums: int=1000,
+                 max_prompt_sec: int=3,
+                 max_target_sec: int=10):
         super().__init__()
 
         self.semantic_data = pd.read_csv(semantic_path, delimiter='\t')
@@ -120,7 +120,7 @@ class SemanticDataset(torch.utils.data.Dataset):
             try:
                 acoustic_str = self.acoustic_data[item_name]
             except Exception:
-                print(item_name, "not in self.acoustic_data!")
+                print(f"{item_name} not in self.acoustic_data !")
                 continue
             # only keep the first num_quant codebooks
             # 这里表明 acoustic_token 的存储方式是 (C, T)

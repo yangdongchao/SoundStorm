@@ -11,7 +11,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.strategies import DDPStrategy
-from soundstorm.s1.AR.data.data_module import Text2SemanticDataModule
+from soundstorm.s1.AR.data._librilight_6k import Text2SemanticDataModule
 from soundstorm.s1.AR.models.t2s_lightning_module import Text2SemanticLightningModule
 from soundstorm.utils.io import load_yaml_config
 logging.getLogger('numba').setLevel(logging.WARNING)
@@ -58,10 +58,10 @@ def main(args):
 
     data_module: Text2SemanticDataModule = Text2SemanticDataModule(
         config,
-        train_semantic_path=args.train_semantic_path,
-        train_phoneme_path=args.train_phoneme_path,
-        dev_semantic_path=args.dev_semantic_path,
-        dev_phoneme_path=args.dev_phoneme_path)
+        train_semantic_dirs=args.train_semantic_dirs,
+        train_phoneme_dirs=args.train_phoneme_dirs,
+        dev_semantic_dirs=args.dev_semantic_dirs,
+        dev_phoneme_dirs=args.dev_phoneme_dirs)
 
     try:
         # 使用正则表达式匹配文件名中的数字部分，并按数字大小进行排序
@@ -85,15 +85,29 @@ if __name__ == '__main__':
         help='path of config file')
     # args for dataset
     parser.add_argument(
-        '--train_semantic_path',
-        type=str,
-        default='dump/train/semantic_token.tsv')
+        '--train_semantic_dirs',
+        type=list,
+        nargs='+',
+        default=["dump/small/train/"],
+        help='dirs of train semantic')
     parser.add_argument(
-        '--train_phoneme_path', type=str, default='dump/train/phonemes.npy')
+        '--train_phoneme_dirs',
+        type=list,
+        nargs='+',
+        default=["dump/small/train/"],
+        help='dirs of train phoneme')
     parser.add_argument(
-        '--dev_semantic_path', type=str, default='dump/dev/semantic_token.tsv')
+        '--dev_semantic_dirs',
+        type=list,
+        nargs='+',
+        default=["dump/small/dev/"],
+        help='dirs of dev semantic')
     parser.add_argument(
-        '--dev_phoneme_path', type=str, default='dump/dev/phonemes.npy')
+        '--dev_phoneme_dirs',
+        type=list,
+        nargs='+',
+        default=["dump/small/dev/"],
+        help='dirs of dev phoneme')
     parser.add_argument(
         '--output_dir',
         type=str,
@@ -101,5 +115,27 @@ if __name__ == '__main__':
         help='directory to save the results')
 
     args = parser.parse_args()
+
+    new_train_semantic_dirs = []
+    new_train_phoneme_dirs = []
+    new_dev_semantic_dirs = []
+    new_dev_phoneme_dirs = []
+    # format dataset dirs
+    for item in args.train_semantic_dirs:
+        new_train_semantic_dirs.append(''.join(item))
+    args.train_semantic_dirs = new_train_semantic_dirs
+
+    for item in args.train_phoneme_dirs:
+        new_train_phoneme_dirs.append(''.join(item))
+    args.train_phoneme_dirs = new_train_phoneme_dirs
+
+    for item in args.dev_semantic_dirs:
+        new_dev_semantic_dirs.append(''.join(item))
+    args.dev_semantic_dirs = new_dev_semantic_dirs
+
+    for item in args.dev_phoneme_dirs:
+        new_dev_phoneme_dirs.append(''.join(item))
+    args.dev_phoneme_dirs = new_dev_phoneme_dirs
+
     logging.info(str(args))
     main(args)

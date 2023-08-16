@@ -400,7 +400,7 @@ def main():
         duplicate=True)
 
     phonemizer = GruutPhonemizer(language='en-us')
-    asr_model = whisper.load_model("tiny")
+    asr_model = whisper.load_model("tiny.en")
 
     # cost 14s for a 10s target
     evaluate(

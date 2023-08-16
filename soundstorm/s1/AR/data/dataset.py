@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
 
-def batch_sequences(sequences, axis=0, pad_value=0):
+def batch_sequences(sequences: List[np.array], axis: int=0, pad_value: int=0):
     seq = sequences[0]
     ndim = seq.ndim
     if axis < 0:
@@ -34,8 +34,12 @@ def batch_sequences(sequences, axis=0, pad_value=0):
 class Text2SemanticDataset(Dataset):
     """dataset class for text tokens to semantic model training."""
 
-    def __init__(self, phoneme_path: str, semantic_path: str,
-                 max_sample=None, max_sec=100, pad_val=1024) -> None:
+    def __init__(self,
+                 phoneme_path: str,
+                 semantic_path: str,
+                 max_sample: int=None,
+                 max_sec: int=100,
+                 pad_val: int=1024) -> None:
         super().__init__()
 
         self.semantic_data = pd.read_csv(semantic_path, delimiter='\t')
@@ -75,13 +79,10 @@ class Text2SemanticDataset(Dataset):
             # 先依次遍历
             # get str
             item_name = self.semantic_data['item_name'][i]
-            # first item of test dataset is 1001_134708_000013_000000
-            # if i == 0:
-            #     print("item_name:", item_name)
             try:
                 phoneme = self.phoneme_data[item_name]
             except Exception:
-                # print(item_name, "not in self.phoneme_data!")
+                print(f"{item_name} not in self.phoneme_data !")
                 num_not_in += 1
                 continue
 
@@ -101,14 +102,13 @@ class Text2SemanticDataset(Dataset):
             idx += 1
             self.item_names.append(item_name)
         if num_not_in > 0:
-            print("!!! there are", num_not_in,
-                  "semantic datas not in phoneme datas !!!!")
+            print(f"there are {num_not_in} semantic datas not in phoneme datas")
         if num_deleted > 0:
-            print("!!! deleted", num_deleted,
-                  "audios who's duration are bigger than", self.max_sec,
-                  "seconds !!!")
+            print(
+                f"deleted {num_deleted} audios who's duration are bigger than {self.max_sec} seconds"
+            )
         print("dataset.__len__():", self.__len__())
-    
+
     def __get_item_names__(self) -> List[str]:
         return self.item_names
 
