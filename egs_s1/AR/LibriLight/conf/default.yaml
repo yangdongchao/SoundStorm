@@ -3,7 +3,7 @@
 train:
     seed: 1234
     epochs: 10
-    batch_size: 11
+    batch_size: 8
     gradient_accumulation: 4
     every_n_train_steps: 200 # 200 for 4 gpus, save 8.4 models per epoch for LibriLight 6k
     precision: 32

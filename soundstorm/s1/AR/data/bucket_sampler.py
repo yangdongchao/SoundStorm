@@ -46,6 +46,7 @@ class DistributedBucketSampler(Sampler[T_co]):
                 raise RuntimeError(
                     "Requires distributed package to be available")
             rank = dist.get_rank()
+            torch.cuda.set_device(rank)
         if rank >= num_replicas or rank < 0:
             raise ValueError("Invalid rank {}, rank should be in the interval"
                              " [0, {}]".format(rank, num_replicas - 1))
