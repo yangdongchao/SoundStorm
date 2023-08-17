@@ -48,7 +48,7 @@ def main(args):
         devices=-1,
         benchmark=False,
         fast_dev_run=False,
-        strategy=DDPStrategy(find_unused_parameters=True),
+        strategy=DDPStrategy(),
         precision=config["train"]["precision"],
         logger=logger,
         callbacks=[ckpt_callback])

@@ -29,6 +29,11 @@ def main(args):
     config = load_yaml_config(args.config_file)
 
     seed_everything(config["train"]["seed"], workers=True)
+    # 训练时 tqdm log 中的 iter 数 (xxx/xxx) 显示的是 n 个卡的 iter 数，保存 ckpt 时的 iter 数是单卡的 iter 数
+    # 所以训练集不变，卡数变多, log 中 iter 数会增加，但是保存的 ckpt 名称中的 iter 数不变
+    # 一个 epoch 对应的 ckpt iter 数 = log 中 iter 数 / 卡数
+    # every_n_train_steps 是单卡的 iter 数，如果卡数增多，则一个 ckpt 见过的 sample 数增多
+    # 4 卡 500 step 存一个 = 2 卡 1000 iter 存一个
     ckpt_callback: ModelCheckpoint = ModelCheckpoint(
         save_top_k=-1,
         save_on_train_epoch_end=False,
@@ -48,7 +53,7 @@ def main(args):
         devices=-1,
         benchmark=False,
         fast_dev_run=False,
-        strategy=DDPStrategy(find_unused_parameters=True),
+        strategy=DDPStrategy(),
         precision=config["train"]["precision"],
         logger=logger,
         callbacks=[ckpt_callback])
