@@ -1,14 +1,15 @@
 # L7bin300
+# 一个 epoch 保存的模型数 = `dataset.__len__() / (batch_size * ngpus ** 3 * every_n_train_steps)`
 train:
     seed: 1234
     epochs: 10
     batch_size: 11
     gradient_accumulation: 4
-    every_n_train_steps: 500
+    every_n_train_steps: 200 # 200 for 4 gpus, save 8.4 models per epoch for LibriLight 6k
     precision: 32
     gradient_clip: 1.0
 optimizer:
-    lr: 0.01
+    lr: 0.001
     lr_init: 0.00001
     lr_end: 0.0001
     warmup_steps: 2000
