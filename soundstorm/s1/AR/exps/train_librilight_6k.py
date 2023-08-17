@@ -11,7 +11,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.strategies import DDPStrategy
-from soundstorm.s1.AR.data._librilight_6k import Text2SemanticDataModule
+from soundstorm.s1.AR.data.data_module_librilight_6k import Text2SemanticDataModule
 from soundstorm.s1.AR.models.t2s_lightning_module import Text2SemanticLightningModule
 from soundstorm.utils.io import load_yaml_config
 logging.getLogger('numba').setLevel(logging.WARNING)
@@ -32,10 +32,10 @@ def main(args):
     ckpt_callback: ModelCheckpoint = ModelCheckpoint(
         save_top_k=-1,
         save_on_train_epoch_end=False,
-        every_n_epochs=config["train"]["save_every_n_epoch"],
+        every_n_train_steps=config["train"]["every_n_train_steps"],
         dirpath=ckpt_dir)
     logger = WandbLogger(
-        project="AR_S1",
+        project="AR_S1_LibriLight",
         name=output_dir.stem,
         save_dir=output_dir,
         # resume the loss curve

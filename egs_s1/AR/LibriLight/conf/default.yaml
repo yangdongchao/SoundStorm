@@ -1,10 +1,10 @@
 # L7bin300
 train:
     seed: 1234
-    epochs: 100
+    epochs: 10
     batch_size: 11
     gradient_accumulation: 4
-    save_every_n_epoch: 1
+    every_n_train_steps: 500
     precision: 32
     gradient_clip: 1.0
 optimizer:
