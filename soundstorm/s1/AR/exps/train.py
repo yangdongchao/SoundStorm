@@ -2,7 +2,6 @@
 import argparse
 import logging
 import os
-import re
 from pathlib import Path
 
 import torch
@@ -17,6 +16,7 @@ from soundstorm.utils.io import load_yaml_config
 logging.getLogger('numba').setLevel(logging.WARNING)
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 torch.set_float32_matmul_precision('high')
+from soundstorm.utils import get_newest_ckpt
 
 
 def main(args):
@@ -65,10 +65,8 @@ def main(args):
 
     try:
         # 使用正则表达式匹配文件名中的数字部分，并按数字大小进行排序
-        sorted_files = sorted(
-            os.listdir(ckpt_dir),
-            key=lambda x: int(re.findall(r'epoch=(\d+)', x)[0]))
-        ckpt_path = ckpt_dir / sorted_files[-1]
+        newest_ckpt_name = get_newest_ckpt(os.listdir(ckpt_dir))
+        ckpt_path = ckpt_dir / newest_ckpt_name
     except Exception:
         ckpt_path = None
     print("ckpt_path:", ckpt_path)
