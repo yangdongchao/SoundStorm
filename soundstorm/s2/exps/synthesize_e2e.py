@@ -137,22 +137,23 @@ def get_S2_prompt(wav, semantic_tokenizer, hificodec):
 def get_S2_batch(prompt_semantic_tokens,
                  prompt_acoustic_tokens,
                  target_semantic_tokens,
-                 num_quant=4,
-                 hz=50):
+                 num_quant: int=4,
+                 hz: int=50,
+                 max_prompt_sec: int=3,
+                 max_target_sec: int=10):
     # transformer_utils.py 里面最大是 20, pad 了一个  stop token, 所以这里最大是 19
     # 但是训练时最多是 10s, 所以超过 10s 的无法合成出来
-    max_sec = 10
 
     # prompt 最多为 3s
-    if prompt_acoustic_tokens.shape[1] > 6 * hz:
-        prompt_len = 3 * hz
+    if prompt_acoustic_tokens.shape[1] > 2 * max_prompt_sec * hz:
+        prompt_len = max_prompt_sec * hz
     else:
         prompt_len = prompt_acoustic_tokens.shape[1] // 2
 
     prompt_semantic_tokens = prompt_semantic_tokens[:, :prompt_len]
     prompt_acoustic_tokens = prompt_acoustic_tokens[:, :prompt_len]
     # target 最多为 10s
-    target_semantic_tokens = target_semantic_tokens[:, :max_sec * hz]
+    target_semantic_tokens = target_semantic_tokens[:, :max_target_sec * hz]
     # acoustic_token 和 semantic_token 长度是对齐的
     target_T = target_semantic_tokens.shape[-1]
     # 伪造的 target_acoustics_tokens
@@ -203,9 +204,11 @@ def evaluate(args,
              asr_model,
              hificodec,
              phonemizer,
-             S1_max_sec=20,
-             S1_top_k=-100):
-
+             S1_max_sec: int=20,
+             S1_top_k: int=-100,
+             S2_max_sec: int=10,
+             S2_max_prompt_sec: int=3,
+             S2_max_target_sec: int=10):
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -280,7 +283,9 @@ def evaluate(args,
             prompt_acoustic_tokens=prompt_acoustic_tokens,
             target_semantic_tokens=S1_pred_semantic,
             num_quant=num_quant,
-            hz=hz)
+            hz=hz,
+            max_prompt_sec=S2_max_prompt_sec,
+            max_target_sec=S2_max_target_sec)
 
         S2_batch = move_tensors_to_cuda(S2_batch)
 
@@ -401,6 +406,10 @@ def main():
 
     phonemizer = GruutPhonemizer(language='en-us')
     asr_model = whisper.load_model("tiny.en")
+    S2_max_prompt_sec = S2_config['dataloader']['train_datasets'][0][
+        'params'].get('max_prompt_sec', 3)
+    S2_max_target_sec = S2_config['dataloader']['train_datasets'][0][
+        'params'].get('max_target_sec', 10)
 
     # cost 14s for a 10s target
     evaluate(
@@ -412,7 +421,9 @@ def main():
         hificodec=hificodec,
         phonemizer=phonemizer,
         S1_max_sec=S1_config['data']['max_sec'],
-        S1_top_k=S1_config['inference']['top_k'])
+        S1_top_k=S1_config['inference']['top_k'],
+        S2_max_prompt_sec=S2_max_prompt_sec,
+        S2_max_target_sec=S2_max_target_sec)
 
 
 if __name__ == "__main__":
