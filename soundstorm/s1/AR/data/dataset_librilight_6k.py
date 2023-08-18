@@ -1,4 +1,7 @@
 # modified from https://github.com/feng-yufei/shared_debugging_code/blob/main/t2s_dataset.py
+# 剔除 phoneme/sec 太大或太小的 sample, 上下限 8-30 (fengyufei)
+# 直方图 https://github.com/yt605155624/mine_images/issues/1#issuecomment-1683696942, 6 ~ 22 比较合适
+
 import os
 from typing import Dict
 from typing import List
@@ -38,7 +41,11 @@ class Text2SemanticDataset(Dataset):
                  semantic_dirs: str,
                  max_sample=None,
                  max_sec: int=100,
-                 pad_val: int=1024) -> None:
+                 pad_val: int=1024,
+                 # min value of phoneme/sec 
+                 min_ps_ratio: int=6,
+                 # max value of phoneme/sec 
+                 max_ps_ratio: int=22) -> None:
         super().__init__()
 
         self.semantic_data_dict = dict()
@@ -65,6 +72,8 @@ class Text2SemanticDataset(Dataset):
         self.hz = 50
         # max seconds of semantic token
         self.max_sec = max_sec
+        self.min_ps_ratio = min_ps_ratio
+        self.max_ps_ratio = max_ps_ratio
         self.phonemizer: GruutPhonemizer = GruutPhonemizer(language='en-us')
         # max sample per split (key_name)
         self.max_sample = max_sample
@@ -80,7 +89,8 @@ class Text2SemanticDataset(Dataset):
 
         self.idx = 0
         self.num_not_in = 0
-        self.num_deleted = 0
+        self.num_deleted_bigger = 0
+        self.num_deleted_ps = 0
 
         if not self.inited:
             # 调用初始化函数
@@ -93,10 +103,17 @@ class Text2SemanticDataset(Dataset):
                 print(
                     f"there are {self.num_not_in} semantic datas not in phoneme datas"
                 )
-            if self.num_deleted > 0:
+            
+            if self.num_deleted_bigger > 0:
+                # 300 for small, 3461 for small + medium
                 print(
-                    f"deleted {self.num_deleted} audios who's duration are bigger than {self.max_sec} seconds"
+                    f"deleted {self.num_deleted_bigger} audios who's duration are bigger than {self.max_sec} seconds"
                 )
+            if self.num_deleted_ps > 0:
+                print(
+                    f"deleted {self.num_deleted_ps} audios who's phoneme/sec are bigger than {self.max_ps_ratio} or smaller than {self.min_ps_ratio}"
+                )
+            # 117876 for small, 1189168 for small + medium
             print("dataset.__len__():", self.__len__())
 
     def init_batch(self, key_name: str):
@@ -136,11 +153,17 @@ class Text2SemanticDataset(Dataset):
             # (T), 是否需要变成 (1, T) -> 不需要，因为需要求 len
             # 过滤掉太长的样本
             if len(semantic_ids) > self.max_sec * self.hz:
-                self.num_deleted += 1
+                self.num_deleted_bigger += 1
                 continue
 
             # (T, ), 这个速度不会很慢，所以可以在一开始就处理，无需在 __getitem__ 里面单个处理
             phoneme_ids = self.phonemizer.transform(phoneme)
+            
+            ps_ratio = len(phoneme_ids) / (len(semantic_ids) / self.hz)
+            
+            if ps_ratio > self.max_ps_ratio or ps_ratio < self.min_ps_ratio:
+                self.num_deleted_ps += 1
+                continue
 
             self.semantic_phoneme[self.idx] = (semantic_ids, phoneme_ids)
             self.idx += 1

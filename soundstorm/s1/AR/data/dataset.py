@@ -39,7 +39,11 @@ class Text2SemanticDataset(Dataset):
                  semantic_path: str,
                  max_sample: int=None,
                  max_sec: int=100,
-                 pad_val: int=1024) -> None:
+                 pad_val: int=1024,
+                 # min value of phoneme/sec 
+                 min_ps_ratio: int=6,
+                 # max value of phoneme/sec 
+                 max_ps_ratio: int=25) -> None:
         super().__init__()
 
         self.semantic_data = pd.read_csv(semantic_path, delimiter='\t')
@@ -50,6 +54,8 @@ class Text2SemanticDataset(Dataset):
         self.hz = 50
         # max seconds of semantic token
         self.max_sec = max_sec
+        self.min_ps_ratio = min_ps_ratio
+        self.max_ps_ratio = max_ps_ratio
         self.phonemizer: GruutPhonemizer = GruutPhonemizer(language='en-us')
 
         if max_sample is not None:
@@ -74,7 +80,8 @@ class Text2SemanticDataset(Dataset):
         print("phoneme_data_len:", phoneme_data_len)
         idx = 0
         num_not_in = 0
-        num_deleted = 0
+        num_deleted_bigger = 0
+        num_deleted_ps = 0
         for i in range(semantic_data_len):
             # 先依次遍历
             # get str
@@ -82,7 +89,7 @@ class Text2SemanticDataset(Dataset):
             try:
                 phoneme = self.phoneme_data[item_name]
             except Exception:
-                print(f"{item_name} not in self.phoneme_data !")
+                # print(f"{item_name} not in self.phoneme_data !")
                 num_not_in += 1
                 continue
 
@@ -92,21 +99,33 @@ class Text2SemanticDataset(Dataset):
             # (T), 是否需要变成 (1, T) -> 不需要，因为需要求 len
             # 过滤掉太长的样本
             if len(semantic_ids) > self.max_sec * self.hz:
-                num_deleted += 1
+                num_deleted_bigger += 1
                 continue
 
             # (T, ), 这个速度不会很慢，所以可以在一开始就处理，无需在 __getitem__ 里面单个处理
             phoneme_ids = self.phonemizer.transform(phoneme)
+
+            ps_ratio = len(phoneme_ids) / (len(semantic_ids) / self.hz)
+            
+            if ps_ratio > self.max_ps_ratio or ps_ratio < self.min_ps_ratio:
+                num_deleted_ps += 1
+                continue
 
             self.semantic_phoneme[idx] = (semantic_ids, phoneme_ids)
             idx += 1
             self.item_names.append(item_name)
         if num_not_in > 0:
             print(f"there are {num_not_in} semantic datas not in phoneme datas")
-        if num_deleted > 0:
+        if num_deleted_bigger > 0:
             print(
-                f"deleted {num_deleted} audios who's duration are bigger than {self.max_sec} seconds"
+                f"deleted {num_deleted_bigger} audios who's duration are bigger than {self.max_sec} seconds"
             )
+        if num_deleted_ps > 0:
+            # 4702 for LibriTTS, LirbriTTS 是标注数据, 是否需要筛？=> 需要，有值为 100 的极端值
+            print(
+                f"deleted {num_deleted_ps} audios who's phoneme/sec are bigger than {self.max_ps_ratio} or smaller than {self.min_ps_ratio}"
+            )
+        # 345410 for LibriTTS
         print("dataset.__len__():", self.__len__())
 
     def __get_item_names__(self) -> List[str]:
@@ -172,11 +191,10 @@ class Text2SemanticDataset(Dataset):
 
 
 if __name__ == '__main__':
-    root_dir = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/SoundStorm/dump_libritts/dev/'
+    root_dir = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/SoundStorm/dump_libritts/train/'
     dataset = Text2SemanticDataset(
         phoneme_path=root_dir + 'phonemes.npy',
-        semantic_path=root_dir + 'semantic_token.tsv',
-        max_sample=50)
+        semantic_path=root_dir + 'semantic_token.tsv')
 
     batch_size = 12
     dataloader = DataLoader(
@@ -184,14 +202,14 @@ if __name__ == '__main__':
         batch_size=batch_size,
         collate_fn=dataset.collate,
         shuffle=False)
-    for i, batch in enumerate(dataloader):
-        if i == 0:
-            print('batch["ids"]:', batch["ids"])
-            print('batch["phoneme_ids"]:', batch["phoneme_ids"],
-                  batch["phoneme_ids"].shape)
-            print('batch["phoneme_ids_len"]:', batch["phoneme_ids_len"],
-                  batch["phoneme_ids_len"].shape)
-            print('batch["semantic_ids"]:', batch["semantic_ids"],
-                  batch["semantic_ids"].shape)
-            print('batch["semantic_ids_len"]:', batch["semantic_ids_len"],
-                  batch["semantic_ids_len"].shape)
+    # for i, batch in enumerate(dataloader):
+    #     if i == 0:
+    #         print('batch["ids"]:', batch["ids"])
+    #         print('batch["phoneme_ids"]:', batch["phoneme_ids"],
+    #               batch["phoneme_ids"].shape)
+    #         print('batch["phoneme_ids_len"]:', batch["phoneme_ids_len"],
+    #               batch["phoneme_ids_len"].shape)
+    #         print('batch["semantic_ids"]:', batch["semantic_ids"],
+    #               batch["semantic_ids"].shape)
+    #         print('batch["semantic_ids_len"]:', batch["semantic_ids_len"],
+    #               batch["semantic_ids_len"].shape)
