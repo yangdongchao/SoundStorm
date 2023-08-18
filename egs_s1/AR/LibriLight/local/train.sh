@@ -5,7 +5,7 @@ train_output_path=$2
 root_dir=$3
 dump_dir=$4
 
-omp_num=8
+omp_num=16
 
 # 注意 *_dirs 参数后面不可以有 ''='
 OMP_NUM_THREADS=${omp_num} python3 ${BIN_DIR}/train_librilight_6k.py \
