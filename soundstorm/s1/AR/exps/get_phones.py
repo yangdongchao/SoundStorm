@@ -1,7 +1,7 @@
 """
 1. read text of dataset
 2. text -> IPA by GruutPhonemizer
-3. save out a *.numpy dict for all text
+3. save out a *.npy dict for all text
 my_dict = {"utt_id1": text1, "utt_id2": text2}
 np.save(output_filename, my_dict)
 my_dict = np.load(output_filename, allow_pickle=True).item()
@@ -16,18 +16,6 @@ from typing import List
 import numpy as np
 import tqdm
 from soundstorm.s1.AR.text_processing.phonemizer import GruutPhonemizer
-
-
-def get_txt_tuple_lists(txt_files):
-    # [("utt_id", txt)]
-    tuple_lists = []
-    for txt_file in txt_files:
-        utt_name = txt_file.stem
-        utt_id = utt_name.split('.')[0]
-        with open(txt_file, 'r') as file:
-            txt = file.readline()
-        tuple_lists.append((utt_id, txt))
-    return tuple_lists
 
 
 def read_txt(txt_file):
@@ -85,7 +73,7 @@ def process_sentence(item, phonemizer):
     return record
 
 
-def process_sentences(items: List[Path], phonemizer, output_dir, nprocs: int=1):
+def process_sentences(items, phonemizer, output_dir, nprocs: int=1):
     if nprocs == 1:
         results = []
         for item in tqdm.tqdm(items, total=len(items)):
@@ -106,9 +94,7 @@ def process_sentences(items: List[Path], phonemizer, output_dir, nprocs: int=1):
                     record = ft.result()
                     if record:
                         results.append(record)
-
     results.sort(key=itemgetter("utt_id"))
-    # torch.save() to a large `.pth` file
     npy_dict = {}
     for item in results:
         utt_id = item["utt_id"]
@@ -121,8 +107,7 @@ def process_sentences(items: List[Path], phonemizer, output_dir, nprocs: int=1):
 
 def main():
     # parse config and args
-    parser = argparse.ArgumentParser(
-        description="Preprocess audio and then extract features.")
+    parser = argparse.ArgumentParser(description="Get phones for datasets")
 
     parser.add_argument(
         "--dataset",

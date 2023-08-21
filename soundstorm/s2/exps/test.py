@@ -1,5 +1,4 @@
 import argparse
-import time
 from pathlib import Path
 
 import numpy as np
@@ -10,6 +9,7 @@ from academicodec.models.hificodec.vqvae import VQVAE
 from soundstorm.s2.data.semantic_dataset import pad_2D
 from soundstorm.s2.models.dalle_wav.build import build_model
 from soundstorm.utils.io import load_yaml_config
+from timer import timer
 
 # 每一条构成一个 batch 过一遍模型
 # 是单条推理还是凑 batch 推理？=> 可以实现两种分别看速度
@@ -205,35 +205,45 @@ def evaluate(args,
     acoustic_data = torch.load(args.test_acoustic_path)
     semantic_data = pd.read_csv(args.test_semantic_path, delimiter='\t')
 
-    for index, utt_id in enumerate(semantic_data['item_name'][:20]):
-        # 需要处理 item_name 不在 acoustic_data 中的情况
-        batch = get_batch(
-            acoustic_data,
-            semantic_data,
-            index,
-            num_quant=num_quant,
-            hz=hz,
-            max_prompt_sec=max_prompt_sec,
-            max_target_sec=max_target_sec)
-        batch = move_tensors_to_cuda(batch)
-        # some wrong with this index od data
-        if batch is None:
-            continue
+    N = 0
+    T = 0
 
-        with torch.no_grad():
-            start = time.time()
-            model_out = soundstorm.infer_one(batch)
-            end = time.time()
-            print("infer time:", end - start)
+    for index, utt_id in enumerate(semantic_data['item_name'][:10]):
+        with timer() as t:
+            # 需要处理 item_name 不在 acoustic_data 中的情况
+            batch = get_batch(
+                acoustic_data,
+                semantic_data,
+                index,
+                num_quant=num_quant,
+                hz=hz,
+                max_prompt_sec=max_prompt_sec,
+                max_target_sec=max_target_sec)
+            batch = move_tensors_to_cuda(batch)
+            # some wrong with this index od data
+            if batch is None:
+                continue
 
-        content = model_out['token_pred']
-        # shape (B, Nq x T) -> (B, Nq, T)
-        codes = content.reshape(content.shape[0], num_quant, -1)
-        wav_gen = hificodec_decode(hificodec, codes)
-        wav_gt = hificodec_decode(hificodec, batch['target_acoustics'])
+            with torch.no_grad():
+                model_out = soundstorm.infer_one(batch)
+
+            content = model_out['token_pred']
+            # shape (B, Nq x T) -> (B, Nq, T)
+            codes = content.reshape(content.shape[0], num_quant, -1)
+            wav_gen = hificodec_decode(hificodec, codes)
+            wav_gt = hificodec_decode(hificodec, batch['target_acoustics'])
+
+        N += wav_gen.size
+        T += t.elapse
+        speed = wav_gen.size / t.elapse
+        rtf = sample_rate / speed
+        print(
+            f"{utt_id},  wave: {wav_gen.shape}, time: {t.elapse}s, Hz: {speed}, RTF: {rtf}."
+        )
 
         sf.write(output_dir / (utt_id + "_bs1.wav"), wav_gen, sample_rate)
         sf.write(output_dir / (utt_id + "_real_bs1.wav"), wav_gt, sample_rate)
+    print(f"generation speed: {N / T}Hz, RTF: {sample_rate / (N / T) }")
 
 
 # evaluate batch
@@ -268,7 +278,7 @@ def evaluate_batch(args,
         for i in range(0, len(all_indexs), batch_size)
     ]
 
-    for i, index_list in enumerate(index_lists[:10]):
+    for i, index_list in enumerate(index_lists[:20]):
         utt_ids = utt_id_lists[i]
         batch = get_big_batch(
             acoustic_data,

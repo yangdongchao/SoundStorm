@@ -6,7 +6,7 @@ source path.sh
 gpus=6,7
 stage=0
 stop_stage=100
-train_output_path=exp/default
+train_output_path=exp_librilight/default
 # dir to set part/all of dump dataset and experiment result
 root_dir='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/SoundStorm'
 # there should be *.wav 、*/*.wav or */*/*.wav in data_dir

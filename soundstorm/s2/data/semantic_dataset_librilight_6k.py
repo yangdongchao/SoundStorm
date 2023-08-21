@@ -1,10 +1,9 @@
 import os
 import random
 
-import numpy as np
 import pandas as pd
 import torch
-import torch.nn.functional as F
+from soundstorm.s2.data.semantic_dataset import pad_2D
 
 # BaseDataset code from NATSpeech
 '''
@@ -15,27 +14,12 @@ import torch.nn.functional as F
 '''
 
 
-def get_files_by_suffix(path, suffix):
+def get_files_by_suffix(path: str, suffix: str):
     files = []
     for file_name in os.listdir(path):
         if file_name.endswith(suffix):
             files.append(os.path.join(path, file_name))
     return files
-
-
-def pad_2D(inputs, PAD, print_len=False):
-    # when each sample in inputs is 2D, this function can be used
-    def pad(x, max_len):
-        return F.pad(x, (0, max_len - x.shape[-1]), mode="constant", value=PAD)
-
-    max_len = max(np.shape(x)[-1] for x in inputs)
-    input_len = len(inputs)
-    if print_len:
-        min_len = min(np.shape(x)[-1] for x in inputs)
-        print("input_len, max_len, min_len, max_len-min_len:", input_len,
-              max_len, min_len, max_len - min_len)
-    output = np.stack([pad(x, max_len) for x in inputs])
-    return output
 
 
 class SemanticDataset(torch.utils.data.Dataset):
@@ -52,9 +36,6 @@ class SemanticDataset(torch.utils.data.Dataset):
 
         self.semantic_data_dict = dict()
         self.acoustic_data_dict = dict()
-        # self.semantic_data = pd.read_csv(semantic_path, delimiter='\t')
-        # # get dict
-        # self.acoustic_data = torch.load(acoustic_path)
         semantic_files = []
         acoustic_files = []
         for semantic_dir in semantic_dirs:
@@ -64,7 +45,9 @@ class SemanticDataset(torch.utils.data.Dataset):
 
         for semantic_file in semantic_files:
             name_list = semantic_file.split("/")
+            # semantic_token_0_3.tsv -> 0_3
             rank_name = '_'.join(name_list[-1].split('.')[0].split('_')[-2:])
+            # small/medium/large/duplicate_0_3
             key_name = f'{name_list[-3]}_{rank_name}'
             self.semantic_data_dict[key_name] = pd.read_csv(
                 semantic_file, delimiter='\t')
@@ -113,7 +96,7 @@ class SemanticDataset(torch.utils.data.Dataset):
             print("self.total_semantic_data_len:", self.total_semantic_data_len)
             print("self.total_acoustic_data_len:", self.total_acoustic_data_len)
 
-    def init_batch(self, key_name):
+    def init_batch(self, key_name: str):
         # this function aims to prepare batch
         # 先根据 semantic_data 的 长度进行排序
         # target 最长设为 10s, prompt 3s, 1s 对应 50 个 token,
@@ -162,7 +145,7 @@ class SemanticDataset(torch.utils.data.Dataset):
             try:
                 acoustic_str = acoustic_data[item_name]
             except Exception:
-                print(item_name, "not in self.acoustic_data!")
+                print(f"{item_name} not in acoustic_data !")
                 continue
             # only keep the first num_quant codebooks
             # 这里表明 acoustic_token 的存储方式是 (C, T)

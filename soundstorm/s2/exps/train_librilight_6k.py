@@ -63,7 +63,7 @@ def get_args():
         '--train_semantic_dirs',
         type=list,
         nargs='+',
-        default=["dump/large/dev/"],
+        default=["dump/small/train/"],
         help='dirs of train semantic')
     parser.add_argument(
         '--train_acoustic_dirs',
