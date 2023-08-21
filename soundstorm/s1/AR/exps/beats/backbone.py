@@ -14,15 +14,16 @@ from typing import Tuple
 import numpy as np
 import torch
 import torch.nn.functional as F
-from modules import get_activation_fn
-from modules import GLU_Linear
-from modules import GradMultiply
-from modules import quant_noise
-from modules import SamePad
 from torch import nn
 from torch import Tensor
 from torch.nn import LayerNorm
 from torch.nn import Parameter
+
+from .modules import get_activation_fn
+from .modules import GLU_Linear
+from .modules import GradMultiply
+from .modules import quant_noise
+from .modules import SamePad
 
 
 class TransformerEncoder(nn.Module):

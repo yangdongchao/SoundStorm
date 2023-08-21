@@ -12,9 +12,9 @@ from typing import Optional
 import torch
 import torch.nn as nn
 import torchaudio.compliance.kaldi as ta_kaldi
-from backbone import (
-    TransformerEncoder, )
 from torch.nn import LayerNorm
+
+from .backbone import TransformerEncoder
 
 logger = logging.getLogger(__name__)
 
