@@ -6,18 +6,22 @@ from torch.utils.data import DataLoader
 
 
 class Text2SemanticDataModule(LightningDataModule):
-    def __init__(self, 
-                 config, 
-                 train_semantic_dirs, 
+    def __init__(self,
+                 config,
+                 train_semantic_dirs,
                  train_phoneme_dirs,
-                 dev_semantic_dirs, 
-                 dev_phoneme_dirs):
+                 dev_semantic_dirs,
+                 dev_phoneme_dirs,
+                 train_non_speech_dirs=None,
+                 dev_non_speech_dirs=None):
         super().__init__()
         self.config = config
         self.train_semantic_dirs = train_semantic_dirs
         self.train_phoneme_dirs = train_phoneme_dirs
         self.dev_semantic_dirs = dev_semantic_dirs
         self.dev_phoneme_dirs = dev_phoneme_dirs
+        self.train_non_speech_dirs = train_non_speech_dirs
+        self.dev_non_speech_dirs = dev_non_speech_dirs
         self.num_workers = self.config['data']['num_workers']
 
     def prepare_data(self):
@@ -27,11 +31,13 @@ class Text2SemanticDataModule(LightningDataModule):
         self._train_dataset = Text2SemanticDataset(
             phoneme_dirs=self.train_phoneme_dirs,
             semantic_dirs=self.train_semantic_dirs,
+            non_speech_dirs=self.train_non_speech_dirs,
             max_sec=self.config['data']['max_sec'],
             pad_val=self.config['data']['pad_val'])
         self._dev_dataset = Text2SemanticDataset(
             phoneme_dirs=self.dev_phoneme_dirs,
             semantic_dirs=self.dev_semantic_dirs,
+            non_speech_dirs=self.dev_non_speech_dirs,
             max_sample=self.config['data']['max_eval_sample'],
             max_sec=self.config['data']['max_sec'],
             pad_val=self.config['data']['pad_val'])
@@ -45,7 +51,7 @@ class Text2SemanticDataModule(LightningDataModule):
             batch_size=batch_size,
             sampler=sampler,
             collate_fn=self._train_dataset.collate,
-            num_workers=self.num_workers,)
+            num_workers=self.num_workers, )
 
     def val_dataloader(self):
         return DataLoader(
@@ -53,7 +59,7 @@ class Text2SemanticDataModule(LightningDataModule):
             batch_size=1,
             shuffle=False,
             collate_fn=self._train_dataset.collate,
-            num_workers=self.num_workers,)
+            num_workers=self.num_workers, )
 
     # 这个会使用到嘛？
     def test_dataloader(self):

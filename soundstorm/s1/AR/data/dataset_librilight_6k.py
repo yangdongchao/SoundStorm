@@ -1,7 +1,10 @@
 # modified from https://github.com/feng-yufei/shared_debugging_code/blob/main/t2s_dataset.py
-# 剔除 phoneme/sec 太大或太小的 sample, 上下限 8-30 (fengyufei)
-# 直方图 https://github.com/yt605155624/mine_images/issues/1#issuecomment-1683696942, 6 ~ 22 比较合适
-
+'''
+1. 剔除不是 speech 类型的样本
+2. 剔除过长的样本
+3. 剔除 phoneme/sec 太大或太小的样本, fengyufei's 上下限 8-30
+   直方图 https://github.com/yt605155624/mine_images/issues/1#issuecomment-1683696942, 6 ~ 22 比较合适
+'''
 import os
 from typing import Dict
 from typing import List
@@ -36,22 +39,28 @@ def get_key_name(file_path: str):
 class Text2SemanticDataset(Dataset):
     """dataset class for text tokens to semantic model training."""
 
-    def __init__(self,
-                 phoneme_dirs: str,
-                 semantic_dirs: str,
-                 max_sample=None,
-                 max_sec: int=100,
-                 pad_val: int=1024,
-                 # min value of phoneme/sec 
-                 min_ps_ratio: int=6,
-                 # max value of phoneme/sec 
-                 max_ps_ratio: int=22) -> None:
+    def __init__(
+            self,
+            phoneme_dirs: str,
+            semantic_dirs: str,
+            non_speech_dirs: str=None,
+            max_sample=None,
+            max_sec: int=100,
+            pad_val: int=1024,
+            # min value of phoneme/sec 
+            min_ps_ratio: int=6,
+            # max value of phoneme/sec 
+            max_ps_ratio: int=22, ) -> None:
         super().__init__()
 
         self.semantic_data_dict = dict()
         self.phoneme_data_dict = dict()
+        self.non_speech_data_dict = dict()
+
         semantic_files = []
         phoneme_files = []
+        non_speech_files = []
+
         for semantic_dir in semantic_dirs:
             semantic_files += get_files_by_prefix_suffix(
                 semantic_dir, prefix='semantic_token', suffix='tsv')
@@ -66,6 +75,15 @@ class Text2SemanticDataset(Dataset):
             key_name = get_key_name(phoneme_file)
             self.phoneme_data_dict[key_name] = np.load(
                 phoneme_file, allow_pickle=True).item()
+
+        if non_speech_dirs is not None:
+            for non_speech_dir in non_speech_dirs:
+                non_speech_files += get_files_by_prefix_suffix(
+                    non_speech_dir, prefix='non_speech', suffix='npy')
+            for non_speech_file in non_speech_files:
+                key_name = get_key_name(non_speech_file)
+                self.non_speech_data_dict[key_name] = np.load(
+                    non_speech_file, allow_pickle=True).item()
 
         # pad for semantic tokens
         self.PAD: int = pad_val
@@ -91,6 +109,7 @@ class Text2SemanticDataset(Dataset):
         self.num_not_in = 0
         self.num_deleted_bigger = 0
         self.num_deleted_ps = 0
+        self.num_deleted_none_speech = 0
 
         if not self.inited:
             # 调用初始化函数
@@ -99,11 +118,17 @@ class Text2SemanticDataset(Dataset):
             self.inited = True
             print("self.total_semantic_data_len:", self.total_semantic_data_len)
             print("self.total_phoneme_data_len:", self.total_phoneme_data_len)
+
+            if self.num_deleted_none_speech > 0:
+                print(
+                    f"deleted {self.num_deleted_none_speech} audios who's audio tag are not 'speech'"
+                )
+
             if self.num_not_in > 0:
                 print(
                     f"there are {self.num_not_in} semantic datas not in phoneme datas"
                 )
-            
+
             if self.num_deleted_bigger > 0:
                 # 300 for small, 3461 for small + medium
                 print(
@@ -123,6 +148,10 @@ class Text2SemanticDataset(Dataset):
 
         semantic_data = self.semantic_data_dict[key_name]
         phoneme_data = self.phoneme_data_dict[key_name]
+        non_speech_data = None
+
+        if key_name in self.non_speech_data_dict:
+            non_speech_data = self.non_speech_data_dict[key_name]
 
         if self.max_sample is not None:
             semantic_data = semantic_data[:self.max_sample]
@@ -137,6 +166,12 @@ class Text2SemanticDataset(Dataset):
             # 先依次遍历
             # get str
             item_name = semantic_data['item_name'][i]
+            # 过滤掉非 speech 类型的样本
+
+            if non_speech_data is not None and item_name in non_speech_data.keys(
+            ):
+                self.num_deleted_none_speech += 1
+                continue
             # ASR 结果存在为空的情况 (txt_*.npy 里就没有这个 key)
             # or ASR 结果不为空但是转换为 phoneme 时报错
             # 都会导致 phoneme_*.npy 中没有这个 key
@@ -158,9 +193,8 @@ class Text2SemanticDataset(Dataset):
 
             # (T, ), 这个速度不会很慢，所以可以在一开始就处理，无需在 __getitem__ 里面单个处理
             phoneme_ids = self.phonemizer.transform(phoneme)
-            
+            # 过滤掉 phoneme / sec 的极端值
             ps_ratio = len(phoneme_ids) / (len(semantic_ids) / self.hz)
-            
             if ps_ratio > self.max_ps_ratio or ps_ratio < self.min_ps_ratio:
                 self.num_deleted_ps += 1
                 continue
@@ -238,7 +272,8 @@ if __name__ == '__main__':
     start_build_time = time.time()
     dataset = Text2SemanticDataset(
         phoneme_dirs=[root_dir_1, root_dir_2],
-        semantic_dirs=[root_dir_1, root_dir_2])
+        semantic_dirs=[root_dir_1, root_dir_2],
+        non_speech_dirs=[root_dir_1])
     batch_size = 12
     dataloader = DataLoader(
         dataset,

@@ -18,7 +18,7 @@ log_frequency=1
 # 'tcp://%s:%s' % (MASTER_ADDR, MASTER_PORT)
 dist_url='tcp://127.0.0.1:29505'
 # use which checkpoint file to test
-ckpt_name='33000iter.pth'
+ckpt_name='last.pth'
 # should be same with ${layer} in hubert_kms.sh
 layer=7
 # should be same with ${hubert_path} in hubert_kms.sh

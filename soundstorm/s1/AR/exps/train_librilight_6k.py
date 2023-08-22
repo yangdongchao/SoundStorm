@@ -63,7 +63,9 @@ def main(args):
         train_semantic_dirs=args.train_semantic_dirs,
         train_phoneme_dirs=args.train_phoneme_dirs,
         dev_semantic_dirs=args.dev_semantic_dirs,
-        dev_phoneme_dirs=args.dev_phoneme_dirs)
+        dev_phoneme_dirs=args.dev_phoneme_dirs,
+        train_non_speech_dirs=args.train_non_speech_dirs,
+        dev_non_speech_dirs=args.dev_non_speech_dirs)
     try:
         newest_ckpt_name = get_newest_ckpt(os.listdir(ckpt_dir))
         ckpt_path = ckpt_dir / newest_ckpt_name
@@ -113,12 +115,30 @@ if __name__ == '__main__':
         default='exp/default',
         help='directory to save the results')
 
+    parser.add_argument(
+        '--train_non_speech_dirs',
+        type=list,
+        nargs='+',
+        default=None,
+        help='dirs of train non_speech data')
+
+    parser.add_argument(
+        '--dev_non_speech_dirs',
+        type=list,
+        nargs='+',
+        default=None,
+        help='dirs of dev non_speech data')
+
     args = parser.parse_args()
 
     new_train_semantic_dirs = []
     new_train_phoneme_dirs = []
     new_dev_semantic_dirs = []
     new_dev_phoneme_dirs = []
+
+    new_train_non_speech_dirs = []
+    new_dev_non_speech_dirs = []
+
     # format dataset dirs
     for item in args.train_semantic_dirs:
         new_train_semantic_dirs.append(''.join(item))
@@ -135,6 +155,16 @@ if __name__ == '__main__':
     for item in args.dev_phoneme_dirs:
         new_dev_phoneme_dirs.append(''.join(item))
     args.dev_phoneme_dirs = new_dev_phoneme_dirs
+
+    if args.train_non_speech_dirs is not None:
+        for item in args.train_non_speech_dirs:
+            new_train_non_speech_dirs.append(''.join(item))
+        args.train_non_speech_dirs = new_train_non_speech_dirs
+
+    if args.dev_non_speech_dirs is not None:
+        for item in args.dev_non_speech_dirs:
+            new_dev_non_speech_dirs.append(''.join(item))
+        args.dev_non_speech_dirs = new_dev_non_speech_dirs
 
     logging.info(str(args))
     main(args)
