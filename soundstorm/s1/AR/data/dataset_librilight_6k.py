@@ -77,7 +77,6 @@ class Text2SemanticDataset(Dataset):
                 phoneme_file, allow_pickle=True).item()
 
         if non_speech_dirs is not None:
-            print("non_speech_dirs:", non_speech_dirs)
             for non_speech_dir in non_speech_dirs:
                 non_speech_files += get_files_by_prefix_suffix(
                     non_speech_dir, prefix='non_speech', suffix='npy')
