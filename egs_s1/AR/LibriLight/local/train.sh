@@ -14,6 +14,6 @@ OMP_NUM_THREADS=${omp_num} python3 ${BIN_DIR}/train_librilight_6k.py \
     --train_phoneme_dirs ''${root_dir}'/'${dump_dir}'/small/train/' ''${root_dir}'/'${dump_dir}'/medium/train/' \
     --dev_semantic_dirs ''${root_dir}'/'${dump_dir}'/small/dev/' ''${root_dir}'/'${dump_dir}'/medium/dev/' \
     --dev_phoneme_dirs ''${root_dir}'/'${dump_dir}'/small/dev/' ''${root_dir}'/'${dump_dir}'/medium/dev/' \
-    --train_non_speech_dirs ''${root_dir}'/'${dump_dir}'/small/train/' \
-    --dev_non_speech_dirs ''${root_dir}'/'${dump_dir}'/small/dev/' \
+    --train_non_speech_dirs ''${root_dir}'/'${dump_dir}'/small/train/' ''${root_dir}'/'${dump_dir}'/medium/train/' \
+    --dev_non_speech_dirs ''${root_dir}'/'${dump_dir}'/small/dev/' ''${root_dir}'/'${dump_dir}'/medium/dev/' \
     --output_dir=${root_dir}/${train_output_path}
