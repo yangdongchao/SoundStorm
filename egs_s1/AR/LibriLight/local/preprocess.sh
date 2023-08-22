@@ -1,6 +1,6 @@
 #!/bin/bash
-stage=8
-stop_stage=8
+stage=0
+stop_stage=0
 root_dir=$1
 data_dir=$2
 dump_dir=$3
@@ -168,7 +168,7 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
 fi
 
 # Use AudioTag tool BEATs to filter out audios who's top1 tag is not 'speech'
-
+# cost ~ 2.5 hours
 if [ ${stage} -le 8 ] && [ ${stop_stage} -ge 8 ]; then
     sub_dataset=small
     echo "get_beats_librilight.py for ${sub_dataset} start!"
