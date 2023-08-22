@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 import tqdm
 from soundstorm.s1.AR.text_processing.phonemizer import GruutPhonemizer
+from soundstorm.utils import check_txt_file
 
 
 def read_txts(txt_file: Path, nprocs: int=1):
@@ -28,18 +29,6 @@ def read_txts(txt_file: Path, nprocs: int=1):
     #[(utt_id, txt), ...]
     return_list = list(txt_dict.items())
     return return_list
-
-
-# 文本存在且不为空时 return True
-def check_txt_file(file_path):
-    try:
-        with open(file_path, 'r') as file:
-            text = file.readline().strip()
-        assert text.strip() != ''
-        return text
-    except Exception:
-        return False
-    return False
 
 
 def process_sentence(item, phonemizer, output_dir):
