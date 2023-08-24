@@ -8,8 +8,9 @@ root_dir=$4
 hubert_path=$5
 quantizer_path=$6
 prompt_wav_path=$7
+omp_num=4
 
-python3 ${BIN_DIR}/t2s.py \
+OMP_NUM_THREADS=${omp_num} python3 ${BIN_DIR}/t2s.py \
     --config_file=${config_path} \
     --ckpt_path=${root_dir}/${train_output_path}/ckpt/${ckpt_name} \
     --output_dir=${root_dir}/${train_output_path}/S1_t2s_output \

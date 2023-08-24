@@ -6,8 +6,9 @@ train_output_path=$2
 ckpt_name=$3
 root_dir=$4
 dump_dir=$5
+omp_num=4
 
-python3 ${BIN_DIR}/test.py \
+OMP_NUM_THREADS=${omp_num} python3 ${BIN_DIR}/test.py \
     --config_file=${config_path} \
     --ckpt_path=${root_dir}/${train_output_path}/ckpt/${ckpt_name} \
     --test_semantic_path=${root_dir}/${dump_dir}/test/semantic_token.tsv \
