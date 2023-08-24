@@ -105,7 +105,6 @@ class DALLE(nn.Module):
                          batch,
                          condition=None,
                          filter_ratio=0.0,
-                         temperature=1.0,
                          content_ratio=0.0,
                          return_rec=False,
                          replicate=1,
@@ -164,7 +163,6 @@ class DALLE(nn.Module):
         trans_out = self.transformer.sample(
             batch=batch,
             filter_ratio=filter_ratio,
-            temperature=temperature,
             return_att_weight=return_att_weight,
             return_logits=False,
             print_log=False,
@@ -208,31 +206,17 @@ class DALLE(nn.Module):
                     # 按比例保留部分的 token
                     content_token = content['content_token'][:, :
                                                              num_content_tokens]
-                if sample_type == 'debug':
-                    # not use in our progress
-                    trans_out = self.transformer.sample_debug(
-                        condition=condition['condition'],
-                        condition_mask=condition.get('condition_mask', None),
-                        content_token=content_token,
-                        filter_ratio=fr,
-                        temperature=temperature,
-                        return_att_weight=return_att_weight,
-                        return_logits=return_logits,
-                        content_logits=content.get('content_logits', None),
-                        sample_type=sample_type,
-                        **kwargs)
-                else:
-                    trans_out = self.transformer.sample(
-                        condition=condition['condition'],
-                        condition_mask=condition.get('condition_mask', None),
-                        content_token=content_token,
-                        filter_ratio=fr,
-                        temperature=temperature,
-                        return_att_weight=return_att_weight,
-                        return_logits=return_logits,
-                        content_logits=content.get('content_logits', None),
-                        sample_type=sample_type,
-                        **kwargs)
+
+                trans_out = self.transformer.sample(
+                    condition=condition['condition'],
+                    condition_mask=condition.get('condition_mask', None),
+                    content_token=content_token,
+                    filter_ratio=fr,
+                    return_att_weight=return_att_weight,
+                    return_logits=return_logits,
+                    content_logits=content.get('content_logits', None),
+                    sample_type=sample_type,
+                    **kwargs)
                 # 根据预测值,进行解码
                 # content_samples['cond1_cont{}_fr{}_image'.format(cr, fr)] = self.content_codec.decode(trans_out['content_token']) 
                 # bhwc = (zshape[0], zshape[2], zshape[3], zshape[1]) # 应该先获得未编码前的特征维度 ([b, 256, 5, 53])
@@ -261,8 +245,8 @@ class DALLE(nn.Module):
         return output
 
     @torch.no_grad()
-    def infer_one(self, batch, temperature=1):
-        output = self.generate_content(batch, temperature=temperature)
+    def infer_one(self, batch):
+        output = self.generate_content(batch)
         return output
 
     def forward(self, batch, name='none', **kwargs):

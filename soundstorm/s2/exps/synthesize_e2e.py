@@ -217,7 +217,6 @@ def evaluate(args,
     num_quant = 4
     sample_rate = 16000
     hz = 50
-    temperature = 0.8
 
     sentences = []
     with open(args.text_file, 'rt', encoding='utf-8') as f:
@@ -297,8 +296,7 @@ def evaluate(args,
 
             S2_st = t.elapse
             with torch.no_grad():
-                model_out = S2_model.infer_one(
-                    S2_batch, temperature=temperature)
+                model_out = S2_model.infer_one(S2_batch)
             S2_end = t.elapse
 
             content = model_out['token_pred']
@@ -316,10 +314,9 @@ def evaluate(args,
         print(f'{S1_end - S1_st} sec used in T2S')
         print(f'{S2_end - S2_st} sec used in S2A')
 
-        sf.write(
-            output_dir /
-            f"S1_topk_{S1_top_k}_temperature_{temperature}_s_{prompt_name}_t_{utt_id}.wav",
-            np.concatenate([prompt_wav, wav_gen]), sample_rate)
+        sf.write(output_dir /
+                 f"S1_topk_{S1_top_k}_s_{prompt_name}_t_{utt_id}.wav",
+                 np.concatenate([prompt_wav, wav_gen]), sample_rate)
     print(f"generation speed: {N / T}Hz, RTF: {sample_rate / (N / T) }")
 
 
