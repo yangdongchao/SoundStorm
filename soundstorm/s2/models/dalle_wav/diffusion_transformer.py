@@ -820,11 +820,7 @@ class DiffusionTransformer(nn.Module):
     def sample(self,
                batch,
                filter_ratio=0.5,
-               return_att_weight=False,
-               return_logits=False,
-               content_logits=None,
-               print_log=True,
-               **kwargs):
+               return_logits=False):
         real_content = batch['target_acoustics']
         batch_size = real_content.shape[0]
         device = self.log_at.device

@@ -105,16 +105,9 @@ class DALLE(nn.Module):
                          batch,
                          condition=None,
                          filter_ratio=0.0,
-                         content_ratio=0.0,
-                         return_rec=False,
                          replicate=1,
-                         return_att_weight=False,
                          sample_type="top0.85r"):
         self.eval()
-        # get the content
-        # cont_ = self.prepare_content(batch) 
-        # get condition
-        # condition = self.prepare_condition(batch, cont_) 
         con = batch['target_acoustics']
         batch_size = con.shape[0]
 
@@ -163,10 +156,7 @@ class DALLE(nn.Module):
         trans_out = self.transformer.sample(
             batch=batch,
             filter_ratio=filter_ratio,
-            return_att_weight=return_att_weight,
-            return_logits=False,
-            print_log=False,
-            sample_type=sample_type)
+            return_logits=False)
         out['token_pred'] = trans_out['pre_content_token']
         return out
 
