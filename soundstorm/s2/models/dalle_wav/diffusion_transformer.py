@@ -678,9 +678,11 @@ class DiffusionTransformer(nn.Module):
         x_mask_cpu_reverse = ~x_mask.cpu()
 
         # top1_acc = self.metric_top1(probs, targets)
-        top1_acc = self.topk_accuracy(probs, targets, k=1, mask=x_mask_cpu_reverse)
+        top1_acc = self.topk_accuracy(
+            probs, targets, k=1, mask=x_mask_cpu_reverse)
         # top10_acc = self.metric_top10(probs, targets)
-        top10_acc = self.topk_accuracy(probs, targets, k=10, mask=x_mask_cpu_reverse)
+        top10_acc = self.topk_accuracy(
+            probs, targets, k=10, mask=x_mask_cpu_reverse)
 
         top1_acc = top1_acc.to(vb_loss.device)
         top10_acc = top10_acc.to(vb_loss.device)
@@ -818,12 +820,7 @@ class DiffusionTransformer(nn.Module):
     def sample(self,
                batch,
                filter_ratio=0.5,
-               temperature=1.0,
-               return_att_weight=False,
-               return_logits=False,
-               content_logits=None,
-               print_log=True,
-               **kwargs):
+               return_logits=False):
         real_content = batch['target_acoustics']
         batch_size = real_content.shape[0]
         device = self.log_at.device

@@ -15,12 +15,14 @@ quantizer_path=$6
 
 dump_dir=$7
 
+omp_num=4
+
 stage=0
 stop_stage=0
 
 # input prompt_semantic and prompt_acoustic 
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
-    python3 ${BIN_DIR}/synthesize.py \
+    OMP_NUM_THREADS=${omp_num} python3 ${BIN_DIR}/synthesize.py \
         --config_file=${config_path} \
         --ckpt_path=${root_dir}/${train_output_path}/checkpoint/${ckpt_name} \
         --prompt_semantic_path=${root_dir}/${dump_dir}/test/synthesize_input/prompt_semantic.tsv \
@@ -33,7 +35,7 @@ fi
 
 # input prompt_semantic and prompt_acoustic 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-    python3 ${BIN_DIR}/synthesize.py \
+    OMP_NUM_THREADS=${omp_num} python3 ${BIN_DIR}/synthesize.py \
         --config_file=${config_path} \
         --ckpt_path=${root_dir}/${train_output_path}/checkpoint/${ckpt_name} \
         --prompt_wav_path=${root_dir}/${dump_dir}/test/synthesize_input/1001_134708_000013_000000.wav \

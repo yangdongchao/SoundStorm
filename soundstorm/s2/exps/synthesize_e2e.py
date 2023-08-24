@@ -217,7 +217,9 @@ def evaluate(args,
     num_quant = 4
     sample_rate = 16000
     hz = 50
-    temperature = 0.8
+    # 设置为 0.5 时重复情况较为严重, 表现为一个音拖得很长
+    # 1.1 音色有点不像了
+    S1_temperature = 1.05
 
     sentences = []
     with open(args.text_file, 'rt', encoding='utf-8') as f:
@@ -273,7 +275,8 @@ def evaluate(args,
                     S1_all_phoneme_len.cuda(),
                     S1_prompt.cuda(),
                     top_k=S1_top_k,
-                    early_stop_num=hz * S1_max_sec)
+                    early_stop_num=hz * S1_max_sec,
+                    temperature=S1_temperature)
             S1_end = t.elapse
 
             # 删除 prompt 对应的部分
@@ -297,8 +300,7 @@ def evaluate(args,
 
             S2_st = t.elapse
             with torch.no_grad():
-                model_out = S2_model.infer_one(
-                    S2_batch, temperature=temperature)
+                model_out = S2_model.infer_one(S2_batch)
             S2_end = t.elapse
 
             content = model_out['token_pred']
@@ -318,7 +320,7 @@ def evaluate(args,
 
         sf.write(
             output_dir /
-            f"S1_topk_{S1_top_k}_temperature_{temperature}_s_{prompt_name}_t_{utt_id}.wav",
+            f"S1_topk_{S1_top_k}_temperature_{S1_temperature}_s_{prompt_name}_t_{utt_id}.wav",
             np.concatenate([prompt_wav, wav_gen]), sample_rate)
     print(f"generation speed: {N / T}Hz, RTF: {sample_rate / (N / T) }")
 

@@ -128,7 +128,13 @@ class Text2SemanticDecoder(nn.Module):
         return loss, acc
 
     # 需要看下这个函数和 forward 的区别以及没有 semantic 的时候 prompts 输入什么
-    def infer(self, x, x_lens, prompts, top_k=-100, early_stop_num=-1):
+    def infer(self,
+              x,
+              x_lens,
+              prompts,
+              top_k: int=-100,
+              early_stop_num: int=-1,
+              temperature: float=1.0):
 
         x = self.ar_text_embedding(x)
         x = self.ar_text_position(x)
@@ -161,9 +167,8 @@ class Text2SemanticDecoder(nn.Module):
                 (xy_pos, None),
                 mask=xy_attn_mask, )
             logits = self.ar_predict_layer(xy_dec[:, -1])
-
             samples = topk_sampling(
-                logits, top_k=top_k, top_p=1.0, temperature=1.0)
+                logits, top_k=top_k, top_p=1.0, temperature=temperature)
 
             if early_stop_num != -1 and (y.shape[1] - prefix_len
                                          ) > early_stop_num:

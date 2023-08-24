@@ -30,4 +30,4 @@ model:
     dropout: 0
     EOS: 300
 inference:
-    top_k: 5
+    top_k: 3
