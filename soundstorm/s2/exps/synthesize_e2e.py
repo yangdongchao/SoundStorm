@@ -217,6 +217,7 @@ def evaluate(args,
     num_quant = 4
     sample_rate = 16000
     hz = 50
+    S1_temperature = 0.8
 
     sentences = []
     with open(args.text_file, 'rt', encoding='utf-8') as f:
@@ -272,7 +273,8 @@ def evaluate(args,
                     S1_all_phoneme_len.cuda(),
                     S1_prompt.cuda(),
                     top_k=S1_top_k,
-                    early_stop_num=hz * S1_max_sec)
+                    early_stop_num=hz * S1_max_sec,
+                    temperature=S1_temperature)
             S1_end = t.elapse
 
             # 删除 prompt 对应的部分
@@ -314,9 +316,10 @@ def evaluate(args,
         print(f'{S1_end - S1_st} sec used in T2S')
         print(f'{S2_end - S2_st} sec used in S2A')
 
-        sf.write(output_dir /
-                 f"S1_topk_{S1_top_k}_s_{prompt_name}_t_{utt_id}.wav",
-                 np.concatenate([prompt_wav, wav_gen]), sample_rate)
+        sf.write(
+            output_dir /
+            f"S1_topk_{S1_top_k}_temperature_{S1_temperature}_s_{prompt_name}_t_{utt_id}.wav",
+            np.concatenate([prompt_wav, wav_gen]), sample_rate)
     print(f"generation speed: {N / T}Hz, RTF: {sample_rate / (N / T) }")
 
 
