@@ -217,7 +217,9 @@ def evaluate(args,
     num_quant = 4
     sample_rate = 16000
     hz = 50
-    S1_temperature = 0.8
+    # 设置为 0.5 时重复情况较为严重, 表现为一个音拖得很长
+    # 1.1 音色有点不像了
+    S1_temperature = 1.05
 
     sentences = []
     with open(args.text_file, 'rt', encoding='utf-8') as f:
