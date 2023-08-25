@@ -222,10 +222,11 @@ class SemanticDataset(torch.utils.data.Dataset):
         # 为什么只取 第 0 个? => 因为 samples 是 list 长度一直是 1, batch_size must be 1 here
         # prompt_semantics 里面是 n 个 tensor, n 的大小不固定
         # len(prompt_semantics) = 100 ，表示 batch_size = 100, batch_size 是不固定的
-        prompt_semantics = samples[0]['prompt_semantic']
-        target_semantics = samples[0]['target_semantic']
-        prompt_acoustics = samples[0]['prompt_acoustic']
-        target_acoustics = samples[0]['target_acoustic']
+        sample = samples[0]
+        prompt_semantics = sample['prompt_semantic']
+        target_semantics = sample['target_semantic']
+        prompt_acoustics = sample['prompt_acoustic']
+        target_acoustics = sample['target_acoustic']
         # in this version, we do not use pading token any more, instead, we use eos token
         # 一个 batch 里面按照最长的补 0
         prompt_semantics = pad_2D(prompt_semantics, self.prompt_semantic_end_id)
