@@ -1,3 +1,4 @@
+import os
 import re
 
 
@@ -23,6 +24,23 @@ def get_newest_ckpt(string_list):
     # 获取最新的 ckpt 文件名
     newest_ckpt = sorted_info[0][2]
     return newest_ckpt
+
+
+def get_files_by_suffix(path: str, suffix: str):
+    files = []
+    for file_name in os.listdir(path):
+        if file_name.endswith(suffix):
+            files.append(os.path.join(path, file_name))
+    return files
+
+
+# 增加 prefix 是因为 phonemes_*.npy 同目录下还有 txt_*.npy
+def get_files_by_prefix_suffix(path: str, prefix: str, suffix: str):
+    files = []
+    for file_name in os.listdir(path):
+        if file_name.startswith(prefix) and file_name.endswith(suffix):
+            files.append(os.path.join(path, file_name))
+    return files
 
 
 # 文本存在且不为空时 return True

@@ -1,3 +1,15 @@
+# train.py 的功能
+# 原本的 train.py 调用了 solver.py 这里没有用 solover 而是直接开始 train 了
+# 给 solver 传入了 dataloader_info  包含 
+'''
+dataload_info = {
+        'train_loader': train_loader,
+        'dev_loader': dev_loader,
+        'train_iterations': train_iters,
+        'dev_iterations': dev_iters
+}
+'''
+# main() -> launch -> main_worker -> solver.train()
 import argparse
 import os
 import time
@@ -177,6 +189,7 @@ def main():
 
 
 def main_worker(local_rank, args):
+    # main_worker 的参数是 local_rank
     args.local_rank = local_rank
     args.global_rank = args.local_rank + args.node_rank * args.ngpus_per_node
     args.distributed = args.world_size > 1
@@ -237,6 +250,7 @@ def train(args, audio_gpt, train_loader, valid_loader, optimizer_g,
         train_acc = 0.0
         # if args.distributed:
         #     train_loader.sampler.set_epoch(epoch)
+        # 这里换成了迭代器
         for (prompt_semantic, target_semantic, prompt_acoustic,
              target_acoustic) in tqdm(train_loader):
             # x = x.to(args.device)

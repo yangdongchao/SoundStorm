@@ -14,17 +14,9 @@ import pandas as pd
 import torch
 from soundstorm.s1.AR.data.dataset import batch_sequences
 from soundstorm.s1.AR.text_processing.phonemizer import GruutPhonemizer
+from soundstorm.utils import get_files_by_prefix_suffix
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
-
-
-# 增加 prefix 是因为 phonemes_*.npy 同目录下还有 txt_*.npy
-def get_files_by_prefix_suffix(path: str, prefix: str, suffix: str):
-    files = []
-    for file_name in os.listdir(path):
-        if file_name.startswith(prefix) and file_name.endswith(suffix):
-            files.append(os.path.join(path, file_name))
-    return files
 
 
 def get_key_name(file_path: str):

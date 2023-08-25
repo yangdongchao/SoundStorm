@@ -37,7 +37,7 @@ class Solver(object):
         self.args = args
         self.model = model
         self.hificodec = hificodec
-
+        # dataloader is a dict
         self.dataloader = dataloader
         self.logger = logger
 

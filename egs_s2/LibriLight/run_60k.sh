@@ -8,15 +8,15 @@ source path.sh
 gpus=0,1,2,3
 stage=0
 stop_stage=100
-train_output_path='exp_librilight/test_ram'
+train_output_path='exp_librilight/60k_default'
 # dir to set part/all of dump dataset and experiment result
 root_dir='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm'
 # there should be *.wav 、*/*.wav or */*/*.wav in data_dir
 data_dir='~/datasets/LibriLight'
-config_path='conf/default.yaml'
+config_path='conf/60k_default.yaml'
 log_frequency=1
 # 'tcp://%s:%s' % (MASTER_ADDR, MASTER_PORT)
-dist_url='tcp://127.0.0.1:29505'
+dist_url='tcp://127.0.0.1:29507'
 # use which checkpoint file to test
 ckpt_name='last.pth'
 # should be same with ${layer} in hubert_kms.sh
@@ -27,8 +27,8 @@ quantizer_path=pretrained_model/hubert/train-clean-360_hubert_base_ls960_L7_km30
 dump_dir=dump_librilight
 # for synthesize_e2e.sh
 prompt_wav_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_libritts_base_L9_km500/test/synthesize_input/1006_135212_000060_000004.wav'
-S1_config_file='../../egs_s1/AR/LibriTTS/conf/base_L7bin300.yaml'
-S1_ckpt_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/SoundStorm/exp/base_L7_km300/ckpt/epoch=99-step=49000.ckpt'
+S1_config_file='../../egs_s1/AR/LibriLight/conf/default.yaml'
+S1_ckpt_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/SoundStorm/exp_librilight/small_medium_filter_nonspeech/ckpt/epoch=19-step=37000.ckpt'
 sil_token=4 # 4 for 300 bin
 
 # with the following command, you can choose the stage range you want to run
@@ -42,7 +42,7 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
 fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-    CUDA_VISIBLE_DEVICES=${gpus} ./local/train.sh ${config_path} ${train_output_path} ${root_dir} ${log_frequency} ${dist_url} ${dump_dir}|| exit -1
+    CUDA_VISIBLE_DEVICES=${gpus} ./local/train_60k.sh ${config_path} ${train_output_path} ${root_dir} ${log_frequency} ${dist_url} ${dump_dir}|| exit -1
 fi
 # test with test dataset, prompt and target should be the same audio
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then

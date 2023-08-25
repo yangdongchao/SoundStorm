@@ -1,3 +1,4 @@
+# 这里需要新增一个 main3_ddp.py 里面的 get_content 函数，为每个 rank 分配几个 split
 # train and eval control by iter not epoch
 # ------------------------------------------
 # Diffsound, By Dongchao Yang
@@ -7,16 +8,18 @@ import argparse
 import os
 import time
 import warnings
+from academicodec.models.hificodec.vqvae import VQVAE
 
 import torch
-from academicodec.models.hificodec.vqvae import VQVAE
-from soundstorm.s2.data.build_librilight_6k import build_dataloader
+from soundstorm.s2.data.build_librilight_60k import build_dataloader
 from soundstorm.s2.distributed.launch import launch
 from soundstorm.s2.engine.logger import Logger
+from soundstorm.s2.engine.solver_60k import Solver
 from soundstorm.s2.models.dalle_wav.build import build_model
 from soundstorm.s2.utils.misc import merge_opts_to_config
 from soundstorm.s2.utils.misc import modify_config_for_debug
 from soundstorm.s2.utils.misc import seed_everything
+from soundstorm.utils import get_files_by_prefix_suffix
 from soundstorm.utils import str2bool
 from soundstorm.utils.io import load_yaml_config
 
@@ -159,11 +162,6 @@ def get_args():
         default=None,
         nargs=argparse.REMAINDER, )
 
-    parser.add_argument(
-        "--train_with_iter",
-        type=str2bool,
-        default=False,
-        help="control training with epoch or iter")
     args = parser.parse_args()
     args.cwd = os.path.abspath(os.path.dirname(__file__))
 
@@ -212,7 +210,20 @@ def main():
         else:
             assert args.num_node > 1
         args.ngpus_per_node = torch.cuda.device_count()
-        args.world_size = args.ngpus_per_node * args.num_node  # 
+        args.world_size = args.ngpus_per_node * args.num_node
+    # 8 
+    # train 和 dev 不一定相同 split 的就要分到一起？
+    # 那 dev 的时候只在 0 卡 dev 的话，见到的数据永远是 0 卡分到的数据？
+    # ❗️ 看下是不是 SequentialSampler 影响的
+    # [[],[],[],[]]
+    semantic_file_groups, acoustic_file_groups = get_datasplit_for_rank(
+        semantic_dirs=args.train_semantic_dirs,
+        acoustic_dirs=args.train_acoustic_dirs,
+        global_rank_num=args.world_size)
+    
+    args.semantic_file_groups=semantic_file_groups
+    args.acoustic_file_groups =acoustic_file_groups
+    
     launch(
         main_worker,
         args.ngpus_per_node,
@@ -220,6 +231,137 @@ def main():
         args.node_rank,
         args.dist_url,
         args=(args, ))
+
+
+def get_semantic_file_key_name(semantic_file):
+    name_list = semantic_file.split("/")
+    # semantic_token_0_3.tsv -> 0_3
+    rank_name = '_'.join(name_list[-1].split('.')[0].split('_')[-2:])
+    # small/medium/large/duplicate_0_3
+    key_name = f'{name_list[-3]}_{rank_name}'
+    return key_name
+
+
+def get_acoustic_file_key_name(acoustic_file):
+    name_list = acoustic_file.split("/")
+    rank_name = '_'.join(name_list[-1].split('.')[0].split('_')[-2:])
+    key_name = f'{name_list[-4]}_{rank_name}'
+    return key_name
+
+
+# 用非空子列表填充空子列表
+# 可能会导致某些 data split 有多张卡都在用
+# 如有 7 个 split 但是有 8 张卡，则 split 0 会用 2 遍
+def fill_empty_group(original_list):
+    # 找出非空子列表
+    non_empty_sublists = [sublist for sublist in original_list if sublist]
+    result_list = []
+    for sublist in original_list:
+        if sublist:
+            result_list.append(sublist)
+        else:
+            non_empty_index = len(result_list) % len(non_empty_sublists)
+            result_list.append(non_empty_sublists[non_empty_index])
+    return result_list
+
+
+# 此处需要保证 len(file_list) >= n
+def greedy_file_split(file_list, n):
+    # 按文件大小从大到小排序
+    file_list.sort(key=os.path.getsize, reverse=True)
+    total_size = sum(os.path.getsize(file) for file in file_list)
+    avg_size_per_group = total_size // n
+    groups = [[] for _ in range(n)]
+    group_sizes = [0] * n
+
+    for file in file_list:
+        smallest_group = min(range(n), key=lambda i: group_sizes[i])
+        groups[smallest_group].append(file)
+        group_sizes[smallest_group] += os.path.getsize(file)
+
+    # len(file_list) < n 时, 用非空子列表填充空子列表
+    groups = fill_empty_group(groups)
+    return groups
+
+
+# 当 len(file_list) <  n 时，会有空的 group
+
+
+def split_files_by_size(file_list, n):
+    # return key_name = 'small_0_3'
+    groups = greedy_file_split(file_list, n)
+    groups_key_name = [
+        [get_semantic_file_key_name(file_path) for file_path in group]
+        for group in groups
+    ]
+    return groups, groups_key_name
+
+
+def get_acoustic_file_groups_by_groups_key_name(acoustic_files,
+                                                groups_key_name):
+    '''
+    dict:{key_name: acoustic_file_path}
+    '''
+    acoustic_key_name_file_dict = dict()
+    for acoustic_file in acoustic_files:
+        key = get_acoustic_file_key_name(acoustic_file)
+        acoustic_key_name_file_dict[key] = acoustic_file
+
+    acoustic_file_groups = []
+    # groups_key_name [[],[],[]]
+    for group_key_name in groups_key_name:
+        acoustic_file_group = []
+        for key_name in group_key_name:
+            acoustic_file_group.append(acoustic_key_name_file_dict[key_name])
+        acoustic_file_groups.append(acoustic_file_group)
+    return acoustic_file_groups
+
+
+def check_shapes(list1, list2):
+    # 检查子列表数量是否相等
+    if len(list1) != len(list2):
+        return False
+    
+    # 检查每个子列表的长度是否相等
+    for sublist1, sublist2 in zip(list1, list2):
+        if len(sublist1) != len(sublist2):
+            return False
+    return True
+
+
+# semantic_dirs, acoustic_dirs, 总 rank 数，当前 rank
+# 要保证每个 rank 分到的 split data 不重不漏，也就是只 random 一次
+# dist.get_rank()
+# 最后返回一个 list(list)，list 的长度是 global_rank_num 的长度
+def get_datasplit_for_rank(semantic_dirs, acoustic_dirs, global_rank_num: int):
+    all_semantic_files = []
+    all_acoustic_files = []
+    for semantic_dir in semantic_dirs:
+        all_semantic_files += get_files_by_prefix_suffix(
+            semantic_dir, prefix='semantic_token', suffix='tsv')
+    for acoustic_dir in acoustic_dirs:
+        all_acoustic_files += get_files_by_prefix_suffix(
+            acoustic_dir, prefix='hificodec', suffix='pth')
+    # [[file_path1, file_path2],[file_path3, file_path4],[file_path5, file_path6]]
+    semantic_file_groups, groups_key_name = split_files_by_size(
+        all_semantic_files, n=global_rank_num)
+    # acoustic 一定要和 semantic 对应才行
+    # 按照 groups_key_name 分配 all_acoustic_files
+    acoustic_file_groups = get_acoustic_file_groups_by_groups_key_name(
+        all_acoustic_files, groups_key_name)
+
+    semantic_file_groups_sizes = [
+        sum(os.path.getsize(file) for file in group)
+        for group in semantic_file_groups
+    ]
+    acoustic_file_groups_sizes = [
+        sum(os.path.getsize(file) for file in group)
+        for group in acoustic_file_groups
+    ]
+    print("semantic_file_groups_sizes:", semantic_file_groups_sizes)
+    print("acoustic_file_groups_sizes:", acoustic_file_groups_sizes)
+    assert check_shapes(semantic_file_groups, acoustic_file_groups) == True
+    return semantic_file_groups, acoustic_file_groups
 
 
 def main_worker(local_rank, args):
@@ -235,7 +377,9 @@ def main_worker(local_rank, args):
     # get logger
     logger = Logger(args)
     logger.save_config(config)
-
+    print("args.global_rank:",args.global_rank)
+    print("args.semantic_file_groups[args.global_rank]:",args.semantic_file_groups[args.global_rank])
+    '''
     # get model 
     model = build_model(config)
     if args.sync_bn:
@@ -252,20 +396,13 @@ def main_worker(local_rank, args):
         hificodec.eval()
     else:
         hificodec = None
-
+    '''
     # get dataloader
     print("start build dataloader...")
     start_build_time = time.time()
     dataloader_info = build_dataloader(config, args)
     print(f"time of build dataloader: {time.time() - start_build_time}")
-    # get solver
-    if args.train_with_iter is True:
-        from soundstorm.s2.engine.solver_iter import Solver
-        print("import Solver from soundstorm.s2.engine.solver_iter...")
-    else:
-        from soundstorm.s2.engine.solver import Solver
-        print("import Solver from soundstorm.s2.engine.solver...")
-
+    # solver_60k must train with iter
     solver = Solver(
         config=config,
         args=args,
@@ -287,7 +424,7 @@ def main_worker(local_rank, args):
         solver.resume()
     solver.train()
     torch.cuda.empty_cache()
-
+    
 
 if __name__ == '__main__':
     main()

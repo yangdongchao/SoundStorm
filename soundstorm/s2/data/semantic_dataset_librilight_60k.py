@@ -1,9 +1,9 @@
+import os
 import random
 
 import pandas as pd
 import torch
 from soundstorm.s2.data.semantic_dataset import pad_2D
-from soundstorm.utils import get_files_by_suffix
 
 # BaseDataset code from NATSpeech
 '''
