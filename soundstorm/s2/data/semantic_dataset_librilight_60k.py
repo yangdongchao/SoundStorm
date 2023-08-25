@@ -1,4 +1,3 @@
-import os
 import random
 
 import pandas as pd
@@ -17,8 +16,8 @@ from soundstorm.s2.data.semantic_dataset import pad_2D
 class SemanticDataset(torch.utils.data.Dataset):
     def __init__(self,
                  num_quant,
-                 semantic_dirs,
-                 acoustic_dirs,
+                 semantic_paths,
+                 acoustic_paths,
                  codec_name: str='hificodec',
                  max_token_one_batch: int=10000,
                  semantic_token_nums: int=1000,
@@ -28,13 +27,10 @@ class SemanticDataset(torch.utils.data.Dataset):
 
         self.semantic_data_dict = dict()
         self.acoustic_data_dict = dict()
-        semantic_files = []
-        acoustic_files = []
-        for semantic_dir in semantic_dirs:
-            semantic_files += get_files_by_suffix(semantic_dir, 'tsv')
-        for acoustic_dir in acoustic_dirs:
-            acoustic_files += get_files_by_suffix(acoustic_dir, 'pth')
 
+        semantic_files = semantic_paths
+        acoustic_files = acoustic_paths
+        print("semantic_files:", semantic_files)
         for semantic_file in semantic_files:
             name_list = semantic_file.split("/")
             # semantic_token_0_3.tsv -> 0_3
@@ -43,11 +39,13 @@ class SemanticDataset(torch.utils.data.Dataset):
             key_name = f'{name_list[-3]}_{rank_name}'
             self.semantic_data_dict[key_name] = pd.read_csv(
                 semantic_file, delimiter='\t')
+        print("load semantic_files done")
         for acoustic_file in acoustic_files:
             name_list = acoustic_file.split("/")
             rank_name = '_'.join(name_list[-1].split('.')[0].split('_')[-2:])
             key_name = f'{name_list[-4]}_{rank_name}'
             self.acoustic_data_dict[key_name] = torch.load(acoustic_file)
+        print("load acoustic_files done")
 
         self.num_quant = 4 if codec_name == 'hificodec' else num_quant
         # 16000 / 320 = 50
@@ -137,7 +135,8 @@ class SemanticDataset(torch.utils.data.Dataset):
             try:
                 acoustic_str = acoustic_data[item_name]
             except Exception:
-                print(f"{item_name} not in acoustic_data !")
+                # too many print for LibriTTS large
+                # print(f"{item_name} not in acoustic_data !")
                 continue
             # only keep the first num_quant codebooks
             # 这里表明 acoustic_token 的存储方式是 (C, T)

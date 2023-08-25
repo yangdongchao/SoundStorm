@@ -6,12 +6,21 @@ from torch.utils.data import ConcatDataset
 
 
 def build_dataloader(config, args=None, return_dataset=False):
+    print("args.global_rank:", args.global_rank)
+    print("args.train_semantic_file_groups[args.global_rank]:",
+          args.train_semantic_file_groups[args.global_rank])
+    print("-----------------------------------------------------------")
+    print("args.dev_semantic_file_groups[args.global_rank]:",
+          args.dev_semantic_file_groups[args.global_rank])
+
     dataset_cfg = config['dataloader']
     batch_size = 1
     train_dataset = []
     for ds_cfg in dataset_cfg['train_datasets']:
-        ds_cfg['params']['semantic_dirs'] = args.train_semantic_dirs
-        ds_cfg['params']['acoustic_dirs'] = args.train_acoustic_dirs
+        ds_cfg['params']['semantic_paths'] = args.train_semantic_file_groups[
+            args.global_rank]
+        ds_cfg['params']['acoustic_paths'] = args.train_acoustic_file_groups[
+            args.global_rank]
         ds_cfg['params']['max_token_one_batch'] = dataset_cfg[
             'max_token_one_batch']
         ds = instantiate_from_config(ds_cfg)
@@ -22,8 +31,10 @@ def build_dataloader(config, args=None, return_dataset=False):
         train_dataset = train_dataset[0]
     dev_dataset = []
     for ds_cfg in dataset_cfg['dev_datasets']:
-        ds_cfg['params']['semantic_dirs'] = args.dev_semantic_dirs
-        ds_cfg['params']['acoustic_dirs'] = args.dev_acoustic_dirs
+        ds_cfg['params']['semantic_paths'] = args.dev_semantic_file_groups[
+            args.global_rank]
+        ds_cfg['params']['acoustic_paths'] = args.dev_acoustic_file_groups[
+            args.global_rank]
         ds_cfg['params']['max_token_one_batch'] = dataset_cfg[
             'max_token_one_batch']
         ds = instantiate_from_config(ds_cfg)

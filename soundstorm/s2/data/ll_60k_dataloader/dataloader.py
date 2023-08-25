@@ -114,6 +114,7 @@ ontent = 'semantic:' + '/apdcephfs_cq2/share_1297902/speech_user/shaunxliu/dongc
 content = content + ",acoustic:" + '/apdcephfs_cq2/share_1297902/speech_user/shaunxliu/dongchao/code5/SpearTTS_32gpu_test/data_infor/acoustic/gpu_' + str(
     args.global_rank) + '.pth'
 '''
+# 也是全 load 进来了
 def load_all_data(data_files):
     # 一个字符串，用逗号分割 
     # => 我们可以传2 个 list semantic_list, acoustic_list, 然后对应的 split 存到对应的字典

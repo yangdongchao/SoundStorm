@@ -216,14 +216,22 @@ def main():
     # 那 dev 的时候只在 0 卡 dev 的话，见到的数据永远是 0 卡分到的数据？
     # ❗️ 看下是不是 SequentialSampler 影响的
     # [[],[],[],[]]
-    semantic_file_groups, acoustic_file_groups = get_datasplit_for_rank(
+    train_semantic_file_groups, train_acoustic_file_groups = get_datasplit_for_rank(
         semantic_dirs=args.train_semantic_dirs,
         acoustic_dirs=args.train_acoustic_dirs,
         global_rank_num=args.world_size)
-    
-    args.semantic_file_groups=semantic_file_groups
-    args.acoustic_file_groups =acoustic_file_groups
-    
+
+    args.train_semantic_file_groups = train_semantic_file_groups
+    args.train_acoustic_file_groups = train_acoustic_file_groups
+
+    dev_semantic_file_groups, dev_acoustic_file_groups = get_datasplit_for_rank(
+        semantic_dirs=args.dev_semantic_dirs,
+        acoustic_dirs=args.dev_acoustic_dirs,
+        global_rank_num=args.world_size)
+
+    args.dev_semantic_file_groups = dev_semantic_file_groups
+    args.dev_acoustic_file_groups = dev_acoustic_file_groups
+
     launch(
         main_worker,
         args.ngpus_per_node,
@@ -321,7 +329,7 @@ def check_shapes(list1, list2):
     # 检查子列表数量是否相等
     if len(list1) != len(list2):
         return False
-    
+
     # 检查每个子列表的长度是否相等
     for sublist1, sublist2 in zip(list1, list2):
         if len(sublist1) != len(sublist2):
@@ -360,7 +368,7 @@ def get_datasplit_for_rank(semantic_dirs, acoustic_dirs, global_rank_num: int):
     ]
     print("semantic_file_groups_sizes:", semantic_file_groups_sizes)
     print("acoustic_file_groups_sizes:", acoustic_file_groups_sizes)
-    assert check_shapes(semantic_file_groups, acoustic_file_groups) == True
+    assert check_shapes(semantic_file_groups, acoustic_file_groups) is True
     return semantic_file_groups, acoustic_file_groups
 
 
@@ -377,8 +385,6 @@ def main_worker(local_rank, args):
     # get logger
     logger = Logger(args)
     logger.save_config(config)
-    print("args.global_rank:",args.global_rank)
-    print("args.semantic_file_groups[args.global_rank]:",args.semantic_file_groups[args.global_rank])
     '''
     # get model 
     model = build_model(config)
@@ -402,6 +408,8 @@ def main_worker(local_rank, args):
     start_build_time = time.time()
     dataloader_info = build_dataloader(config, args)
     print(f"time of build dataloader: {time.time() - start_build_time}")
+    '''
+    # 每个 rank 都有自己的 dataloader, 每个 dataloader 加载不同的 split
     # solver_60k must train with iter
     solver = Solver(
         config=config,
@@ -424,7 +432,8 @@ def main_worker(local_rank, args):
         solver.resume()
     solver.train()
     torch.cuda.empty_cache()
-    
+    '''
+
 
 if __name__ == '__main__':
     main()
