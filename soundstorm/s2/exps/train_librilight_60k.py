@@ -14,7 +14,7 @@ import torch
 from soundstorm.s2.data.build_librilight_60k import build_dataloader
 from soundstorm.s2.distributed.launch import launch
 from soundstorm.s2.engine.logger import Logger
-from soundstorm.s2.engine.solver_iter import Solver
+from soundstorm.s2.engine.solver_iter_60k import Solver
 from soundstorm.s2.models.dalle_wav.build import build_model
 from soundstorm.s2.utils.misc import merge_opts_to_config
 from soundstorm.s2.utils.misc import modify_config_for_debug

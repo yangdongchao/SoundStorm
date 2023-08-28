@@ -287,7 +287,8 @@ class Solver(object):
                 else:
                     samples = model.infer_one(batch=batch)
             else:
-                samples = model.infer_one(batch=batch[0].cuda())
+                samples = model.infer_one(
+                    batch=batch[0].cuda(self.args.local_rank))
 
             # shape (100, 1416)
             content = samples['token_pred']
@@ -326,9 +327,9 @@ class Solver(object):
         if self.debug is False:
             for k, v in batch.items():
                 if torch.is_tensor(v):
-                    batch[k] = v.cuda()
+                    batch[k] = v.cuda(self.args.local_rank)
         else:
-            batch = batch[0].cuda()
+            batch = batch[0].cuda(self.args.local_rank)
         for op_sc_n, op_sc in self.optimizer_and_scheduler.items():
             if phase == 'train':
                 # this part is nothing
@@ -361,8 +362,8 @@ class Solver(object):
                         with autocast():
                             output = self.model(**input)
                     else:
+                        #  valid is_primary 时卡到这里
                         output = self.model(**input)
-
             if phase == 'train':
                 if op_sc['optimizer']['step_iteration'] > 0 and (
                         self.last_iter
@@ -398,7 +399,6 @@ class Solver(object):
                 # update ema model
                 if self.ema:
                     self.ema.update(iteration=self.last_iter)
-
             loss[op_sc_n] = {
                 k: v
                 for k, v in output.items() if ('loss' in k or 'acc' in k)
@@ -577,8 +577,8 @@ class Solver(object):
                     lt=format_seconds(iter_time *
                                       (self.total_iters - self.last_iter)))
                 # n 卡会打印 n 遍
-                # print(info)
-                self.logger.log_info(info)
+                print(info)
+                # self.logger.log_info(info)
 
             itr_start = time.time()
             # self.last_iter 为 0 时不 validate，方便快速 debug 训练
@@ -596,50 +596,56 @@ class Solver(object):
             self.last_iter += 1
 
     def validate_iter(self):
-        val = True
-        if 'dev_loader' not in self.dataloader:
-            val = False
-        if val:
-            self.model.eval()
-            overall_loss = None
-            first_batch = None
-            # 求所有 dev batch loss 的均值
-            for itr, batch in enumerate(self.dataloader['dev_loader']):
-                if first_batch is None:
-                    first_batch = batch
-                # val 直接用 is_primary() 时卡到这里了
-                loss = self.step(batch, phase='val')
-                for loss_n, loss_dict in loss.items():
-                    loss[loss_n] = reduce_dict(loss_dict)
-                if overall_loss is None:
-                    overall_loss = loss
-                else:
+        # 仅在 0 卡上 valid
+        if is_primary():
+            val = True
+            if 'dev_loader' not in self.dataloader:
+                val = False
+            if val:
+                self.model.eval()
+                overall_loss = None
+                first_batch = None
+                # 求所有 dev batch loss 的均值
+                for itr, batch in enumerate(self.dataloader['dev_loader']):
+                    if first_batch is None:
+                        first_batch = batch
+                    loss = self.step(batch, phase='val')
                     for loss_n, loss_dict in loss.items():
-                        for k, v in loss_dict.items():
-                            overall_loss[loss_n][k] = (
-                                overall_loss[loss_n][k] * itr + loss[loss_n][k]
-                            ) / (itr + 1)
+                        # reduce_dict 要等别的卡, 这里不调用 reduce_dict 在多卡时就不会卡住了
+                        # 如果是仅在 0 卡 valid, 则一定不能用 reduce_dict
+                        # loss[loss_n] = reduce_dict(loss_dict)
+                        loss[loss_n] = loss_dict
+                    if overall_loss is None:
+                        overall_loss = loss
+                    else:
+                        for loss_n, loss_dict in loss.items():
+                            for k, v in loss_dict.items():
+                                overall_loss[loss_n][k] = (
+                                    overall_loss[loss_n][k] * itr +
+                                    loss[loss_n][k]) / (itr + 1)
 
-            if self.logger:
-                info = ''
-                for loss_n, loss_dict in overall_loss.items():
-                    info += '' if loss_n == 'none' else ' {}'.format(loss_n)
-                    info += 'Eval: iter {}/{}'.format(self.last_iter,
-                                                      self.max_iters)
-                    for k in loss_dict:
-                        info += ' | {}: {:.4f}'.format(k, float(loss_dict[k]))
-                        self.logger.add_scalar(
-                            tag='val/{}/{}'.format(loss_n, k),
-                            scalar_value=float(loss_dict[k]),
-                            global_step=self.last_iter)
-                self.logger.log_info(info)
-            if is_primary():
-                # sample
-                # 用的是第一个 batch 的数据
-                if self.last_iter % self.sample_iters == 0:
-                    self.sample(first_batch, phase='val', step_type='iteration')
-            # add model.train() after validate_iter, cause we only call model.train() in self.train_epoch()'s start
-            self.model.train()
+                if self.logger:
+                    info = ''
+                    for loss_n, loss_dict in overall_loss.items():
+                        info += '' if loss_n == 'none' else ' {}'.format(loss_n)
+                        info += 'Eval: iter {}/{}'.format(self.last_iter,
+                                                          self.max_iters)
+                        for k in loss_dict:
+                            info += ' | {}: {:.4f}'.format(k,
+                                                           float(loss_dict[k]))
+                            self.logger.add_scalar(
+                                tag='val/{}/{}'.format(loss_n, k),
+                                scalar_value=float(loss_dict[k]),
+                                global_step=self.last_iter)
+                    self.logger.log_info(info)
+
+                    # sample
+                    # 用的是第一个 batch 的数据
+                    if self.last_iter % self.sample_iters == 0:
+                        self.sample(
+                            first_batch, phase='val', step_type='iteration')
+                # add model.train() after validate_iter, cause we only call model.train() in self.train_epoch()'s start
+                self.model.train()
 
     # train.py 先调用 solver.resume() 后调用 solver.train()
     def train(self):
