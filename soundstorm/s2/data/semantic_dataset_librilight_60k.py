@@ -2,6 +2,7 @@ import random
 
 import pandas as pd
 import torch
+import torch.distributed as dist
 from soundstorm.s2.data.semantic_dataset import pad_2D
 
 # BaseDataset code from NATSpeech
@@ -85,6 +86,9 @@ class SemanticDataset(torch.utils.data.Dataset):
             self.inited = True
             print("self.total_semantic_data_len:", self.total_semantic_data_len)
             print("self.total_acoustic_data_len:", self.total_acoustic_data_len)
+            # 组成了多少个 batch, data_len: self.__len__() ~= 20: 1
+            # 即 max_token_one_batch = 3k 时约 20 句组成一个 batch (平均, 因为句子先按照长度排序了)
+            # print("self.__len__():",self.__len__())
 
     def init_batch(self, key_name: str):
         # this function aims to prepare batch
@@ -265,3 +269,99 @@ class SemanticDataset(torch.utils.data.Dataset):
         new_samples['target_acoustics'] = torch.from_numpy(target_acoustics)
         new_samples['x_mask'] = torch.from_numpy(x_mask[:, 0, :])
         return new_samples
+
+
+class SequentialSampler(object):
+    def __init__(self, sequence):
+        self.seq = sequence
+
+    def __iter__(self):
+        # 直接返回顺序的 batch index, 不打乱
+        return iter(self.seq)
+
+    def __len__(self):
+        return len(self.seq)
+
+    def refresh(self):
+        pass
+
+
+# 如果直接用 torch.utils.data.distributed.DistributedSampler, 他会认为数据是给所有 rank 的
+# 那么如果有 n 块卡，这块卡只会取 1/n 的数据，而其他卡看不到剩下 (n-1)/n 的数据，就会浪费
+# 所以需要特别改造 DDPSyncSampler, ❗️保证这个 rank 能看到所有的数据
+class DDPSyncSampler(object):
+    def __init__(self, size, seed, rank, args, shuffle=True):
+        # DataSet 中总 batch 数，
+        self.size = size
+        self.seed = seed
+        # global_rank, 对完整数据集也是按照 global_rank 数划分的
+        self.rank = rank
+        self.epoch = 0
+        self.shuffle = shuffle
+        # ❗️ Ensure all GPUs have the same number of batches by adding redundant
+        # sampling indexes. The redundant samples are not shuffled.
+        # Cannot access the "local_rank" variable so it is a bit dirty
+        # get local rank
+        # 此处 local_rank 主要是为了设置 device
+        local_rank = args.local_rank
+        device = torch.device(f"cuda:{local_rank}")
+        size = torch.Tensor([size]).to(device)
+        # 获得总卡数
+        # dist.get_world_size 对应 dist.get_rank() 是 global_rank
+        # 为 global_rank 的每个 rank 都造一个 size
+        gathered_size = [size for _ in range(dist.get_world_size())]
+        # list 里面每个值依旧一样
+        torch.distributed.all_gather(gathered_size, size)
+        # 计算当前 gpu 需要 padding 的 batch 数量
+        # always 0
+        self.pad_number = int(max(gathered_size).item() - size.item())
+        # 对 batch index 进行一系列操作, 但是长度还是与 dataset.__len__() 保持一致
+        self.refresh()
+
+    def refresh(self):
+        seq = list(range(self.size))
+        # introduce local randomness by local random shuffling
+        # otherwise each global batch will be identical across epochs
+        chunk_size, start = 10, 0
+        random.seed(self.rank + self.seed + self.epoch)
+        while start < self.size:
+            # 分段
+            seg = seq[start:min(self.size, start + chunk_size)]
+            # 打乱该段
+            local_random_order = random.sample(list(range(len(seg))), len(seg))
+            seg = [seg[i] for i in local_random_order]
+            seq[start:min(self.size, start + chunk_size)] = seg
+            start += len(seg)
+
+        # even after this shuffle, the batch lengths across GPUs 
+        # are very similar
+        # 上面是段内打乱，这里是段和段的顺序打乱
+        if self.shuffle:
+            random.seed(self.seed + self.epoch)
+            random.shuffle(seq)
+
+        if self.pad_number > 0:
+            seq = list(range(self.pad_number)) + seq
+        # list(int), 每个值表示 batch index
+        self.seq = seq
+        self.epoch += 1
+
+    def set_epoch(self, epoch):
+        self.epoch = epoch
+
+    def __iter__(self):
+        return iter(self.seq)
+
+    def __len__(self):
+        return len(self.seq)
+
+    def get_state_dict(self):
+        state_dict = {
+            'epoch': self.epoch,
+            'seed': self.seed,
+        }
+        return state_dict
+
+    def load_state_dict(self, d):
+        for k, v in d.items():
+            setattr(self, k, v)

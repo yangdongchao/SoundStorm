@@ -14,7 +14,7 @@ import torch
 from soundstorm.s2.data.build_librilight_60k import build_dataloader
 from soundstorm.s2.distributed.launch import launch
 from soundstorm.s2.engine.logger import Logger
-from soundstorm.s2.engine.solver_60k import Solver
+from soundstorm.s2.engine.solver_iter import Solver
 from soundstorm.s2.models.dalle_wav.build import build_model
 from soundstorm.s2.utils.misc import merge_opts_to_config
 from soundstorm.s2.utils.misc import modify_config_for_debug
@@ -216,6 +216,7 @@ def main():
     # 那 dev 的时候只在 0 卡 dev 的话，见到的数据永远是 0 卡分到的数据？
     # ❗️ 看下是不是 SequentialSampler 影响的
     # [[],[],[],[]]
+    # 按照 global_rank 数划分
     train_semantic_file_groups, train_acoustic_file_groups = get_datasplit_for_rank(
         semantic_dirs=args.train_semantic_dirs,
         acoustic_dirs=args.train_acoustic_dirs,
@@ -290,9 +291,6 @@ def greedy_file_split(file_list, n):
     # len(file_list) < n 时, 用非空子列表填充空子列表
     groups = fill_empty_group(groups)
     return groups
-
-
-# 当 len(file_list) <  n 时，会有空的 group
 
 
 def split_files_by_size(file_list, n):
@@ -374,6 +372,7 @@ def get_datasplit_for_rank(semantic_dirs, acoustic_dirs, global_rank_num: int):
 
 def main_worker(local_rank, args):
     args.local_rank = local_rank
+    # 这里的 global_rank 为啥不直接用 dist.get_rank()
     args.global_rank = args.local_rank + args.node_rank * args.ngpus_per_node
     args.distributed = args.world_size > 1
     # load config

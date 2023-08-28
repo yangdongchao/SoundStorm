@@ -37,7 +37,7 @@ class Solver(object):
         self.args = args
         self.model = model
         self.hificodec = hificodec
-
+        # dataloader is a dict
         self.dataloader = dataloader
         self.logger = logger
 
@@ -54,6 +54,7 @@ class Solver(object):
 
         self.last_iter = -1
         self.total_iters = self.max_iters
+        # self.total_epochs 不会在后面的程序中用到
         self.total_epochs = self.total_iters / self.dataloader[
             'train_iterations']
         print("self.total_epochs:", self.total_epochs)
@@ -111,8 +112,8 @@ class Solver(object):
         else:
             self.ema = None
         self.logger.log_info(str(get_model_parameters_info(self.model)))
-        #self.model.cuda() 
         self.model.to(self.args.local_rank)
+        # 多机多卡时, 则每台机器的 0 卡有如下操作
         if args.local_rank == 0:
             self.hificodec.to(self.args.local_rank)
         self.device = self.model.device
