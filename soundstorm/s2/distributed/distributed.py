@@ -113,7 +113,7 @@ def all_gather(data):
 
     return data_list
 
-
+# 只有 rank 为 0 的进程会计算均值，其他进程会保持原始值
 def reduce_dict(input_dict, average=True):
     world_size = get_world_size()
     if world_size < 2:
@@ -121,7 +121,6 @@ def reduce_dict(input_dict, average=True):
     with torch.no_grad():
         keys = []
         values = []
-
         for k in sorted(input_dict.keys()):
             keys.append(k)
             values.append(input_dict[k])

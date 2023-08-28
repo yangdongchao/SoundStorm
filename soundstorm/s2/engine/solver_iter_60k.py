@@ -362,7 +362,6 @@ class Solver(object):
                         with autocast():
                             output = self.model(**input)
                     else:
-                        #  valid is_primary 时卡到这里
                         output = self.model(**input)
             if phase == 'train':
                 if op_sc['optimizer']['step_iteration'] > 0 and (
@@ -406,53 +405,51 @@ class Solver(object):
         return loss
 
     def save_iter(self, force=False):
-        if is_primary():
-            save = True
-            if save or force:
-                state_dict = {
-                    'last_iter':
-                    self.last_iter,
-                    'model':
-                    self.model.module.state_dict()
-                    if isinstance(self.model,
-                                  torch.nn.parallel.DistributedDataParallel)
-                    else self.model.state_dict()
-                }
-                if self.ema:
-                    state_dict['ema'] = self.ema.state_dict()
-                if self.clip_grad_norm:
-                    state_dict[
-                        'clip_grad_norm'] = self.clip_grad_norm.state_dict()
+        save = True
+        if save or force:
+            state_dict = {
+                'last_iter':
+                self.last_iter,
+                'model':
+                self.model.module.state_dict()
+                if isinstance(self.model,
+                              torch.nn.parallel.DistributedDataParallel) else
+                self.model.state_dict()
+            }
+            if self.ema:
+                state_dict['ema'] = self.ema.state_dict()
+            if self.clip_grad_norm:
+                state_dict['clip_grad_norm'] = self.clip_grad_norm.state_dict()
 
-                # add optimizers and schedulers
-                optimizer_and_scheduler = {}
-                for op_sc_n, op_sc in self.optimizer_and_scheduler.items():
-                    state_ = {}
-                    for k in op_sc:
-                        if k in ['optimizer', 'scheduler']:
-                            op_or_sc = {
-                                kk: vv
-                                for kk, vv in op_sc[k].items() if kk != 'module'
-                            }
-                            op_or_sc['module'] = op_sc[k]['module'].state_dict()
-                            state_[k] = op_or_sc
-                        else:
-                            state_[k] = op_sc[k]
-                    optimizer_and_scheduler[op_sc_n] = state_
+            # add optimizers and schedulers
+            optimizer_and_scheduler = {}
+            for op_sc_n, op_sc in self.optimizer_and_scheduler.items():
+                state_ = {}
+                for k in op_sc:
+                    if k in ['optimizer', 'scheduler']:
+                        op_or_sc = {
+                            kk: vv
+                            for kk, vv in op_sc[k].items() if kk != 'module'
+                        }
+                        op_or_sc['module'] = op_sc[k]['module'].state_dict()
+                        state_[k] = op_or_sc
+                    else:
+                        state_[k] = op_sc[k]
+                optimizer_and_scheduler[op_sc_n] = state_
 
-                state_dict['optimizer_and_scheduler'] = optimizer_and_scheduler
-                # save per save_epochs
-                if save:
-                    save_path = os.path.join(
-                        self.ckpt_dir, '{}iter.pth'.format(self.last_iter))
-                    torch.save(state_dict, save_path)
-                    self.logger.log_info('saved in {}'.format(save_path))
-
-                # save with the last name
-                # save per epoch
-                save_path = os.path.join(self.ckpt_dir, 'last.pth')
+            state_dict['optimizer_and_scheduler'] = optimizer_and_scheduler
+            # save per save_epochs
+            if save:
+                save_path = os.path.join(self.ckpt_dir,
+                                         '{}iter.pth'.format(self.last_iter))
                 torch.save(state_dict, save_path)
                 self.logger.log_info('saved in {}'.format(save_path))
+
+            # save with the last name
+            # save per epoch
+            save_path = os.path.join(self.ckpt_dir, 'last.pth')
+            torch.save(state_dict, save_path)
+            self.logger.log_info('saved in {}'.format(save_path))
 
     def resume(
             self,
@@ -542,6 +539,7 @@ class Solver(object):
                     info += ' ||'
                     loss_dict = reduce_dict(loss_dict)
                     info += '' if loss_n == 'none' else ' {}'.format(loss_n)
+                    # k: loss, top10_acc, top1_acc
                     for k in loss_dict:
                         info += ' | {}: {:.4f}'.format(k, float(loss_dict[k]))
                         self.logger.add_scalar(
@@ -578,17 +576,19 @@ class Solver(object):
                                       (self.total_iters - self.last_iter)))
                 # n 卡会打印 n 遍
                 print(info)
-                # self.logger.log_info(info)
+                self.logger.log_info(info)
 
             itr_start = time.time()
             # self.last_iter 为 0 时不 validate，方便快速 debug 训练
+            # 但是加载已经保存的模型后还是会在过了一个 train iter 后进行 valid
             if self.last_iter != 0 and self.last_iter % self.dev_iters == 0:
-                print("start validate_iter ...")
-                self.validate_iter()
+                if is_primary():
+                    print("start validate_iter ...")
+                    self.validate_iter()
             if self.last_iter != 0 and self.last_iter % self.save_iters == 0:
-                print("start save_iter ...")
-                self.save_iter()
-
+                if is_primary():
+                    print("start save_iter ...")
+                    self.save_iter()
             if self.last_iter >= self.max_iters:
                 print("training done......")
                 break
@@ -597,55 +597,52 @@ class Solver(object):
 
     def validate_iter(self):
         # 仅在 0 卡上 valid
-        if is_primary():
-            val = True
-            if 'dev_loader' not in self.dataloader:
-                val = False
-            if val:
-                self.model.eval()
-                overall_loss = None
-                first_batch = None
-                # 求所有 dev batch loss 的均值
-                for itr, batch in enumerate(self.dataloader['dev_loader']):
-                    if first_batch is None:
-                        first_batch = batch
-                    loss = self.step(batch, phase='val')
+        val = True
+        if 'dev_loader' not in self.dataloader:
+            val = False
+        if val:
+            self.model.eval()
+            overall_loss = None
+            first_batch = None
+            # 求所有 dev batch loss 的均值
+            for itr, batch in enumerate(self.dataloader['dev_loader']):
+                if first_batch is None:
+                    first_batch = batch
+                loss = self.step(batch, phase='val')
+                for loss_n, loss_dict in loss.items():
+                    # reduce_dict 要等别的卡, 这里不调用 reduce_dict 在多卡时就不会卡住了
+                    # 如果是仅在 0 卡 valid, 则一定不能用 reduce_dict
+                    # loss[loss_n] = reduce_dict(loss_dict)
+                    loss[loss_n] = loss_dict
+                if overall_loss is None:
+                    overall_loss = loss
+                else:
                     for loss_n, loss_dict in loss.items():
-                        # reduce_dict 要等别的卡, 这里不调用 reduce_dict 在多卡时就不会卡住了
-                        # 如果是仅在 0 卡 valid, 则一定不能用 reduce_dict
-                        # loss[loss_n] = reduce_dict(loss_dict)
-                        loss[loss_n] = loss_dict
-                    if overall_loss is None:
-                        overall_loss = loss
-                    else:
-                        for loss_n, loss_dict in loss.items():
-                            for k, v in loss_dict.items():
-                                overall_loss[loss_n][k] = (
-                                    overall_loss[loss_n][k] * itr +
-                                    loss[loss_n][k]) / (itr + 1)
+                        for k, v in loss_dict.items():
+                            overall_loss[loss_n][k] = (
+                                overall_loss[loss_n][k] * itr + loss[loss_n][k]
+                            ) / (itr + 1)
 
-                if self.logger:
-                    info = ''
-                    for loss_n, loss_dict in overall_loss.items():
-                        info += '' if loss_n == 'none' else ' {}'.format(loss_n)
-                        info += 'Eval: iter {}/{}'.format(self.last_iter,
-                                                          self.max_iters)
-                        for k in loss_dict:
-                            info += ' | {}: {:.4f}'.format(k,
-                                                           float(loss_dict[k]))
-                            self.logger.add_scalar(
-                                tag='val/{}/{}'.format(loss_n, k),
-                                scalar_value=float(loss_dict[k]),
-                                global_step=self.last_iter)
-                    self.logger.log_info(info)
+            if self.logger:
+                info = ''
+                for loss_n, loss_dict in overall_loss.items():
+                    info += '' if loss_n == 'none' else ' {}'.format(loss_n)
+                    info += 'Eval: iter {}/{}'.format(self.last_iter,
+                                                      self.max_iters)
+                    for k in loss_dict:
+                        info += ' | {}: {:.4f}'.format(k, float(loss_dict[k]))
+                        self.logger.add_scalar(
+                            tag='val/{}/{}'.format(loss_n, k),
+                            scalar_value=float(loss_dict[k]),
+                            global_step=self.last_iter)
+                self.logger.log_info(info)
 
-                    # sample
-                    # 用的是第一个 batch 的数据
-                    if self.last_iter % self.sample_iters == 0:
-                        self.sample(
-                            first_batch, phase='val', step_type='iteration')
-                # add model.train() after validate_iter, cause we only call model.train() in self.train_epoch()'s start
-                self.model.train()
+                # sample
+                # 用的是第一个 batch 的数据
+                if self.last_iter % self.sample_iters == 0:
+                    self.sample(first_batch, phase='val', step_type='iteration')
+            # add model.train() after validate_iter, cause we only call model.train() in self.train_epoch()'s start
+            self.model.train()
 
     # train.py 先调用 solver.resume() 后调用 solver.train()
     def train(self):
