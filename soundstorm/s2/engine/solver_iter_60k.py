@@ -47,6 +47,8 @@ class Solver(object):
         self.dev_iters = config['solver'].get('dev_iters', 1000)
         # sample() 很耗时，需要 70s 
         self.sample_iters = self.dev_iters
+        # LibriLight 60k 时 dev 集可能太大了, 会让 Eval 时间变得很长
+        self.max_dev_dataset_len = 200
 
         assert isinstance(self.save_iters, (int, list))
         assert isinstance(self.dev_iters, (int, list))
@@ -522,9 +524,7 @@ class Solver(object):
 
     def train_epoch(self):
         self.model.train()
-
         itr_start = time.time()
-
         for itr, batch in enumerate(self.dataloader['train_loader']):
             # (B, 1, T), B, T 动态
             # print("batch['prompt_semantics'].shape:",batch['prompt_semantics'].shape)
@@ -566,6 +566,7 @@ class Solver(object):
                 forward_time = time.time() - step_start
                 # 1 卡 -> n 卡，iter_time 不变
                 iter_time = time.time() - itr_start
+                # fbward_time 包含了 backward() 的时间
                 info += ' || data_time: {dt}s | fbward_time: {fbt}s | iter_time: {it}s | left_time: {lt}'.format(
                     dt=round(data_time, 1),
                     it=round(iter_time, 1),
@@ -577,11 +578,10 @@ class Solver(object):
                     # max_token_one_batch 变为 n 倍，self.dataloader['train_iterations'] 为原来的 1/n，单卡显存占用变为 n 倍, iter_time 变为 n 倍
                     lt=format_seconds(iter_time *
                                       (self.total_iters - self.last_iter)))
-                # n 卡会打印 n 遍
                 self.logger.log_info(info)
 
             itr_start = time.time()
-            
+
             # self.last_iter 为 0 时不 validate，方便快速 debug 训练
             # 但是加载已经保存的模型后还是会在过了一个 train iter 后进行 valid
             if self.last_iter != 0 and self.last_iter % self.dev_iters == 0:
@@ -593,7 +593,7 @@ class Solver(object):
                 if is_primary():
                     print("start save_iter ...")
                     self.save_iter()
-            
+
             if self.last_iter >= self.max_iters:
                 print("training done......")
                 break
@@ -608,11 +608,14 @@ class Solver(object):
         if 'dev_loader' not in self.dataloader:
             val = False
         if val:
+            val_st = time.time()
             self.model.eval()
             overall_loss = None
             first_batch = None
             # 求所有 dev batch loss 的均值
             for itr, batch in enumerate(self.dataloader['dev_loader']):
+                if itr >= self.max_dev_dataset_len:
+                    break
                 if first_batch is None:
                     first_batch = batch
                 loss = self.step(batch, phase='val')
@@ -630,11 +633,13 @@ class Solver(object):
                 else:
                     for loss_n, loss_dict in loss.items():
                         for k, v in loss_dict.items():
+                            # 对所有 batch 的 loss 求均值
                             overall_loss[loss_n][k] = (
                                 overall_loss[loss_n][k] * itr + loss[loss_n][k]
                             ) / (itr + 1)
-
             if self.logger:
+                self.logger.log_info(
+                    'Eval done, time: {:.2f} s'.format(time.time() - val_st))
                 info = ''
                 for loss_n, loss_dict in overall_loss.items():
                     info += '' if loss_n == 'none' else ' {}'.format(loss_n)

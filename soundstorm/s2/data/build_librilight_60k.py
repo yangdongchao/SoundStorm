@@ -65,7 +65,8 @@ def build_dataloader(config, args=None, return_dataset=False):
             rank=rank,
             args=args,
             shuffle=True)
-        dev_sampler = SequentialSampler(list(range(dev_dataset.__len__())))
+        dev_dataset_index_list = list(range(dev_dataset.__len__()))
+        dev_sampler = SequentialSampler(dev_dataset_index_list)
         # 注意这里是用 train_sampler 求，表示的是每个卡上的
         # train_iters
         '''
