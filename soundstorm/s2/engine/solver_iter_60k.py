@@ -528,6 +528,7 @@ class Solver(object):
         for itr, batch in enumerate(self.dataloader['train_loader']):
             # (B, 1, T), B, T 动态
             # print("batch['prompt_semantics'].shape:",batch['prompt_semantics'].shape)
+            # print(f"global_rank: {self.args.global_rank}, train itr: {itr}")
             data_time = time.time() - itr_start
             step_start = time.time()
             loss = self.step(batch, phase='train')
@@ -537,6 +538,8 @@ class Solver(object):
                                                   self.max_iters)
                 for loss_n, loss_dict in loss.items():
                     info += ' ||'
+                    # 虽然仅在 0 卡显示 log, 但是 loss_dict 可以保证 0 卡显示的是均值
+                    # 一个卡的 iter 用尽了但是其他的卡没用尽这里会不会卡住？=> 试了下并不会
                     loss_dict = reduce_dict(loss_dict)
                     info += '' if loss_n == 'none' else ' {}'.format(loss_n)
                     # k: loss, top10_acc, top1_acc
@@ -575,13 +578,14 @@ class Solver(object):
                     lt=format_seconds(iter_time *
                                       (self.total_iters - self.last_iter)))
                 # n 卡会打印 n 遍
-                print(info)
                 self.logger.log_info(info)
 
             itr_start = time.time()
+            
             # self.last_iter 为 0 时不 validate，方便快速 debug 训练
             # 但是加载已经保存的模型后还是会在过了一个 train iter 后进行 valid
             if self.last_iter != 0 and self.last_iter % self.dev_iters == 0:
+                # is_primary() 只会用到 0 卡的数据进行 valid
                 if is_primary():
                     print("start validate_iter ...")
                     self.validate_iter()
@@ -589,11 +593,14 @@ class Solver(object):
                 if is_primary():
                     print("start save_iter ...")
                     self.save_iter()
+            
             if self.last_iter >= self.max_iters:
                 print("training done......")
                 break
 
             self.last_iter += 1
+
+        print(f"one epoch done for rank: {self.args.global_rank}")
 
     def validate_iter(self):
         # 仅在 0 卡上 valid
@@ -609,9 +616,13 @@ class Solver(object):
                 if first_batch is None:
                     first_batch = batch
                 loss = self.step(batch, phase='val')
+                # loss_n: loss, top10_acc, top1_acc
                 for loss_n, loss_dict in loss.items():
-                    # reduce_dict 要等别的卡, 这里不调用 reduce_dict 在多卡时就不会卡住了
-                    # 如果是仅在 0 卡 valid, 则一定不能用 reduce_dict
+                    # ❗️ reduce_dict 要等别的卡, 但是 LibriLight 60k 的时候，不同卡 iter 数不一样
+                    # => 那训练的时候会不会也不一样导致会卡住？=> 用 test 集做 train 集并不会
+                    # 判断是因为训练时外部一直有 while 循环调用 train_epoch, 一直为每个卡取值，但是这里 valid 只取一次 valid epoch
+                    # 这里不调用 reduce_dict 在多卡时就不会卡住了
+                    # ❗️ 如果是仅在 0 卡 valid, 则一定不能用 reduce_dict
                     # loss[loss_n] = reduce_dict(loss_dict)
                     loss[loss_n] = loss_dict
                 if overall_loss is None:

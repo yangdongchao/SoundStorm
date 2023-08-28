@@ -8,9 +8,9 @@ import argparse
 import os
 import time
 import warnings
-from academicodec.models.hificodec.vqvae import VQVAE
 
 import torch
+from academicodec.models.hificodec.vqvae import VQVAE
 from soundstorm.s2.data.build_librilight_60k import build_dataloader
 from soundstorm.s2.distributed.launch import launch
 from soundstorm.s2.engine.logger import Logger
@@ -406,7 +406,8 @@ def main_worker(local_rank, args):
     print("start build dataloader...")
     start_build_time = time.time()
     dataloader_info = build_dataloader(config, args)
-    print(f"time of build dataloader: {time.time() - start_build_time}")
+    print(
+        f"time of build dataloader: {round(time.time() - start_build_time, 2)}s")
 
     # 每个 rank 都有自己的 dataloader, 每个 dataloader 加载不同的 split
     # solver_60k must train with iter

@@ -1,4 +1,5 @@
 import random
+import time
 
 import pandas as pd
 import torch
@@ -32,6 +33,7 @@ class SemanticDataset(torch.utils.data.Dataset):
         semantic_files = semantic_paths
         acoustic_files = acoustic_paths
         print("semantic_files:", semantic_files)
+        s_st = time.time()
         for semantic_file in semantic_files:
             name_list = semantic_file.split("/")
             # semantic_token_0_3.tsv -> 0_3
@@ -40,13 +42,14 @@ class SemanticDataset(torch.utils.data.Dataset):
             key_name = f'{name_list[-3]}_{rank_name}'
             self.semantic_data_dict[key_name] = pd.read_csv(
                 semantic_file, delimiter='\t')
-        print("load semantic_files done")
+        print(f"load semantic_files done, cost {round(time.time()-s_st, 2)}s")
+        a_st = time.time()
         for acoustic_file in acoustic_files:
             name_list = acoustic_file.split("/")
             rank_name = '_'.join(name_list[-1].split('.')[0].split('_')[-2:])
             key_name = f'{name_list[-4]}_{rank_name}'
             self.acoustic_data_dict[key_name] = torch.load(acoustic_file)
-        print("load acoustic_files done")
+        print(f"load acoustic_files done, cost {round(time.time()-a_st, 2)}s")
 
         self.num_quant = 4 if codec_name == 'hificodec' else num_quant
         # 16000 / 320 = 50
@@ -82,7 +85,11 @@ class SemanticDataset(torch.utils.data.Dataset):
         if not self.inited:
             # 调用初始化函数
             for key_name in self.semantic_data_dict.keys():
+                i_st = time.time()
                 self.init_batch(key_name)
+                print(
+                    f"init_batch of {key_name} done, cost {round(time.time()-i_st, 2)}s"
+                )
             self.inited = True
             print("self.total_semantic_data_len:", self.total_semantic_data_len)
             print("self.total_acoustic_data_len:", self.total_acoustic_data_len)

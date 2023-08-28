@@ -225,7 +225,8 @@ def main_worker(local_rank, args):
     print("start build dataloader...")
     start_build_time = time.time()
     dataloader_info = build_dataloader(config, args)
-    print(f"time of build dataloader: {time.time() - start_build_time}")
+    print(
+        f"time of build dataloader: {round(time.time() - start_build_time, 2)}s")
     # get solver
     if args.train_with_iter is True:
         from soundstorm.s2.engine.solver_iter import Solver
