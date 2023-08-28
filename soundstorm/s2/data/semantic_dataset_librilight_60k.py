@@ -81,7 +81,7 @@ class SemanticDataset(torch.utils.data.Dataset):
         self.start_batch_id = 0
         self.total_semantic_data_len = 0
         self.total_acoustic_data_len = 0
-
+        # 这里是否有必要写成多并发？8 卡 60k 每个 rank semantic_data_dict 长度是 3 ~ 4
         if not self.inited:
             # 调用初始化函数
             for key_name in self.semantic_data_dict.keys():

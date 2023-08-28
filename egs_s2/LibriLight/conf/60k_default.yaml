@@ -44,7 +44,7 @@ model:
 solver:
     base_lr: 0.3e-05  # 3.0e-6 x 8 cause max_token_one_batch is x 8 (the old is 10k)
     adjust_lr: none   # not adjust lr according to total batch_size
-    max_iters: 550000 # 55w iter for 8 GPU for small + medium, ~70 epochs, ~7.8k iter/epoch, training 2.5h/epoch
+    max_iters: 600000 # 60w iter for 8 GPU for LibriLight 60k, ~7 epochs, ~7.8k iter/0.1epoch, training 2.5h/0.1epoch
     save_iters: 1500  # 1.5k, ~ cost 0.3h to save a ckpt
     dev_iters: 1500   # num of iter for each gpu, for 8 gpu here, should x2 when use 4 gpus to make model see same number of samples
     ema:
