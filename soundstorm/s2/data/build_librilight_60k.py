@@ -58,7 +58,7 @@ def build_dataloader(config, args=None, return_dataset=False):
         dev_dataset = dev_dataset[0]
     # 这里需要改成新的 sampler
     if args is not None and args.distributed:
-        print("train_dataset.__len__():", train_dataset.__len__())
+        # print("train_dataset.__len__():", train_dataset.__len__())
         train_sampler = DDPSyncSampler(
             size=train_dataset.__len__(),
             seed=seed,

@@ -51,13 +51,17 @@ class Solver(object):
         assert isinstance(self.save_iters, (int, list))
         assert isinstance(self.dev_iters, (int, list))
         self.debug = config['solver'].get('debug', False)
-
-        self.last_iter = -1
+        # 初始化为 0 而不是 -1, 保证不在第一个 iter 之后进行 validate_iter
+        self.last_iter = 0
         self.total_iters = self.max_iters
         # self.total_epochs 不会在后面的程序中用到
         self.total_epochs = self.total_iters / self.dataloader[
             'train_iterations']
-        print("self.total_epochs:", self.total_epochs)
+        # LibriLight 60k 的读取方式，这个每个 rank 显示的都不一样
+        print(
+            f"self.total_epochs of global_rank {args.global_rank}: {self.total_epochs}"
+        )
+        self.global_rank = args.global_rank
         self.ckpt_dir = os.path.join(args.output, 'checkpoint')
         self.audio_dir = os.path.join(args.output, 'audios')
 
@@ -195,7 +199,6 @@ class Solver(object):
         return optimizer_and_scheduler
 
     def _get_lr(self, return_type='str'):
-
         lrs = {}
         for op_sc_n, op_sc in self.optimizer_and_scheduler.items():
             lr = op_sc['optimizer']['module'].state_dict()['param_groups'][0][
@@ -362,7 +365,7 @@ class Solver(object):
 
             if phase == 'train':
                 if op_sc['optimizer']['step_iteration'] > 0 and (
-                        self.last_iter + 1
+                        self.last_iter
                 ) % op_sc['optimizer']['step_iteration'] == 0:
                     # to zero
                     op_sc['optimizer']['module'].zero_grad()
@@ -383,7 +386,7 @@ class Solver(object):
                 # 更新 lr
                 if 'scheduler' in op_sc:
                     if op_sc['scheduler']['step_iteration'] > 0 and (
-                            self.last_iter + 1
+                            self.last_iter
                     ) % op_sc['scheduler']['step_iteration'] == 0:
                         # 每个 iter 调用一次
                         if isinstance(op_sc['scheduler']['module'],
@@ -524,12 +527,12 @@ class Solver(object):
         self.model.train()
 
         itr_start = time.time()
+
         for itr, batch in enumerate(self.dataloader['train_loader']):
             # (B, 1, T), B, T 动态
             # print("batch['prompt_semantics'].shape:",batch['prompt_semantics'].shape)
             data_time = time.time() - itr_start
             step_start = time.time()
-            self.last_iter += 1
             loss = self.step(batch, phase='train')
             # logging info
             if self.logger and self.last_iter % self.args.log_frequency == 0:
@@ -573,17 +576,24 @@ class Solver(object):
                     # max_token_one_batch 变为 n 倍，self.dataloader['train_iterations'] 为原来的 1/n，单卡显存占用变为 n 倍, iter_time 变为 n 倍
                     lt=format_seconds(iter_time *
                                       (self.total_iters - self.last_iter)))
+                # n 卡会打印 n 遍
+                # print(info)
                 self.logger.log_info(info)
-            itr_start = time.time()
 
-            if self.last_iter % self.dev_iters == 0:
+            itr_start = time.time()
+            # self.last_iter 为 0 时不 validate，方便快速 debug 训练
+            if self.last_iter != 0 and self.last_iter % self.dev_iters == 0:
+                print("start validate_iter ...")
                 self.validate_iter()
-            if self.last_iter % self.save_iters == 0:
+            if self.last_iter != 0 and self.last_iter % self.save_iters == 0:
+                print("start save_iter ...")
                 self.save_iter()
 
             if self.last_iter >= self.max_iters:
                 print("training done......")
                 break
+
+            self.last_iter += 1
 
     def validate_iter(self):
         val = True
@@ -595,6 +605,7 @@ class Solver(object):
             first_batch = None
             # 求所有 dev batch loss 的均值
             for itr, batch in enumerate(self.dataloader['dev_loader']):
+                print(f"dev itr: {itr}, rank: {self.global_rank}")
                 if first_batch is None:
                     first_batch = batch
                 # val 直接用 is_primary() 时卡到这里了
@@ -633,7 +644,6 @@ class Solver(object):
 
     # train.py 先调用 solver.resume() 后调用 solver.train()
     def train(self):
-        start_iter = self.last_iter + 1
         self.start_train_time = time.time()
         self.logger.log_info(
             'global rank {}: start training...'.format(self.args.global_rank),

@@ -384,7 +384,7 @@ def main_worker(local_rank, args):
     # get logger
     logger = Logger(args)
     logger.save_config(config)
-    '''
+
     # get model 
     model = build_model(config)
     if args.sync_bn:
@@ -401,13 +401,13 @@ def main_worker(local_rank, args):
         hificodec.eval()
     else:
         hificodec = None
-    '''
+
     # get dataloader
     print("start build dataloader...")
     start_build_time = time.time()
     dataloader_info = build_dataloader(config, args)
     print(f"time of build dataloader: {time.time() - start_build_time}")
-    '''
+
     # 每个 rank 都有自己的 dataloader, 每个 dataloader 加载不同的 split
     # solver_60k must train with iter
     solver = Solver(
@@ -431,7 +431,6 @@ def main_worker(local_rank, args):
         solver.resume()
     solver.train()
     torch.cuda.empty_cache()
-    '''
 
 
 if __name__ == '__main__':
