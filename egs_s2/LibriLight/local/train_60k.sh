@@ -7,7 +7,7 @@ log_frequency=$4
 dist_url=$5
 dump_dir=$6
 
-omp_num=16
+omp_num=24
 
 # 注意 *_dirs 参数后面不可以有 ''='
 OMP_NUM_THREADS=${omp_num} python3 ${BIN_DIR}/train_librilight_60k.py \
