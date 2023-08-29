@@ -64,27 +64,27 @@ def get_args():
     # args for dataset
     parser.add_argument(
         '--train_semantic_dirs',
-        type=list,
-        nargs='+',
-        default=["dump/small/train/"],
+        type=str,
+        nargs='*',
+        default="dump/small/train/",
         help='dirs of train semantic')
     parser.add_argument(
         '--train_acoustic_dirs',
-        type=list,
-        nargs='+',
-        default=["dump/small/train/acoustic/"],
+        type=str,
+        nargs='*',
+        default="dump/small/train/acoustic/",
         help='dirs of train acoustic')
     parser.add_argument(
         '--dev_semantic_dirs',
-        type=list,
-        nargs='+',
-        default=["dump/small/dev/"],
+        type=str,
+        nargs='*',
+        default="dump/small/dev/",
         help='dirs of dev semantic')
     parser.add_argument(
         '--dev_acoustic_dirs',
-        type=list,
-        nargs='+',
-        default=["dump/small/dev/acoustic/"],
+        type=str,
+        nargs='*',
+        default="dump/small/dev/acoustic/",
         help='dirs of dev acoustic')
 
     # args for ddp
@@ -165,27 +165,6 @@ def get_args():
     args = parser.parse_args()
     args.cwd = os.path.abspath(os.path.dirname(__file__))
 
-    new_train_semantic_dirs = []
-    new_train_acoustic_dirs = []
-    new_dev_semantic_dirs = []
-    new_dev_acoustic_dirs = []
-    # format dataset dirs
-    for item in args.train_semantic_dirs:
-        new_train_semantic_dirs.append(''.join(item))
-    args.train_semantic_dirs = new_train_semantic_dirs
-
-    for item in args.train_acoustic_dirs:
-        new_train_acoustic_dirs.append(''.join(item))
-    args.train_acoustic_dirs = new_train_acoustic_dirs
-
-    for item in args.dev_semantic_dirs:
-        new_dev_semantic_dirs.append(''.join(item))
-    args.dev_semantic_dirs = new_dev_semantic_dirs
-
-    for item in args.dev_acoustic_dirs:
-        new_dev_acoustic_dirs.append(''.join(item))
-    args.dev_acoustic_dirs = new_dev_acoustic_dirs
-
     # modify args for debugging
     if args.debug:
         if args.gpu is None:
@@ -217,6 +196,7 @@ def main():
     # ❗️ 看下是不是 SequentialSampler 影响的
     # [[],[],[],[]]
     # 按照 global_rank 数划分
+    
     train_semantic_file_groups, train_acoustic_file_groups = get_datasplit_for_rank(
         semantic_dirs=args.train_semantic_dirs,
         acoustic_dirs=args.train_acoustic_dirs,
@@ -232,7 +212,7 @@ def main():
 
     args.dev_semantic_file_groups = dev_semantic_file_groups
     args.dev_acoustic_file_groups = dev_acoustic_file_groups
-
+    
     launch(
         main_worker,
         args.ngpus_per_node,
@@ -240,7 +220,7 @@ def main():
         args.node_rank,
         args.dist_url,
         args=(args, ))
-
+    
 
 def get_semantic_file_key_name(semantic_file):
     name_list = semantic_file.split("/")

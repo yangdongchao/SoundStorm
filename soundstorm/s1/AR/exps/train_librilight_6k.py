@@ -87,27 +87,27 @@ if __name__ == '__main__':
     # args for dataset
     parser.add_argument(
         '--train_semantic_dirs',
-        type=list,
-        nargs='+',
-        default=["dump/small/train/"],
+        type=str,
+        nargs='*',
+        default="dump/small/train/",
         help='dirs of train semantic')
     parser.add_argument(
         '--train_phoneme_dirs',
-        type=list,
-        nargs='+',
-        default=["dump/small/train/"],
+        type=str,
+        nargs='*',
+        default="dump/small/train/",
         help='dirs of train phoneme')
     parser.add_argument(
         '--dev_semantic_dirs',
-        type=list,
-        nargs='+',
-        default=["dump/small/dev/"],
+        type=str,
+        nargs='*',
+        default="dump/small/dev/",
         help='dirs of dev semantic')
     parser.add_argument(
         '--dev_phoneme_dirs',
-        type=list,
-        nargs='+',
-        default=["dump/small/dev/"],
+        type=str,
+        nargs='*',
+        default="dump/small/dev/",
         help='dirs of dev phoneme')
     parser.add_argument(
         '--output_dir',
@@ -117,54 +117,20 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '--train_non_speech_dirs',
-        type=list,
-        nargs='+',
+        type=str,
+        nargs='*',
         default=None,
         help='dirs of train non_speech data')
 
     parser.add_argument(
         '--dev_non_speech_dirs',
-        type=list,
-        nargs='+',
+        type=str,
+        nargs='*',
         default=None,
         help='dirs of dev non_speech data')
 
     args = parser.parse_args()
 
-    new_train_semantic_dirs = []
-    new_train_phoneme_dirs = []
-    new_dev_semantic_dirs = []
-    new_dev_phoneme_dirs = []
-
-    new_train_non_speech_dirs = []
-    new_dev_non_speech_dirs = []
-
-    # format dataset dirs
-    for item in args.train_semantic_dirs:
-        new_train_semantic_dirs.append(''.join(item))
-    args.train_semantic_dirs = new_train_semantic_dirs
-
-    for item in args.train_phoneme_dirs:
-        new_train_phoneme_dirs.append(''.join(item))
-    args.train_phoneme_dirs = new_train_phoneme_dirs
-
-    for item in args.dev_semantic_dirs:
-        new_dev_semantic_dirs.append(''.join(item))
-    args.dev_semantic_dirs = new_dev_semantic_dirs
-
-    for item in args.dev_phoneme_dirs:
-        new_dev_phoneme_dirs.append(''.join(item))
-    args.dev_phoneme_dirs = new_dev_phoneme_dirs
-
-    if args.train_non_speech_dirs is not None:
-        for item in args.train_non_speech_dirs:
-            new_train_non_speech_dirs.append(''.join(item))
-        args.train_non_speech_dirs = new_train_non_speech_dirs
-
-    if args.dev_non_speech_dirs is not None:
-        for item in args.dev_non_speech_dirs:
-            new_dev_non_speech_dirs.append(''.join(item))
-        args.dev_non_speech_dirs = new_dev_non_speech_dirs
-
     logging.info(str(args))
+    
     main(args)
