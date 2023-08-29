@@ -61,27 +61,27 @@ def get_args():
     # args for dataset
     parser.add_argument(
         '--train_semantic_dirs',
-        type=list,
-        nargs='+',
-        default=["dump/small/train/"],
+        type=str,
+        nargs='*',
+        default="dump/small/train/",
         help='dirs of train semantic')
     parser.add_argument(
         '--train_acoustic_dirs',
-        type=list,
-        nargs='+',
-        default=["dump/small/train/acoustic/"],
+        type=str,
+        nargs='*',
+        default="dump/small/train/acoustic/",
         help='dirs of train acoustic')
     parser.add_argument(
         '--dev_semantic_dirs',
-        type=list,
-        nargs='+',
-        default=["dump/small/dev/"],
+        type=str,
+        nargs='*',
+        default="dump/small/dev/",
         help='dirs of dev semantic')
     parser.add_argument(
         '--dev_acoustic_dirs',
-        type=list,
-        nargs='+',
-        default=["dump/small/dev/acoustic/"],
+        type=str,
+        nargs='*',
+        default="dump/small/dev/acoustic/",
         help='dirs of dev acoustic')
 
     # args for ddp
@@ -167,27 +167,6 @@ def get_args():
     args = parser.parse_args()
     args.cwd = os.path.abspath(os.path.dirname(__file__))
 
-    new_train_semantic_dirs = []
-    new_train_acoustic_dirs = []
-    new_dev_semantic_dirs = []
-    new_dev_acoustic_dirs = []
-    # format dataset dirs
-    for item in args.train_semantic_dirs:
-        new_train_semantic_dirs.append(''.join(item))
-    args.train_semantic_dirs = new_train_semantic_dirs
-
-    for item in args.train_acoustic_dirs:
-        new_train_acoustic_dirs.append(''.join(item))
-    args.train_acoustic_dirs = new_train_acoustic_dirs
-
-    for item in args.dev_semantic_dirs:
-        new_dev_semantic_dirs.append(''.join(item))
-    args.dev_semantic_dirs = new_dev_semantic_dirs
-
-    for item in args.dev_acoustic_dirs:
-        new_dev_acoustic_dirs.append(''.join(item))
-    args.dev_acoustic_dirs = new_dev_acoustic_dirs
-
     # modify args for debugging
     if args.debug:
         if args.gpu is None:
@@ -212,7 +191,10 @@ def main():
         else:
             assert args.num_node > 1
         args.ngpus_per_node = torch.cuda.device_count()
-        args.world_size = args.ngpus_per_node * args.num_node  # 
+        args.world_size = args.ngpus_per_node * args.num_node 
+
+    print("args.train_semantic_dirs:",args.train_semantic_dirs)
+    
     launch(
         main_worker,
         args.ngpus_per_node,
@@ -220,7 +202,7 @@ def main():
         args.node_rank,
         args.dist_url,
         args=(args, ))
-
+    
 
 def main_worker(local_rank, args):
     args.local_rank = local_rank
@@ -257,7 +239,8 @@ def main_worker(local_rank, args):
     print("start build dataloader...")
     start_build_time = time.time()
     dataloader_info = build_dataloader(config, args)
-    print(f"time of build dataloader: {time.time() - start_build_time}")
+    print(
+        f"time of build dataloader: {round(time.time() - start_build_time, 2)}s")
     # get solver
     if args.train_with_iter is True:
         from soundstorm.s2.engine.solver_iter import Solver
