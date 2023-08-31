@@ -11,22 +11,7 @@ import torch
 import tqdm
 from soundstorm.s2.exps.hubert.feature_utils import get_shard_range
 from soundstorm.s2.models.hubert.semantic_tokenizer import SemanticTokenizer
-
-
-# ThreadPoolExecutor 适用于 I/O 密集型任务，具有轻量级线程切换的优势
-# ProcessPoolExecutor 适用于 CPU 密集型任务，可以充分利用多核处理器的优势
-# 损坏的 numpy 会重新生成
-def check_numpy_file(file_path):
-    try:
-        # 尝试加载 numpy 文件
-        np.load(file_path)
-        # print("文件存在且没有损坏。")
-        return True
-    except Exception:
-        # traceback.print_exc()
-        print(f'Cannot load {file_path}, will return False and regenerate it')
-        return False
-    return False
+from soundstorm.utils import check_numpy_file
 
 
 def process_sentence(args,

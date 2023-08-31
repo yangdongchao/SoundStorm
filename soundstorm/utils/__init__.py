@@ -1,6 +1,8 @@
 import os
 import re
 
+import numpy as np
+
 
 def str2bool(str):
     return True if str.lower() == 'true' else False
@@ -51,5 +53,18 @@ def check_txt_file(file_path):
         assert text.strip() != ''
         return text
     except Exception:
+        return False
+    return False
+
+
+def check_numpy_file(file_path):
+    try:
+        # 尝试加载 numpy 文件
+        np.load(file_path)
+        # print("文件存在且没有损坏。")
+        return True
+    except Exception:
+        # traceback.print_exc()
+        print(f'Cannot load {file_path}, will return False and regenerate it')
         return False
     return False
