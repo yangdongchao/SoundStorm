@@ -10,7 +10,6 @@ from torch import nn
 
 class DALLE(nn.Module):
     def __init__(self,
-                 *,
                  n_q=4,
                  diffusion_config,
                  init_type: str="kaiming_uniform"):
