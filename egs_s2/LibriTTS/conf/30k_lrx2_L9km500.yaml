@@ -3,8 +3,6 @@
 model:
     target: soundstorm.s2.models.dalle_wav.dalle_wav.DALLE
     params:
-        content_info: {key: audio}
-        condition_info: {key: text}
         n_q: 4  # the encodec codebook's number, same as `num_quant` of dataloader
         diffusion_config:
             target: soundstorm.s2.models.dalle_wav.diffusion_transformer.DiffusionTransformer

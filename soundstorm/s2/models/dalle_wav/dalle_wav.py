@@ -12,15 +12,11 @@ class DALLE(nn.Module):
     def __init__(self,
                  *,
                  n_q=4,
-                 content_info={'key': 'wav_token'},
-                 condition_info={'key': 'text_dpe_adapted'},
                  learnable_cf=False,
                  diffusion_config,
                  init_type: str="kaiming_uniform"):
         super().__init__()
         self.n_q = n_q
-        self.content_info = content_info
-        self.condition_info = condition_info
         # we donot use the classifier guidance in this stage
         self.guidance_scale = 1.0
         self.learnable_cf = learnable_cf
