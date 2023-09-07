@@ -165,7 +165,6 @@ class DiffusionTransformer(nn.Module):
             alpha_init_type='cos',
             auxiliary_loss_weight=0,
             adaptive_auxiliary_loss=False,
-            learnable_cf=False,
             mask_weight=[1, 1], ):
         super().__init__()
         # 不使用 conditional information
@@ -241,11 +240,7 @@ class DiffusionTransformer(nn.Module):
         self.register_buffer('Lt_count', torch.zeros(self.num_timesteps))
 
         self.zero_vector = None
-        if learnable_cf:
-            # 设定一个可学习的空文本向量, 一个字符用一个256维度的向量表示，最大长度应该不超过2000
-            self.empty_text_embed = torch.nn.Parameter(
-                torch.randn(
-                    size=(2000, 256), requires_grad=True, dtype=torch.float64))
+
         # inference rule: 0 for VQ-Diffusion v1, 1 for only high-quality inference, 2 for purity prior
         self.prior_rule = 2
         # max number to sample per step
@@ -254,8 +249,6 @@ class DiffusionTransformer(nn.Module):
         self.prior_weight = 2
 
         self.update_n_sample(total_num=1300)
-
-        self.learnable_cf = learnable_cf
 
         # too slow
         # self.metric_top10 = MulticlassAccuracy(
@@ -792,14 +785,7 @@ class DiffusionTransformer(nn.Module):
         cond_emb['prompt_semantics'] = input['prompt_semantics']
         cond_emb['prompt_acoustics'] = input['prompt_acoustics']
         cond_emb['target_semantics'] = input['target_semantics']
-        # now we get cond_emb and sample_image
-        if self.learnable_cf:  # 目前先不用
-            # b = torch.rand(cond_emb.shape[0]) > 0.1 # generate randomly 
-            # is_empty_text = torch.logical_not(b.to(device)).unsqueeze(1).unsqueeze(2).repeat(1, cond_emb.shape[1], 256)
-            # # torch.where(condition，a，b)其中输入参数condition：条件限制，如果满足条件，则选择a，否则选择b作为输出。
-            # cond_emb = torch.where(is_empty_text, self.empty_text_embed[:cond_emb.shape[1],:].unsqueeze(0).repeat(cond_emb.shape[0], 1, 1), cond_emb.type_as(self.empty_text_embed))
-            # cond_emb = cond_emb.float()
-            pass
+
         if is_train is True:
             log_model_prob, loss, top1_acc, top10_acc = self._train_loss(
                 content_token, cond_emb, content_token_mask, cond_emb_mask)

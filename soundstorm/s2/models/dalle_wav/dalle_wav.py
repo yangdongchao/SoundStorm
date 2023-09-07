@@ -12,14 +12,12 @@ class DALLE(nn.Module):
     def __init__(self,
                  *,
                  n_q=4,
-                 learnable_cf=False,
                  diffusion_config,
                  init_type: str="kaiming_uniform"):
         super().__init__()
         self.n_q = n_q
         # we donot use the classifier guidance in this stage
         self.guidance_scale = 1.0
-        self.learnable_cf = learnable_cf
         # self.content_codec = instantiate_from_config(content_codec_config)
         diffusion_config['params']['n_q'] = self.n_q
         self.transformer = instantiate_from_config(diffusion_config)
