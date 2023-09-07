@@ -158,7 +158,6 @@ def alpha_schedule(time_step,
 class DiffusionTransformer(nn.Module):
     def __init__(
             self,
-            condition_emb_config=None,
             transformer_config=None,
             diffusion_step=100,
             n_q=12,
@@ -167,15 +166,6 @@ class DiffusionTransformer(nn.Module):
             adaptive_auxiliary_loss=False,
             mask_weight=[1, 1], ):
         super().__init__()
-        # 不使用 conditional information
-        if condition_emb_config is None:
-            self.condition_emb = None
-        else:
-            # for condition and config, we learn a seperate embedding
-            # 加载能获得 condition embedding 的模型
-            self.condition_emb = instantiate(condition_emb_config)
-            # 每个embedding的维度
-            self.condition_dim = self.condition_emb.embed_dim
         # 在 transformer_conf 文件中，加入这两个参数
         transformer_config['diffusion_step'] = diffusion_step
         self.n_q = n_q

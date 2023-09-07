@@ -342,8 +342,6 @@ class Block(nn.Module):
             if x_mask is not None:
                 a = a.masked_fill(x_mask.unsqueeze(-1), 0)
             x = x + a
-            # slf_x_attn_mask2 = x_mask.unsqueeze(2).expand(-1, -1, encoder_output.shape[1])
-            # x_mask=slf_x_attn_mask2, c_mask=cond_emb_mask
             a, att = self.attn2(
                 self.ln1_1(x, timestep), encoder_output, mask=None)
             if x_mask is not None:
@@ -399,17 +397,6 @@ class Conv_MLP(nn.Module):
         return self.dropout(x)
 
 
-class Classifer(nn.Module):
-    def __init__(self, n_embd, out_cls):
-        super().__init__()
-        self.LN = nn.LayerNorm(n_embd)
-        self.Linear = nn.Linear(n_embd, out_cls)
-
-    def forward(self, x):
-        x = self.LN(x)
-        return self.Linear(x)
-
-
 class LearnedPositionEmbeddings(nn.Module):
     def __init__(self, seq_len, model_dim, init=.02):
         super().__init__()
@@ -441,7 +428,6 @@ class Text2ImageTransformer(nn.Module):
             diffusion_step=1000,
             timestep_type='adalayernorm',
             content_emb_config=None,
-            condition_emb_config=None,
             mlp_type='fc',
             checkpoint=False,
             # 1000 for mhubert 500 for en_hubert 
@@ -457,7 +443,6 @@ class Text2ImageTransformer(nn.Module):
         # when init the model, the number of q has add 1
         content_emb_config['params']['n_q'] = self.n_q
         self.content_emb = instantiate_from_config(content_emb_config)
-        # self.condition_emb = instantiate_from_config(condition_emb_config) 
         # 用于semantic token
         self.semantic_embedding = nn.Embedding(
             semantic_token_nums + 4, content_emb_config['params']['embed_dim'])

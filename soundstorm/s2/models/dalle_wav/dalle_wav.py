@@ -158,7 +158,7 @@ class DALLE(nn.Module):
         output = self.generate_content(batch)
         return output
 
-    def forward(self, batch, name='none', **kwargs):
+    def forward(self, batch, **kwargs):
         # 信息处理直接交给 transformer
         output = self.transformer(batch, **kwargs)
         return output
