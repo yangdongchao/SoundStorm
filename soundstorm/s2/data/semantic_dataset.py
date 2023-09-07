@@ -126,7 +126,7 @@ class SemanticDataset(torch.utils.data.Dataset):
             # 这里表明 acoustic_token 的存储方式是 (C, T)
             over_acoustic = acoustic_str[:self.num_quant, ...]
             over_semantic_len = over_semantic.shape[1]
-            if over_semantic_len > max_len:
+            if over_semantic_len >= max_len:
                 # 若音频长度大于 13s，则考虑切成 3 + 10, prompt 3s, target 10s
                 prompt_len = self.max_prompt_sec * self.hz
                 targen_len = self.max_target_sec * self.hz
