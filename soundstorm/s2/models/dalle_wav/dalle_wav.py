@@ -10,8 +10,8 @@ from torch import nn
 
 class DALLE(nn.Module):
     def __init__(self,
-                 n_q=4,
                  diffusion_config,
+                 n_q: int=4,
                  init_type: str="kaiming_uniform"):
         super().__init__()
         self.n_q = n_q
@@ -23,7 +23,7 @@ class DALLE(nn.Module):
         self.truncation_forward = False
         initialize(self, init_type)
 
-    def parameters(self, recurse=True, name=None):
+    def parameters(self, recurse: bool=True, name=None):
         if name is None or name == 'none':
             return super().parameters(recurse=recurse)
         else:
@@ -97,9 +97,9 @@ class DALLE(nn.Module):
     def generate_content(self,
                          batch,
                          condition=None,
-                         filter_ratio=0.0,
-                         replicate=1,
-                         sample_type="top0.85r"):
+                         filter_ratio: float=0.0,
+                         replicate: int=1,
+                         sample_type: str="top0.85r"):
         self.eval()
         con = batch['target_acoustics']
         batch_size = con.shape[0]
@@ -147,9 +147,7 @@ class DALLE(nn.Module):
                 cf_predict_start, sample_type.split(',')[0])
             self.truncation_forward = True
         trans_out = self.transformer.sample(
-            batch=batch,
-            filter_ratio=filter_ratio,
-            return_logits=False)
+            batch=batch, filter_ratio=filter_ratio, return_logits=False)
         out['token_pred'] = trans_out['pre_content_token']
         return out
 

@@ -16,7 +16,10 @@ from torch.utils.checkpoint import checkpoint
 class DoubleConv(nn.Module):
     """(convolution => [BN] => ReLU) * 2"""
 
-    def __init__(self, in_channels, out_channels, mid_channels=None):
+    def __init__(self,
+                 in_channels: int,
+                 out_channels: int,
+                 mid_channels: int=None):
         super().__init__()
         if not mid_channels:
             mid_channels = out_channels
@@ -42,7 +45,7 @@ class DoubleConv(nn.Module):
 class Down(nn.Module):
     """Downscaling with maxpool then double conv"""
 
-    def __init__(self, in_channels, out_channels, kernel_size=(1, 2)):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size=(1, 2)):
         super().__init__()
         self.maxpool_conv = nn.Sequential(
             nn.MaxPool2d(kernel_size=kernel_size),
@@ -56,10 +59,10 @@ class Up(nn.Module):
     """Upscaling then double conv"""
 
     def __init__(self,
-                 in_channels,
-                 out_channels,
+                 in_channels: int,
+                 out_channels: int,
                  scale_factor=(1, 2),
-                 bilinear=True):
+                 bilinear: bool=True):
         super().__init__()
         self.scale_factor = scale_factor
         self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
@@ -74,11 +77,11 @@ class Up(nn.Module):
 class FullAttention(nn.Module):
     def __init__(
             self,
-            n_embd,  # the embed dim
-            n_head,  # the number of heads
-            attn_pdrop=0.1,  # attention dropout prob
-            resid_pdrop=0.1,  # residual attention dropout prob
-            causal=True, ):
+            n_embd: int,  # the embed dim
+            n_head: int,  # the number of heads
+            attn_pdrop: float=0.1,  # attention dropout prob
+            resid_pdrop: float=0.1,  # residual attention dropout prob
+            causal: bool=True, ):
         super().__init__()
         assert n_embd % n_head == 0
         # key, query, value projections for all heads
@@ -134,15 +137,15 @@ class CrossAttention(nn.Module):
     def __init__(
             self,
             # the embed dim
-            n_embd,
+            n_embd: int,
             # condition dim
             condition_embd,
             # the number of heads 
-            n_head,
+            n_head: int,
             # attention dropout prob
-            attn_pdrop=0.1,
+            attn_pdrop: float=0.1,
             # residual attention dropout prob
-            resid_pdrop=0.1, ):
+            resid_pdrop: float=0.1, ):
         super().__init__()
         assert n_embd % n_head == 0
         # key, query, value projections for all heads
@@ -205,7 +208,7 @@ class GELU2(nn.Module):
 
 
 class SinusoidalPosEmb(nn.Module):
-    def __init__(self, num_steps, dim, rescale_steps=4000):
+    def __init__(self, num_steps: int, dim: int, rescale_steps: int=4000):
         super().__init__()
         self.dim = dim
         self.num_steps = float(num_steps)
@@ -223,7 +226,10 @@ class SinusoidalPosEmb(nn.Module):
 
 
 class AdaLayerNorm(nn.Module):
-    def __init__(self, n_embd, diffusion_step, emb_type="adalayernorm_abs"):
+    def __init__(self,
+                 n_embd: int,
+                 diffusion_step,
+                 emb_type: str="adalayernorm_abs"):
         super().__init__()
         if "abs" in emb_type:
             self.emb = SinusoidalPosEmb(diffusion_step, n_embd)
@@ -241,7 +247,10 @@ class AdaLayerNorm(nn.Module):
 
 
 class AdaInsNorm(nn.Module):
-    def __init__(self, n_embd, diffusion_step, emb_type="adainsnorm_abs"):
+    def __init__(self,
+                 n_embd: int,
+                 diffusion_step,
+                 emb_type: str="adainsnorm_abs"):
         super().__init__()
         if "abs" in emb_type:
             self.emb = SinusoidalPosEmb(diffusion_step, n_embd)
@@ -264,22 +273,19 @@ class Block(nn.Module):
 
     def __init__(
             self,
-            class_type='adalayernorm',
-            class_number=1000,
-            n_embd=1024,
-            n_head=16,
-            attn_pdrop=0.1,
-            resid_pdrop=0.1,
-            mlp_hidden_times=4,
-            activate='GELU',
-            attn_type='full',
-            if_upsample=False,
-            condition_dim=1024,
-            diffusion_step=100,
-            timestep_type='adalayernorm',
-            mlp_type='fc', ):
+            class_type: str='adalayernorm',
+            n_embd: int=1024,
+            n_head: int=16,
+            attn_pdrop: float=0.1,
+            resid_pdrop: float=0.1,
+            mlp_hidden_times: int=4,
+            activate: str='GELU',
+            attn_type: str='full',
+            condition_dim: int=1024,
+            diffusion_step: int=100,
+            timestep_type: str='adalayernorm',
+            mlp_type: str='fc', ):
         super().__init__()
-        self.if_upsample = if_upsample
         self.attn_type = attn_type
         if attn_type in ['selfcross', 'selfcondition', 'self']:
             if 'adalayernorm' in timestep_type:
@@ -372,7 +378,11 @@ class Block(nn.Module):
 
 
 class Conv_MLP(nn.Module):
-    def __init__(self, n_embd, mlp_hidden_times, act, resid_pdrop):
+    def __init__(self,
+                 n_embd: int,
+                 mlp_hidden_times: int,
+                 act,
+                 resid_pdrop: float):
         super().__init__()
         self.conv1 = nn.Conv2d(
             in_channels=n_embd,
@@ -398,7 +408,7 @@ class Conv_MLP(nn.Module):
 
 
 class LearnedPositionEmbeddings(nn.Module):
-    def __init__(self, seq_len, model_dim, init=.02):
+    def __init__(self, seq_len: int, model_dim: int, init: float=.02):
         super().__init__()
         self.emb = nn.Embedding(seq_len, model_dim)
         # Initializing this way is standard for GPT-2
@@ -408,35 +418,32 @@ class LearnedPositionEmbeddings(nn.Module):
         sl = x.shape[1]
         return self.emb(torch.arange(0, sl, device=x.device))
 
-    def get_fixed_embedding(self, ind, dev):
-        return self.emb(torch.tensor([ind], device=dev)).unsqueeze(0)
-
 
 class Text2ImageTransformer(nn.Module):
     def __init__(
             self,
-            n_layer=14,
-            n_q=2,
-            n_embd=1024,
-            n_head=16,
-            attn_pdrop=0,
-            resid_pdrop=0,
-            mlp_hidden_times=4,
+            n_layer: int=14,
+            n_q: int=2,
+            n_embd: int=1024,
+            n_head: int=16,
+            attn_pdrop: float=0,
+            resid_pdrop: float=0,
+            mlp_hidden_times: int=4,
             block_activate=None,
-            attn_type='selfcross',
-            condition_dim=512,
-            diffusion_step=1000,
-            timestep_type='adalayernorm',
+            attn_type: str='selfcross',
+            condition_dim: int=512,
+            diffusion_step: int=1000,
+            timestep_type: str='adalayernorm',
             content_emb_config=None,
-            mlp_type='fc',
-            checkpoint=False,
+            mlp_type: str='fc',
+            checkpoint: bool=False,
             # 1000 for mhubert 500 for en_hubert 
-            semantic_token_nums=1000,
+            semantic_token_nums: int=1000,
             # for pos_emb, target_* 保持一致最好
-            prompt_semantic_emb_len=10,
-            target_semantic_emb_len=20,
-            prompt_acoustic_emb_len=10,
-            target_acoustic_emb_len=60, ):
+            prompt_semantic_emb_len: int=10,
+            target_semantic_emb_len: int=20,
+            prompt_acoustic_emb_len: int=10,
+            target_acoustic_emb_len: int=60, ):
         super().__init__()
         self.use_checkpoint = checkpoint
         self.n_q = n_q
@@ -504,7 +511,7 @@ class Text2ImageTransformer(nn.Module):
                 module.bias.data.zero_()
                 module.weight.data.fill_(1.0)
 
-    def parameters(self, recurse=True, name=None):
+    def parameters(self, recurse: bool=True, name=None):
         """
         Following minGPT:
         This long function is unfortunately doing something very simple and is being very defensive:
