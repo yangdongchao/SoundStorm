@@ -246,28 +246,6 @@ class AdaLayerNorm(nn.Module):
         return x
 
 
-class AdaInsNorm(nn.Module):
-    def __init__(self,
-                 n_embd: int,
-                 diffusion_step,
-                 emb_type: str="adainsnorm_abs"):
-        super().__init__()
-        if "abs" in emb_type:
-            self.emb = SinusoidalPosEmb(diffusion_step, n_embd)
-        else:
-            self.emb = nn.Embedding(diffusion_step, n_embd)
-        self.silu = nn.SiLU()
-        self.linear = nn.Linear(n_embd, n_embd * 2)
-        self.instancenorm = nn.InstanceNorm1d(n_embd)
-
-    def forward(self, x, timestep):
-        emb = self.linear(self.silu(self.emb(timestep))).unsqueeze(1)
-        scale, shift = torch.chunk(emb, 2, dim=2)
-        x = self.instancenorm(x.transpose(-1, -2)).transpose(-1, -2) * (
-            1 + scale) + shift
-        return x
-
-
 class Block(nn.Module):
     """ an unassuming Transformer block """
 

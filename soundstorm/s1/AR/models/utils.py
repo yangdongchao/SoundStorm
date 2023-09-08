@@ -1,14 +1,6 @@
-# modified from https://github.com/feng-yufei/shared_debugging_code/blob/main/model/utils.py\
+# modified from https://github.com/feng-yufei/shared_debugging_code/blob/main/model/utils.py
 import torch
 import torch.nn.functional as F
-import torchaudio
-
-
-def sequence_mask(length, max_length=None):
-    if max_length is None:
-        max_length = length.max()
-    x = torch.arange(max_length, dtype=length.dtype, device=length.device)
-    return x.unsqueeze(0) < length.unsqueeze(1)
 
 
 def make_pad_mask(lengths: torch.Tensor, max_len: int=0) -> torch.Tensor:
