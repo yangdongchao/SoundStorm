@@ -33,14 +33,18 @@ class Text2SemanticDataModule(LightningDataModule):
             semantic_dirs=self.train_semantic_dirs,
             non_speech_dirs=self.train_non_speech_dirs,
             max_sec=self.config['data']['max_sec'],
-            pad_val=self.config['data']['pad_val'])
+            pad_val=self.config['data']['pad_val'],
+            min_ps_ratio=self.config['data'].get('min_ps_ratio', 6),
+            max_ps_ratio=self.config['data'].get('max_ps_ratio', 22), )
         self._dev_dataset = Text2SemanticDataset(
             phoneme_dirs=self.dev_phoneme_dirs,
             semantic_dirs=self.dev_semantic_dirs,
             non_speech_dirs=self.dev_non_speech_dirs,
             max_sample=self.config['data']['max_eval_sample'],
             max_sec=self.config['data']['max_sec'],
-            pad_val=self.config['data']['pad_val'])
+            pad_val=self.config['data']['pad_val'],
+            min_ps_ratio=self.config['data'].get('min_ps_ratio', 6),
+            max_ps_ratio=self.config['data'].get('max_ps_ratio', 22), )
 
     def train_dataloader(self):
         batch_size = self.config['train']['batch_size']
