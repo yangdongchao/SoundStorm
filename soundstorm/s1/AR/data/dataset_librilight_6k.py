@@ -17,6 +17,7 @@ from soundstorm.s1.AR.text_processing.phonemizer import GruutPhonemizer
 from soundstorm.utils import get_files_by_prefix_suffix
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
+import time
 
 
 def get_key_name(file_path: str):
@@ -59,15 +60,19 @@ class Text2SemanticDataset(Dataset):
         for phoneme_dir in phoneme_dirs:
             phoneme_files += get_files_by_prefix_suffix(
                 phoneme_dir, prefix='phonemes', suffix='npy')
+        s_st = time.time()
         for semantic_file in semantic_files:
             key_name = get_key_name(semantic_file)
             self.semantic_data_dict[key_name] = pd.read_csv(
                 semantic_file, delimiter='\t')
+        print(f"load semantic_files done, cost {round(time.time()-s_st, 2)}s")
+        p_st = time.time()
         for phoneme_file in phoneme_files:
             key_name = get_key_name(phoneme_file)
             self.phoneme_data_dict[key_name] = np.load(
                 phoneme_file, allow_pickle=True).item()
-
+        print(f"load phoneme_files done, cost {round(time.time()-p_st, 2)}s")
+        n_st = time.time()
         if non_speech_dirs is not None:
             for non_speech_dir in non_speech_dirs:
                 non_speech_files += get_files_by_prefix_suffix(
@@ -76,6 +81,7 @@ class Text2SemanticDataset(Dataset):
                 key_name = get_key_name(non_speech_file)
                 self.non_speech_data_dict[key_name] = np.load(
                     non_speech_file, allow_pickle=True).item()
+        print(f"load non_speech_files done, cost {round(time.time()-n_st, 2)}s")
 
         # pad for semantic tokens
         self.PAD: int = pad_val
@@ -102,11 +108,18 @@ class Text2SemanticDataset(Dataset):
         self.num_deleted_bigger = 0
         self.num_deleted_ps = 0
         self.num_deleted_none_speech = 0
-
+        print("self.semantic_data_dict.keys():", self.semantic_data_dict.keys())
+        # 一定要转成 list 否则会报错 RuntimeError: dictionary changed size during iteration
+        # 要么把 L117 for 换成 while
+        key_names = list(self.semantic_data_dict.keys())
         if not self.inited:
             # 调用初始化函数
-            for key_name in self.semantic_data_dict.keys():
+            for key_name in key_names:
+                i_st = time.time()
                 self.init_batch(key_name)
+                print(
+                    f"init_batch of {key_name} done, cost {round(time.time()-i_st, 2)}s"
+                )
             self.inited = True
             print("self.total_semantic_data_len:", self.total_semantic_data_len)
             print("self.total_phoneme_data_len:", self.total_phoneme_data_len)
@@ -194,6 +207,15 @@ class Text2SemanticDataset(Dataset):
             self.semantic_phoneme[self.idx] = (semantic_ids, phoneme_ids)
             self.idx += 1
             self.item_names.append(item_name)
+            # 垃圾回收否则可能内存不够
+            del semantic_str
+            del phoneme
+        del self.semantic_data_dict[key_name]
+        del self.phoneme_data_dict[key_name]
+
+        if key_name in self.non_speech_data_dict:
+            del self.non_speech_data_dict[key_name]
+            
 
     def __get_item_names__(self) -> List[str]:
         return self.item_names
