@@ -23,6 +23,9 @@ class Text2SemanticDataModule(LightningDataModule):
         self.train_non_speech_dirs = train_non_speech_dirs
         self.dev_non_speech_dirs = dev_non_speech_dirs
         self.num_workers = self.config['data']['num_workers']
+        print("self.num_workers:", self.num_workers)
+        self.persistent_workers = True if self.num_workers > 0 else False
+        self.prefetch_factor = 2
 
     def prepare_data(self):
         pass
@@ -55,7 +58,10 @@ class Text2SemanticDataModule(LightningDataModule):
             batch_size=batch_size,
             sampler=sampler,
             collate_fn=self._train_dataset.collate,
-            num_workers=self.num_workers, )
+            num_workers=self.num_workers, 
+            pin_memory=False,
+            persistent_workers=self.persistent_workers,
+            prefetch_factor=self.prefetch_factor,)
 
     def val_dataloader(self):
         return DataLoader(
@@ -63,7 +69,10 @@ class Text2SemanticDataModule(LightningDataModule):
             batch_size=1,
             shuffle=False,
             collate_fn=self._train_dataset.collate,
-            num_workers=self.num_workers, )
+            num_workers=self.num_workers, 
+            pin_memory=False,
+            persistent_workers=self.persistent_workers,
+            prefetch_factor=self.prefetch_factor,)
 
     # 这个会使用到嘛？
     def test_dataloader(self):

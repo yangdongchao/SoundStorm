@@ -36,6 +36,8 @@ class Text2SemanticDataModule(LightningDataModule):
         print("self.local_rank:", self.local_rank)
         self.world_size = world_size
         print("self.world_size:", self.world_size)
+        self.persistent_workers = True if self.num_workers > 0 else False
+        self.prefetch_factor = 2
 
     def prepare_data(self):
         pass
@@ -81,7 +83,11 @@ class Text2SemanticDataModule(LightningDataModule):
             batch_size=batch_size,
             sampler=train_sampler,
             collate_fn=self._train_dataset.collate,
-            num_workers=self.num_workers, )
+            num_workers=self.num_workers,
+            persistent_workers=self.persistent_workers,
+            prefetch_factor=self.prefetch_factor,
+            pin_memory=True, 
+            drop_last=True, )
 
     def val_dataloader(self):
         return DataLoader(
@@ -89,7 +95,11 @@ class Text2SemanticDataModule(LightningDataModule):
             batch_size=1,
             shuffle=False,
             collate_fn=self._train_dataset.collate,
-            num_workers=self.num_workers, )
+            num_workers=self.num_workers,
+            persistent_workers=self.persistent_workers,
+            prefetch_factor=self.prefetch_factor,
+            pin_memory=True, 
+            drop_last=True, )
 
     # 这个会使用到嘛？
     def test_dataloader(self):

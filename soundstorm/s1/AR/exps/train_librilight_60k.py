@@ -22,6 +22,17 @@ logging.getLogger('matplotlib').setLevel(logging.WARNING)
 torch.set_float32_matmul_precision('high')
 
 
+def remove_prefix_from_dict_keys(input_dict, prefix):
+    new_dict = {}
+    for key, value in input_dict.items():
+        if key.startswith(prefix):
+            new_key = key[len(prefix):]  # 去除前缀
+            new_dict[new_key] = value
+        else:
+            new_dict[key] = value
+    return new_dict
+
+
 def get_key_name(file_path: str):
     name_list = file_path.split("/")
     # phonemes_0_3.npy -> 0_3
@@ -201,7 +212,7 @@ def main(args):
         # id='k19kvsq8'
     )
     trainer: Trainer = Trainer(
-        max_epochs=config["train"]["epochs"],
+        max_epochs=-1,
         accelerator='gpu',
         devices=-1,
         benchmark=False,
@@ -239,10 +250,19 @@ def main(args):
         ckpt_path = None
 
     print("ckpt_path:", ckpt_path)
-    trainer.fit(model, data_module, ckpt_path=ckpt_path)
-
+    ckpt = torch.load(ckpt_path)
+    print("start load...")
+    param = ckpt['state_dict']
+    # 直接这样加载会有多余的 'model.' 的前缀, 这样加载每次 epoch 应该都是从 0 开始
+    new_param = remove_prefix_from_dict_keys(param, 'model.')
+    model.model.load_state_dict(new_param)
+    print("end load...")
+    trainer.fit(model, data_module, ckpt_path=None)
+    # trainer.fit(model, data_module, ckpt_path=ckpt_path)
 
 # srun --gpus-per-node=1 --ntasks-per-node=1 python train.py --path-to-configuration configurations/default.yaml
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
