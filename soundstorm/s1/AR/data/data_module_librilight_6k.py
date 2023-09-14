@@ -1,4 +1,6 @@
 # modified from https://github.com/feng-yufei/shared_debugging_code/blob/main/data_module.py
+import time
+
 from pytorch_lightning import LightningDataModule
 from soundstorm.s1.AR.data.bucket_sampler import DistributedBucketSampler
 from soundstorm.s1.AR.data.dataset_librilight_6k import Text2SemanticDataset
@@ -31,6 +33,7 @@ class Text2SemanticDataModule(LightningDataModule):
         pass
 
     def setup(self, stage=None, output_logs=False):
+        start_build_time = time.time()
         self._train_dataset = Text2SemanticDataset(
             phoneme_dirs=self.train_phoneme_dirs,
             semantic_dirs=self.train_semantic_dirs,
@@ -48,6 +51,9 @@ class Text2SemanticDataModule(LightningDataModule):
             pad_val=self.config['data']['pad_val'],
             min_ps_ratio=self.config['data'].get('min_ps_ratio', 6),
             max_ps_ratio=self.config['data'].get('max_ps_ratio', 22), )
+        print(
+            f"time of build dataloader: {round(time.time() - start_build_time, 2)}s"
+        )
 
     def train_dataloader(self):
         batch_size = self.config['train']['batch_size']
@@ -58,10 +64,10 @@ class Text2SemanticDataModule(LightningDataModule):
             batch_size=batch_size,
             sampler=sampler,
             collate_fn=self._train_dataset.collate,
-            num_workers=self.num_workers, 
+            num_workers=self.num_workers,
             pin_memory=False,
             persistent_workers=self.persistent_workers,
-            prefetch_factor=self.prefetch_factor,)
+            prefetch_factor=self.prefetch_factor, )
 
     def val_dataloader(self):
         return DataLoader(
@@ -69,10 +75,10 @@ class Text2SemanticDataModule(LightningDataModule):
             batch_size=1,
             shuffle=False,
             collate_fn=self._train_dataset.collate,
-            num_workers=self.num_workers, 
+            num_workers=self.num_workers,
             pin_memory=False,
             persistent_workers=self.persistent_workers,
-            prefetch_factor=self.prefetch_factor,)
+            prefetch_factor=self.prefetch_factor, )
 
     # 这个会使用到嘛？
     def test_dataloader(self):
