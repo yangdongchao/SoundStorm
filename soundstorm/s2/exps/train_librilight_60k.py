@@ -324,7 +324,7 @@ def get_datasplit_for_rank(semantic_dirs, acoustic_dirs, global_rank_num: int):
     all_acoustic_files = []
     for semantic_dir in semantic_dirs:
         all_semantic_files += get_files_by_prefix_suffix(
-            semantic_dir, prefix='semantic_token', suffix='tsv')
+            semantic_dir, prefix='semantic_token', suffix='npy')
     for acoustic_dir in acoustic_dirs:
         all_acoustic_files += get_files_by_prefix_suffix(
             acoustic_dir, prefix='hificodec', suffix='pth')
