@@ -15,8 +15,8 @@ config_path=conf/base_L7bin300.yaml
 dump_dir=dump_libritts_base_L7_km300
 ckpt_name='epoch=99-step=49000.ckpt'
 hubert_path=pretrained_model/hubert/hubert_base_ls960.pt
-quantizer_path=train-clean-360_hubert_base_ls960_L7_km300.bin
-prompt_wav_path=''
+quantizer_path=pretrained_model/hubert/train-clean-360_hubert_base_ls960_L7_km300.bin
+prompt_wav_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_libritts_universal_hificodec/test/synthesize_input/1001_134708_000013_000000.wav'
 
 # with the following command, you can choose the stage range you want to run
 # such as `./run.sh --stage 0 --stop-stage 0`

@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument(
         '--test_semantic_path',
         type=str,
-        default='dump/test/semantic_token.tsv')
+        default='dump/test/semantic_token.pth')
     parser.add_argument(
         '--test_phoneme_path', type=str, default='dump/test/phonemes.npy')
 
@@ -80,7 +80,7 @@ def main():
     item_names = test_dataset.__get_item_names__()
 
     # 逐批次读取数据, bs=1、shuffle=False 时可以用 __get_item_names__ 对应
-    semantic_data = [['item_name', 'semantic_audio']]
+    semantic_token_dict = {}
     for i, batch in enumerate(dataloader):
         # 要保证 bs = 1
         utt_id = item_names[i]
@@ -122,17 +122,13 @@ def main():
                 # bs = 1
                 pred_semantic = pred_semantic[0]
             print(f'{time.time() - st} sec used in T2S')
-            semantic_token = pred_semantic.detach().cpu().numpy().tolist()
-            semantic_token_str = ' '.join(str(x) for x in semantic_token)
-            semantic_data.append([utt_id, semantic_token_str])
+            semantic_token = pred_semantic.detach().cpu().numpy()
+            semantic_token_dict[utt_id] = semantic_token.astype(np.int16)
         else:
             break
-    delimiter = '\t'
-    filename = output_dir / "semantic_token.tsv"
-    with open(filename, 'w', encoding='utf-8') as writer:
-        for row in semantic_data:
-            line = delimiter.join(row)
-            writer.write(line + '\n')
+
+    filename = output_dir / "semantic_token.npy"
+    np.save(filename, semantic_token_dict)
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ quantizer_path=$4
 layer=$5
 dump_dir=$6
 
-# extract semantic token by mHubert `.tsv`
+# extract semantic token by mHubert `.npy`
 # download Hubert to pretrained_model/hubert/
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     # 需要处理不同数据集格式

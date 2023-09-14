@@ -16,7 +16,7 @@ dump_dir=dump_libritts
 ckpt_name='epoch=99-step=49000.ckpt'
 hubert_path=pretrained_model/hubert/hubert_base_ls960.pt
 quantizer_path=pretrained_model/hubert/hubert_base_ls960_L9_km500.bin
-prompt_wav_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_libritts_base_L9_km500/test/synthesize_input/98_199_000030_000000.wav'
+prompt_wav_path='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_libritts_universal_hificodec/test/synthesize_input/1001_134708_000013_000000.wav'
 
 # with the following command, you can choose the stage range you want to run
 # such as `./run.sh --stage 0 --stop-stage 0`
