@@ -19,7 +19,8 @@ def convert_tsv_to_dict(semantic_file):
         semantic_str = semantic_data['semantic_audio'][i]
         # get token list
         semantic_ids = [int(idx) for idx in semantic_str.split(' ')]
-        semantic_dict[item_name] = semantic_ids
+        # 直接用 numpy 存否则直接用 python list 存会很大
+        semantic_dict[item_name] = np.array(semantic_ids,dtype=np.int16)
     return semantic_dict
 
 

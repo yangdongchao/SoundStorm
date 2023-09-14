@@ -85,11 +85,11 @@ if __name__ == '__main__':
     parser.add_argument(
         '--train_semantic_path',
         type=str,
-        default='dump/train/semantic_token.tsv')
+        default='dump/train/semantic_token.npy')
     parser.add_argument(
         '--train_phoneme_path', type=str, default='dump/train/phonemes.npy')
     parser.add_argument(
-        '--dev_semantic_path', type=str, default='dump/dev/semantic_token.tsv')
+        '--dev_semantic_path', type=str, default='dump/dev/semantic_token.npy')
     parser.add_argument(
         '--dev_phoneme_path', type=str, default='dump/dev/phonemes.npy')
     parser.add_argument(

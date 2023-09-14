@@ -274,10 +274,9 @@ if __name__ == '__main__':
     root_dir_2 = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/SoundStorm/dump_librilight/medium/train/'
     start_build_time = time.time()
     dataset = Text2SemanticDataset(
-        phoneme_dirs=[root_dir_1],
-        semantic_dirs=[root_dir_1],
-        non_speech_dirs=[root_dir_1],
-        max_sample=10)
+        phoneme_dirs=[root_dir_1, root_dir_2],
+        semantic_dirs=[root_dir_1, root_dir_2],
+        non_speech_dirs=[root_dir_1, root_dir_2])
     batch_size = 12
     dataloader = DataLoader(
         dataset,

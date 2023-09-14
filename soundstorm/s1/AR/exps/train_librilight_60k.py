@@ -152,7 +152,7 @@ def get_datasplit_for_rank(semantic_dirs,
 
     for semantic_dir in semantic_dirs:
         all_semantic_files += get_files_by_prefix_suffix(
-            semantic_dir, prefix='semantic_token', suffix='tsv')
+            semantic_dir, prefix='semantic_token', suffix='npy')
     for phoneme_dir in phoneme_dirs:
         all_phoneme_files += get_files_by_prefix_suffix(
             phoneme_dir, prefix='phonemes', suffix='npy')
