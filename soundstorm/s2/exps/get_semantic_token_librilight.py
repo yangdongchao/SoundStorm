@@ -135,10 +135,10 @@ def process_sentences(args,
                     if record:
                         results.append(record)
 
-    train_data = [['item_name', 'semantic_audio']]
-    dev_data = [['item_name', 'semantic_audio']]
-    test_data = [['item_name', 'semantic_audio']]
-    print(f"start to save {args.rank}_{args.nshard}.tsv ...")
+    train_semantic_token_dict = {}
+    dev_semantic_token_dict = {}
+    test_semantic_token_dict = {}
+    print(f"start to save {args.rank}_{args.nshard}.npy ...")
     save_start_time = time.time()
     # record 是 List of Dict, 一条大 wav 一个 record，一条小 wav 一个 sub_recored
     for record in tqdm.tqdm(results, total=len(results), colour='green'):
@@ -148,43 +148,32 @@ def process_sentences(args,
                 subset = sub_record["subset"]
                 # old hubert_kmeans shape is (T,), new hubert_kmeans shape is (1, T)
                 # so add [0] here
-                semantic_token = np.load(
-                    sub_record["semantic_token_path"])[0].tolist()
-                semantic_token_str = ' '.join(str(x) for x in semantic_token)
+                semantic_token = np.load(sub_record["semantic_token_path"])[0]
+                semantic_token = semantic_token.astype(np.int16)
                 if subset == "train":
-                    train_data.append([utt_id, semantic_token_str])
+                    train_semantic_token_dict[utt_id] = semantic_token
                 elif subset == "dev":
-                    dev_data.append([utt_id, semantic_token_str])
+                    dev_semantic_token_dict[utt_id] = semantic_token
                 # test
                 else:
-                    test_data.append([utt_id, semantic_token_str])
+                    test_semantic_token_dict[utt_id] = semantic_token
             except Exception:
                 print(f"{utt_id} occur Exception")
                 traceback.print_exc()
                 continue
 
-    delimiter = '\t'
-    train_filename = train_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
-    dev_filename = dev_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
-    test_filename = test_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.tsv'
+    train_filename = train_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.npy'
+    dev_filename = dev_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.npy'
+    test_filename = test_dump_dir / f'semantic_token_{args.rank}_{args.nshard}.npy'
 
-    with open(train_filename, 'w', encoding='utf-8') as writer:
-        for row in train_data:
-            line = delimiter.join(row)
-            writer.write(line + '\n')
-    print(f"tsv file '{train_filename}' write down")
+    np.save(train_filename, train_semantic_token_dict)
+    print(f"npy file '{train_filename}' write down")
 
-    with open(dev_filename, 'w', encoding='utf-8') as writer:
-        for row in dev_data:
-            line = delimiter.join(row)
-            writer.write(line + '\n')
-    print(f"tsv file '{dev_filename}' write down")
+    np.save(dev_filename, dev_semantic_token_dict)
+    print(f"npy file '{dev_filename}' write down")
 
-    with open(test_filename, 'w', encoding='utf-8') as writer:
-        for row in test_data:
-            line = delimiter.join(row)
-            writer.write(line + '\n')
-    print(f"tsv file '{test_filename}' write down")
+    np.save(test_filename, test_semantic_token_dict)
+    print(f"npy file '{test_filename}' write down")
     # cost 0.5 ~ 1 hour for LibriLight large
     print('time of save stage:', time.time() - save_start_time)
 

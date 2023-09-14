@@ -37,7 +37,7 @@ class SemanticDataset(torch.utils.data.Dataset):
         s_st = time.time()
         for semantic_file in semantic_files:
             name_list = semantic_file.split("/")
-            # semantic_token_0_3.tsv -> 0_3
+            # semantic_token_0_3.npy -> 0_3
             rank_name = '_'.join(name_list[-1].split('.')[0].split('_')[-2:])
             # small/medium/large/duplicate_0_3
             key_name = f'{name_list[-3]}_{rank_name}'

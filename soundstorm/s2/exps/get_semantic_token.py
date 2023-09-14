@@ -11,6 +11,7 @@ import numpy as np
 import torch
 import tqdm
 from soundstorm.s2.models.hubert.semantic_tokenizer import SemanticTokenizer
+from soundstorm.utils import check_numpy_file
 
 # ThreadPoolExecutor 适用于 I/O 密集型任务，具有轻量级线程切换的优势
 # ProcessPoolExecutor 适用于 CPU 密集型任务，可以充分利用多核处理器的优势
@@ -26,7 +27,8 @@ def process_sentence(fp: Path, output_dir: Path, semantic_tokenizer):
     semantic_token_dir.mkdir(parents=True, exist_ok=True)
     try:
         semantic_token_path = semantic_token_dir / (utt_id + ".npy")
-        if os.path.exists(semantic_token_path):
+        if os.path.exists(semantic_token_path) and check_numpy_file(
+                semantic_token_path):
             # print(semantic_token_path, 'exits!')
             pass
         else:
@@ -74,23 +76,19 @@ def process_sentences(fps: List[Path],
                     if record:
                         results.append(record)
 
-    data = [['item_name', 'semantic_audio']]
+    semantic_token_dict = {}
     results.sort(key=itemgetter("utt_id"))
     for item in results:
         utt_id = item["utt_id"]
         # old hubert_kmeans shape is (T,), new hubert_kmeans shape is (1, T)
         # so add [0] here
-        semantic_token = np.load(item["semantic_token_path"])[0].tolist()
-        semantic_token_str = ' '.join(str(x) for x in semantic_token)
-        data.append([utt_id, semantic_token_str])
-    delimiter = '\t'
-    filename = output_dir / "semantic_token.tsv"
-    with open(filename, 'w', encoding='utf-8') as writer:
-        for row in data:
-            line = delimiter.join(row)  # 使用制表符拼接每行数据
-            writer.write(line + '\n')
-
-    print(f"tsv file '{filename}' write down")
+        # 直接就是 int16
+        semantic_token = np.load(item["semantic_token_path"])[0]
+        semantic_token = semantic_token.astype(np.int16)
+        semantic_token_dict[utt_id] = semantic_token
+    filename = output_dir / "semantic_token.npy"
+    np.save(filename, semantic_token_dict)
+    print(f"npy file '{filename}' write down")
 
 
 def main():
