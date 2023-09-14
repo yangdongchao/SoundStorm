@@ -2,7 +2,6 @@ import argparse
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import soundfile as sf
 import torch
 from academicodec.models.hificodec.vqvae import VQVAE
@@ -18,6 +17,18 @@ from timer import timer
 acoustic_token_nums = 1024
 prompt_acoustic_eos = acoustic_token_nums
 target_acoustic_eos = acoustic_token_nums + 1
+
+
+def split_dict_keys(input_dict, batch_size):
+    dict_keys = list(input_dict.keys())  # 获取字典的所有键
+    num_keys = len(dict_keys)  # 获取键的总数
+    batches = []
+
+    for i in range(0, num_keys, batch_size):
+        batch_keys = dict_keys[i:i + batch_size]  # 获取当前批次的键
+        batches.append(batch_keys)
+
+    return batches
 
 
 def move_tensors_to_cuda(d):
@@ -53,7 +64,7 @@ def hificodec_decode(hificodec, acoustic_token, rescale: bool=True):
 
 def get_one_sample(acoustic_data,
                    semantic_data,
-                   index: int,
+                   utt_id,
                    num_quant: int=4,
                    hz: int=50,
                    max_prompt_sec: int=3,
@@ -64,11 +75,10 @@ def get_one_sample(acoustic_data,
     (2) 若总长度小于 6s, 则 1/2 分给 prompt, 剩余为 target 
     (3) target 最多为 10s
     '''
-    item_name = semantic_data['item_name'][index]
-    semantic_str = semantic_data['semantic_audio'][index]
+    item_name = utt_id
+    semantic_ids = semantic_data[item_name]
     # shape: (1, T)
-    semantic_tokens = torch.tensor(
-        [int(idx) for idx in semantic_str.split(' ')]).unsqueeze(0)
+    semantic_tokens = torch.tensor(semantic_ids).unsqueeze(0)
     try:
         acoustic_str = acoustic_data[item_name]
     except Exception:
@@ -105,7 +115,7 @@ def get_one_sample(acoustic_data,
 # one wav per batch
 def get_batch(acoustic_data,
               semantic_data,
-              index: int,
+              utt_id,
               num_quant: int=4,
               hz: int=50,
               max_prompt_sec: int=3,
@@ -113,7 +123,7 @@ def get_batch(acoustic_data,
     result = get_one_sample(
         acoustic_data=acoustic_data,
         semantic_data=semantic_data,
-        index=index,
+        utt_id=utt_id,
         num_quant=num_quant,
         hz=hz,
         max_prompt_sec=max_prompt_sec,
@@ -136,7 +146,7 @@ def get_batch(acoustic_data,
 
 def get_big_batch(acoustic_data,
                   semantic_data,
-                  index_list,
+                  utt_ids,
                   prompt_semantic_end_id: int,
                   target_semantic_end_id: int,
                   num_quant: int=4,
@@ -147,11 +157,11 @@ def get_big_batch(acoustic_data,
     tmp_target_semantics = []
     tmp_prompt_acoustics = []
     tmp_target_acoustics = []
-    for index in index_list:
+    for utt_id in utt_ids:
         result = get_one_sample(
             acoustic_data=acoustic_data,
             semantic_data=semantic_data,
-            index=index,
+            utt_id=utt_id,
             num_quant=num_quant,
             hz=hz,
             max_prompt_sec=max_prompt_sec,
@@ -203,18 +213,30 @@ def evaluate(args,
     output_dir.mkdir(parents=True, exist_ok=True)
 
     acoustic_data = torch.load(args.test_acoustic_path)
-    semantic_data = pd.read_csv(args.test_semantic_path, delimiter='\t')
+    semantic_data = np.load(args.test_semantic_path, allow_pickle=True).item()
 
     N = 0
     T = 0
+    max_sample = 10
 
-    for index, utt_id in enumerate(semantic_data['item_name'][:10]):
+    if max_sample is not None:
+        count = 0
+        semantic_data_clip = {}
+        for key, value in semantic_data.items():
+            if count < max_sample:
+                semantic_data_clip[key] = value
+                count += 1
+            else:
+                break
+        semantic_data = semantic_data_clip
+
+    for utt_id in semantic_data.keys():
         with timer() as t:
             # 需要处理 item_name 不在 acoustic_data 中的情况
             batch = get_batch(
                 acoustic_data,
                 semantic_data,
-                index,
+                utt_id,
                 num_quant=num_quant,
                 hz=hz,
                 max_prompt_sec=max_prompt_sec,
@@ -263,65 +285,55 @@ def evaluate_batch(args,
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     acoustic_data = torch.load(args.test_acoustic_path)
-    semantic_data = pd.read_csv(args.test_semantic_path, delimiter='\t')
+    semantic_data = np.load(args.test_semantic_path, allow_pickle=True).item()
 
     # split data into n batch with batch_size
-    utt_id_list = semantic_data['item_name'].tolist()
-    utt_id_lists = [
-        utt_id_list[i:i + batch_size]
-        for i in range(0, len(utt_id_list), batch_size)
-    ]
+    utt_id_lists = split_dict_keys(semantic_data, batch_size)
 
-    all_indexs = list(range(0, len(utt_id_list)))
-    index_lists = [
-        all_indexs[i:i + batch_size]
-        for i in range(0, len(all_indexs), batch_size)
-    ]
+    for i, utt_ids in enumerate(utt_id_lists[:20]):
+        with timer() as t:
+            batch = get_big_batch(
+                acoustic_data,
+                semantic_data,
+                utt_ids,
+                prompt_semantic_end_id=prompt_semantic_end_id,
+                target_semantic_end_id=target_semantic_end_id,
+                num_quant=num_quant,
+                hz=hz,
+                max_prompt_sec=max_prompt_sec,
+                max_target_sec=max_target_sec)
+            batch = move_tensors_to_cuda(batch)
+            # some wrong with this index od data
+            if batch is None:
+                continue
+            with torch.no_grad():
+                s_time = t.elapse
+                model_out = soundstorm.infer_one(batch)
+                print(f"infer time: {t.elapse - s_time}s")
 
-    for i, index_list in enumerate(index_lists[:20]):
-        utt_ids = utt_id_lists[i]
-        batch = get_big_batch(
-            acoustic_data,
-            semantic_data,
-            index_list,
-            prompt_semantic_end_id=prompt_semantic_end_id,
-            target_semantic_end_id=target_semantic_end_id,
-            num_quant=num_quant,
-            hz=hz,
-            max_prompt_sec=max_prompt_sec,
-            max_target_sec=max_target_sec)
-        batch = move_tensors_to_cuda(batch)
-        # some wrong with this index od data
-        if batch is None:
-            continue
-        with torch.no_grad():
-            start = time.time()
-            model_out = soundstorm.infer_one(batch)
-            end = time.time()
-            print("infer time:", end - start)
+            content = model_out['token_pred']
+            # shape (B, Nq x T) -> (B, Nq, T)
+            codes = content.reshape(content.shape[0], num_quant, -1)
+            # to clip wav
+            eos_indexs = []
+            for j in range(0, codes.shape[0]):
+                utt_id = utt_ids[j]
+                # to clip wav with mask
+                codes_gt = batch['target_acoustics'][j]
+                codes_gt_0_list = codes_gt[0].cpu().numpy().tolist()
+                eos_index = codes_gt_0_list.index(
+                    target_acoustic_eos
+                ) if target_acoustic_eos in codes_gt_0_list else -1
+                eos_indexs.append(eos_index)
+                # pseudo batch
+                wav_gt = hificodec_decode(
+                    hificodec, codes_gt.unsqueeze(0)[:, :, :eos_index])
+                wav_gen = hificodec_decode(
+                    hificodec, codes[j].unsqueeze(0)[:, :, :eos_index])
 
-        content = model_out['token_pred']
-        # shape (B, Nq x T) -> (B, Nq, T)
-        codes = content.reshape(content.shape[0], num_quant, -1)
-        # to clip wav
-        eos_indexs = []
-        for j in range(0, codes.shape[0]):
-            utt_id = utt_ids[j]
-            # to clip wav with mask
-            codes_gt = batch['target_acoustics'][j]
-            codes_gt_0_list = codes_gt[0].cpu().numpy().tolist()
-            eos_index = codes_gt_0_list.index(
-                target_acoustic_eos
-            ) if target_acoustic_eos in codes_gt_0_list else -1
-            eos_indexs.append(eos_index)
-            # pseudo batch
-            wav_gt = hificodec_decode(hificodec,
-                                      codes_gt.unsqueeze(0)[:, :, :eos_index])
-            wav_gen = hificodec_decode(hificodec,
-                                       codes[j].unsqueeze(0)[:, :, :eos_index])
-
-            sf.write(output_dir / (utt_id + ".wav"), wav_gen, sample_rate)
-            sf.write(output_dir / (utt_id + "_real.wav"), wav_gt, sample_rate)
+                sf.write(output_dir / (utt_id + ".wav"), wav_gen, sample_rate)
+                sf.write(output_dir /
+                         (utt_id + "_real.wav"), wav_gt, sample_rate)
 
 
 def parse_args():
@@ -344,7 +356,7 @@ def parse_args():
     parser.add_argument(
         '--test_semantic_path',
         type=str,
-        default='dump/test/semantic_token.tsv')
+        default='dump/test/semantic_token.pth')
     parser.add_argument(
         '--test_acoustic_path',
         type=str,
