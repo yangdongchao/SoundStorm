@@ -79,7 +79,7 @@ dataloader:
                 codec_name: hificodec
                 num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
                 semantic_token_nums: 300 # 1000 for mhubert 500 for en_hubert 
-                semantic_path: dump/train/semantic_token.tsv
+                semantic_path: dump/train/semantic_token.npy
                 acoustic_path: dump/train/acoustic_token/hificodec.pth
 
     dev_datasets:
@@ -88,5 +88,5 @@ dataloader:
                 codec_name: hificodec
                 num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
                 semantic_token_nums: 300 # 1000 for mhubert 500 for en_hubert 
-                semantic_path: dump/dev/semantic_token.tsv
+                semantic_path: dump/dev/semantic_token.npy
                 acoustic_path: dump/dev/acoustic_token/hificodec.pth

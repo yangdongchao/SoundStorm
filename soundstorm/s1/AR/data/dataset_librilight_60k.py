@@ -200,14 +200,6 @@ class Text2SemanticDataset(Dataset):
             self.semantic_phoneme[self.idx] = (semantic_ids, phoneme_ids)
             self.idx += 1
             self.item_names.append(item_name)
-            # 垃圾回收否则可能内存不够
-            del semantic_str
-            del phoneme
-        del self.semantic_data_dict[key_name]
-        del self.phoneme_data_dict[key_name]
-
-        if key_name in self.non_speech_data_dict:
-            del self.non_speech_data_dict[key_name]
 
     def __get_item_names__(self) -> List[str]:
         return self.item_names
@@ -359,20 +351,19 @@ if __name__ == '__main__':
     root_dir_2 = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/SoundStorm/dump_librilight/medium/train/'
     start_build_time = time.time()
     dataset = Text2SemanticDataset(
-        phoneme_paths=[
+        semantic_paths=[
             root_dir_1 + 'semantic_token_0_3.npy',
             root_dir_1 + 'semantic_token_1_3.npy',
             root_dir_1 + 'semantic_token_2_3.npy'
         ],
-        semantic_paths=[
+        phoneme_paths=[
             root_dir_1 + 'phonemes_0_3.npy', root_dir_1 + 'phonemes_1_3.npy',
             root_dir_1 + 'phonemes_2_3.npy'
         ],
         non_speech_paths=[
             root_dir_1 + 'non_speech_0_3.npy',
             root_dir_1 + 'non_speech_1_3.npy', root_dir_1 + 'non_speech_2_3.npy'
-        ],
-        max_sample=10)
+        ])
     batch_size = 12
     dataloader = DataLoader(
         dataset,
@@ -382,14 +373,14 @@ if __name__ == '__main__':
     # small + medium dev: 3.7s, 21189 seqs
     # small + medium train: 300s, 1192629 seqs
     print(f"time of build dataloader: {time.time() - start_build_time}")
-    # for i, batch in enumerate(dataloader):
-    #     if i == 0:
-    #         print('batch["ids"]:', batch["ids"])
-    #         print('batch["phoneme_ids"]:', batch["phoneme_ids"],
-    #               batch["phoneme_ids"].shape)
-    #         print('batch["phoneme_ids_len"]:', batch["phoneme_ids_len"],
-    #               batch["phoneme_ids_len"].shape)
-    #         print('batch["semantic_ids"]:', batch["semantic_ids"],
-    #               batch["semantic_ids"].shape)
-    #         print('batch["semantic_ids_len"]:', batch["semantic_ids_len"],
-    #               batch["semantic_ids_len"].shape)
+    for i, batch in enumerate(dataloader):
+        if i == 0:
+            print('batch["ids"]:', batch["ids"])
+            print('batch["phoneme_ids"]:', batch["phoneme_ids"],
+                  batch["phoneme_ids"].shape)
+            print('batch["phoneme_ids_len"]:', batch["phoneme_ids_len"],
+                  batch["phoneme_ids_len"].shape)
+            print('batch["semantic_ids"]:', batch["semantic_ids"],
+                  batch["semantic_ids"].shape)
+            print('batch["semantic_ids_len"]:', batch["semantic_ids_len"],
+                  batch["semantic_ids_len"].shape)

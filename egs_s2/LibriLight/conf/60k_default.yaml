@@ -86,7 +86,7 @@ dataloader:
                 semantic_token_nums: 300 # same with num of kmeans bins
                 max_prompt_sec: 3        # be same with LibriTTS
                 max_target_sec: 20       # LibriTTS is 10, use 20 here for longer TTS
-                semantic_paths: ['dump/small/train/semantic_token_0_3.tsv', 'dump/small/train/semantic_token_1_3.tsv']
+                semantic_paths: ['dump/small/train/semantic_token_0_3.npy', 'dump/small/train/semantic_token_1_3.npy']
                 acoustic_paths: ['dump/small/train/acoustic_token/hificodec_0_3.pth', 'dump/small/train/acoustic_token/hificodec_2_3.pth']
 
     dev_datasets:
@@ -97,5 +97,5 @@ dataloader:
                 semantic_token_nums: 300 # same with num of kmeans bins
                 max_prompt_sec: 3        # be same with LibriTTS
                 max_target_sec: 20       # LibriTTS is 10, use 20 here for longer TTS
-                semantic_paths: ['dump/small/dev/semantic_token_0_3.tsv', 'dump/small/dev/semantic_token_1_3.tsv']
+                semantic_paths: ['dump/small/dev/semantic_token_0_3.npy', 'dump/small/dev/semantic_token_1_3.npy']
                 acoustic_paths: ['dump/small/dev/acoustic_token/hificodec_0_3.pth', 'dump/small/dev/acoustic_token/hificodec_2_3.pth']

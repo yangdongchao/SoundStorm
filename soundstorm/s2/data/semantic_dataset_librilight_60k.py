@@ -1,7 +1,8 @@
 import random
 import time
+from collections import OrderedDict
 
-import pandas as pd
+import numpy as np
 import torch
 import torch.distributed as dist
 from soundstorm.s2.data.semantic_dataset import pad_2D
@@ -40,8 +41,8 @@ class SemanticDataset(torch.utils.data.Dataset):
             rank_name = '_'.join(name_list[-1].split('.')[0].split('_')[-2:])
             # small/medium/large/duplicate_0_3
             key_name = f'{name_list[-3]}_{rank_name}'
-            self.semantic_data_dict[key_name] = pd.read_csv(
-                semantic_file, delimiter='\t')
+            self.semantic_data_dict[key_name] = np.load(
+                semantic_file, allow_pickle=True).item()
         print(f"load semantic_files done, cost {round(time.time()-s_st, 2)}s")
         a_st = time.time()
         for acoustic_file in acoustic_files:
@@ -116,17 +117,9 @@ class SemanticDataset(torch.utils.data.Dataset):
         self.total_semantic_data_len += semantic_data_len
         self.total_acoustic_data_len += acoustic_data_len
 
-        for i in range(semantic_data_len):
-            # 先依次遍历
-            # get str
-            semantic_str = semantic_data['semantic_audio'][i]
-            # get token list
-            tmp = [int(idx) for idx in semantic_str.split(' ')]
-            sementic_ls.append(tmp)
-            len_ls.append(len(tmp))
-        # 按列表中元素的值进行排序，并返回元素对应索引序列
-        sorted_id = sorted(
-            range(len(len_ls)), key=lambda k: len_ls[k], reverse=True)
+        semantic_data = OrderedDict(
+            sorted(
+                semantic_data.items(), key=lambda x: len(x[1]), reverse=True))
 
         # 最大长度为 13s
         max_len = self.max_sec * self.hz
@@ -135,14 +128,11 @@ class SemanticDataset(torch.utils.data.Dataset):
         tmp_prompt_acoustics = []
         tmp_target_acoustics = []
         tmp_tot_tokens = 0
-        for i in range(len(sorted_id)):
-            # get the index
-            index = sorted_id[i]
+        for item_name, semantic_ids in semantic_data.items():
             # get the semantic 
             # (1, T)
-            over_semantic = torch.tensor(sementic_ls[index]).unsqueeze(0)
+            over_semantic = torch.tensor(semantic_ids).unsqueeze(0)
             # 需要处理 item_name 不在 acoustic_data 中的情况
-            item_name = semantic_data['item_name'][index]
             try:
                 acoustic_str = acoustic_data[item_name]
             except Exception:
@@ -372,3 +362,36 @@ class DDPSyncSampler(object):
     def load_state_dict(self, d):
         for k, v in d.items():
             setattr(self, k, v)
+
+
+if __name__ == '__main__':
+    from torch.utils.data import DataLoader
+    semantic_dirs_1 = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_librilight/small/train/'
+    acoustic_dirs_1 = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_librilight/small/train/acoustic_token/'
+    start_build_time = time.time()
+    dataset = SemanticDataset(
+        semantic_paths=[
+            semantic_dirs_1 + 'semantic_token_0_3.npy',
+            semantic_dirs_1 + 'semantic_token_1_3.npy',
+            semantic_dirs_1 + 'semantic_token_2_3.npy'
+        ],
+        acoustic_paths=[
+            acoustic_dirs_1 + 'hificodec_0_3.pth',
+            acoustic_dirs_1 + 'hificodec_1_3.pth',
+            acoustic_dirs_1 + 'hificodec_2_3.pth'
+        ],
+        num_quant=4, )
+    batch_size = 12
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        collate_fn=dataset.collater,
+        shuffle=False)
+
+    print(f"time of build dataloader: {time.time() - start_build_time}")
+    for i, batch in enumerate(dataloader):
+        if i == 0:
+            print('batch["prompt_semantics"]:', batch["prompt_semantics"].shape)
+            print('batch["target_semantics"]:', batch["target_semantics"].shape)
+            print('batch["prompt_acoustics"]:', batch["prompt_acoustics"].shape)
+            print('batch["target_acoustics"]:', batch["target_acoustics"].shape)

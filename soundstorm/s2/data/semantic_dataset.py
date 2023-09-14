@@ -1,11 +1,11 @@
 import random
+import time
+from collections import OrderedDict
 from typing import List
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn.functional as F
-
 # BaseDataset code from NATSpeech
 '''
 数据集构建策略:
@@ -41,10 +41,13 @@ class SemanticDataset(torch.utils.data.Dataset):
                  max_prompt_sec: int=3,
                  max_target_sec: int=10):
         super().__init__()
-
-        self.semantic_data = pd.read_csv(semantic_path, delimiter='\t')
+        s_st = time.time()
+        self.semantic_data = np.load(semantic_path, allow_pickle=True).item()
+        print(f"load semantic_files done, cost {round(time.time()-s_st, 2)}s")
         # get dict
+        a_st = time.time()
         self.acoustic_data = torch.load(acoustic_path)
+        print(f"load acoustic_files done, cost {round(time.time()-a_st, 2)}s")
 
         self.num_quant = 4 if codec_name == 'hificodec' else num_quant
         # 16000 / 320 = 50
@@ -76,7 +79,9 @@ class SemanticDataset(torch.utils.data.Dataset):
 
         if not self.inited:
             # 调用初始化函数
+            i_st = time.time()
             self.init_batch()
+            print(f"init_batch done, cost {round(time.time()-i_st, 2)}s")
             self.inited = True
 
     def init_batch(self):
@@ -87,20 +92,15 @@ class SemanticDataset(torch.utils.data.Dataset):
         sementic_ls = []
         len_ls = []
         semantic_data_len = len(self.semantic_data)
-        acoustic_data_len = len(self.acoustic_data.keys())
+        acoustic_data_len = len(self.acoustic_data)
         print("semantic_data_len:", semantic_data_len)
         print("acoustic_data_len:", acoustic_data_len)
-        for i in range(semantic_data_len):
-            # 先依次遍历
-            # get str
-            semantic_str = self.semantic_data['semantic_audio'][i]
-            # get token list
-            tmp = [int(idx) for idx in semantic_str.split(' ')]
-            sementic_ls.append(tmp)
-            len_ls.append(len(tmp))
-        # 按列表中元素的值进行排序，并返回元素对应索引序列
-        sorted_id = sorted(
-            range(len(len_ls)), key=lambda k: len_ls[k], reverse=True)
+        # 按照 value 的长度进行排序, OrderedDict 可以保证不额外占用内存
+        self.semantic_data = OrderedDict(
+            sorted(
+                self.semantic_data.items(),
+                key=lambda x: len(x[1]),
+                reverse=True))
         start_batch_id = 0
         # 最大长度为 13s
         max_len = self.max_sec * self.hz
@@ -109,14 +109,10 @@ class SemanticDataset(torch.utils.data.Dataset):
         tmp_prompt_acoustics = []
         tmp_target_acoustics = []
         tmp_tot_tokens = 0
-        for i in range(len(sorted_id)):
-            # get the index
-            index = sorted_id[i]
+        for item_name, semantic_ids in self.semantic_data.items():
             # get the semantic 
             # (1, T)
-            over_semantic = torch.tensor(sementic_ls[index]).unsqueeze(0)
-            # 需要处理 item_name 不在 acoustic_data 中的情况
-            item_name = self.semantic_data['item_name'][index]
+            over_semantic = torch.tensor(semantic_ids).unsqueeze(0)
             try:
                 acoustic_str = self.acoustic_data[item_name]
             except Exception:
@@ -245,3 +241,28 @@ class SemanticDataset(torch.utils.data.Dataset):
         new_samples['target_acoustics'] = torch.from_numpy(target_acoustics)
         new_samples['x_mask'] = torch.from_numpy(x_mask[:, 0, :])
         return new_samples
+
+
+if __name__ == '__main__':
+    from torch.utils.data import DataLoader
+    semantic_path = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_libritts_base_L7_km300/train/semantic_token.npy'
+    acoustic_path = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_libritts_base_L7_km300/train/acoustic_token/hificodec.pth'
+    start_build_time = time.time()
+    dataset = SemanticDataset(
+        semantic_path=semantic_path,
+        acoustic_path=acoustic_path,
+        num_quant=4, )
+    batch_size = 12
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        collate_fn=dataset.collater,
+        shuffle=False)
+
+    print(f"time of build dataloader: {time.time() - start_build_time}")
+    for i, batch in enumerate(dataloader):
+        if i == 0:
+            print('batch["prompt_semantics"]:', batch["prompt_semantics"].shape)
+            print('batch["target_semantics"]:', batch["target_semantics"].shape)
+            print('batch["prompt_acoustics"]:', batch["prompt_acoustics"].shape)
+            print('batch["target_acoustics"]:', batch["target_acoustics"].shape)
