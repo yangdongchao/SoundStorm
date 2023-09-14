@@ -5,19 +5,17 @@
 3. 剔除 phoneme/sec 太大或太小的样本, fengyufei's 上下限 8-30
    直方图 https://github.com/yt605155624/mine_images/issues/1#issuecomment-1683696942, 6 ~ 22 比较合适
 '''
-import os
+import time
 from typing import Dict
 from typing import List
 
 import numpy as np
-import pandas as pd
 import torch
 from soundstorm.s1.AR.data.dataset import batch_sequences
 from soundstorm.s1.AR.text_processing.phonemizer import GruutPhonemizer
 from soundstorm.utils import get_files_by_prefix_suffix
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
-import time
 
 
 def get_key_name(file_path: str):
@@ -56,15 +54,15 @@ class Text2SemanticDataset(Dataset):
 
         for semantic_dir in semantic_dirs:
             semantic_files += get_files_by_prefix_suffix(
-                semantic_dir, prefix='semantic_token', suffix='tsv')
+                semantic_dir, prefix='semantic_token', suffix='npy')
         for phoneme_dir in phoneme_dirs:
             phoneme_files += get_files_by_prefix_suffix(
                 phoneme_dir, prefix='phonemes', suffix='npy')
         s_st = time.time()
         for semantic_file in semantic_files:
             key_name = get_key_name(semantic_file)
-            self.semantic_data_dict[key_name] = pd.read_csv(
-                semantic_file, delimiter='\t')
+            self.semantic_data_dict[key_name] = np.load(
+                semantic_file, allow_pickle=True).item()
         print(f"load semantic_files done, cost {round(time.time()-s_st, 2)}s")
         p_st = time.time()
         for phoneme_file in phoneme_files:
@@ -159,20 +157,24 @@ class Text2SemanticDataset(Dataset):
             non_speech_data = self.non_speech_data_dict[key_name]
 
         if self.max_sample is not None:
-            semantic_data = semantic_data[:self.max_sample]
+            count = 0
+            semantic_data_clip = {}
+            for key, value in semantic_data.items():
+                if count < self.max_sample:
+                    semantic_data_clip[key] = value
+                    count += 1
+                else:
+                    break
+            semantic_data = semantic_data_clip
 
         semantic_data_len = len(semantic_data)
-        phoneme_data_len = len(phoneme_data.keys())
+        phoneme_data_len = len(phoneme_data)
 
         self.total_semantic_data_len += semantic_data_len
         self.total_phoneme_data_len += phoneme_data_len
 
-        for i in range(semantic_data_len):
-            # 先依次遍历
-            # get str
-            item_name = semantic_data['item_name'][i]
+        for item_name, semantic_ids in semantic_data.items():
             # 过滤掉非 speech 类型的样本
-
             if non_speech_data is not None and item_name in non_speech_data.keys(
             ):
                 self.num_deleted_none_speech += 1
@@ -187,9 +189,6 @@ class Text2SemanticDataset(Dataset):
                 self.num_not_in += 1
                 continue
 
-            semantic_str = semantic_data['semantic_audio'][i]
-            # get token list
-            semantic_ids = [int(idx) for idx in semantic_str.split(' ')]
             # (T), 是否需要变成 (1, T) -> 不需要，因为需要求 len
             # 过滤掉太长的样本
             if len(semantic_ids) > self.max_sec * self.hz:
@@ -207,15 +206,6 @@ class Text2SemanticDataset(Dataset):
             self.semantic_phoneme[self.idx] = (semantic_ids, phoneme_ids)
             self.idx += 1
             self.item_names.append(item_name)
-            # 垃圾回收否则可能内存不够
-            del semantic_str
-            del phoneme
-        del self.semantic_data_dict[key_name]
-        del self.phoneme_data_dict[key_name]
-
-        if key_name in self.non_speech_data_dict:
-            del self.non_speech_data_dict[key_name]
-            
 
     def __get_item_names__(self) -> List[str]:
         return self.item_names
@@ -282,12 +272,12 @@ class Text2SemanticDataset(Dataset):
 if __name__ == '__main__':
     root_dir_1 = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/SoundStorm/dump_librilight/small/train/'
     root_dir_2 = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/SoundStorm/dump_librilight/medium/train/'
-    import time
     start_build_time = time.time()
     dataset = Text2SemanticDataset(
-        phoneme_dirs=[root_dir_1, root_dir_2],
-        semantic_dirs=[root_dir_1, root_dir_2],
-        non_speech_dirs=[root_dir_1])
+        phoneme_dirs=[root_dir_1],
+        semantic_dirs=[root_dir_1],
+        non_speech_dirs=[root_dir_1],
+        max_sample=10)
     batch_size = 12
     dataloader = DataLoader(
         dataset,
