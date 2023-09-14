@@ -62,13 +62,13 @@ def get_args():
     parser.add_argument(
         '--train_semantic_path',
         type=str,
-        default='dump/train/semantic_token.tsv')
+        default='dump/train/semantic_token.npy')
     parser.add_argument(
         '--train_acoustic_path',
         type=str,
         default='dump/train/acoustic_token/hificodec.pth')
     parser.add_argument(
-        '--dev_semantic_path', type=str, default='dump/dev/semantic_token.tsv')
+        '--dev_semantic_path', type=str, default='dump/dev/semantic_token.npy')
     parser.add_argument(
         '--dev_acoustic_path',
         type=str,

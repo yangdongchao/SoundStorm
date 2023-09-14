@@ -5,7 +5,6 @@ from pathlib import Path
 
 import librosa
 import numpy as np
-import pandas as pd
 import soundfile as sf
 import torch
 from academicodec.models.hificodec.vqvae import VQVAE
@@ -118,15 +117,12 @@ def evaluate(args,
         # trans acoustic_token.shape to (Nq, T)
         prompt_acoustic_tokens = acoustic_token.squeeze(0).transpose(0, 1)
     else:
-        prompt_semantic_data = pd.read_csv(
-            args.prompt_semantic_path, delimiter='\t')
+        prompt_semantic_data = np.load(
+            args.prompt_semantic_path, allow_pickle=True).item()
         prompt_acoustic_data = torch.load(args.prompt_acoustic_path)
-
-        prompt_name = prompt_semantic_data['item_name'][0]
-        prompt_semantic_str = prompt_semantic_data['semantic_audio'][0]
-        # shape: (1, T)
+        prompt_name = next(iter(prompt_semantic_data))
         prompt_semantic_tokens = torch.tensor(
-            [int(idx) for idx in prompt_semantic_str.split(' ')]).unsqueeze(0)
+            prompt_semantic_data[prompt_name]).unsqueeze(0)
         try:
             prompt_acoustic_str = prompt_acoustic_data[prompt_name]
         except Exception:
@@ -134,14 +130,12 @@ def evaluate(args,
         prompt_acoustic_tokens = prompt_acoustic_str[:num_quant, ...]
 
     # get target
-    # 保留 item_name 前导 0
-    target_semantic_data = pd.read_csv(
-        args.target_semantic_path, delimiter='\t', dtype=str)
-    target_name = target_semantic_data['item_name'][0]
-    target_semantic_str = target_semantic_data['semantic_audio'][0]
-    # shape: (1, T)
+    target_semantic_data = np.load(
+        args.target_semantic_path, allow_pickle=True).item()
+    # target_semantic_data 里面只有一个 key
+    target_name = next(iter(target_semantic_data))
     target_semantic_tokens = torch.tensor(
-        [int(idx) for idx in target_semantic_str.split(' ')]).unsqueeze(0)
+        target_semantic_data[target_name]).unsqueeze(0)
 
     batch = get_batch(
         prompt_semantic_tokens=prompt_semantic_tokens,
@@ -210,7 +204,7 @@ def parse_args():
     parser.add_argument(
         '--target_semantic_path',
         type=str,
-        default='dump/test/target_semantic.tsv')
+        default='dump/test/target_semantic.pth')
 
     # for HiFi-Codec
     parser.add_argument(

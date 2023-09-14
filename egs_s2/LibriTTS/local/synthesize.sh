@@ -25,9 +25,9 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     OMP_NUM_THREADS=${omp_num} python3 ${BIN_DIR}/synthesize.py \
         --config_file=${config_path} \
         --ckpt_path=${root_dir}/${train_output_path}/checkpoint/${ckpt_name} \
-        --prompt_semantic_path=${root_dir}/${dump_dir}/test/synthesize_input/prompt_semantic.tsv \
+        --prompt_semantic_path=${root_dir}/${dump_dir}/test/synthesize_input/prompt_semantic.npy \
         --prompt_acoustic_path=${root_dir}/${dump_dir}/test/synthesize_input/prompt_acoustic.pth \
-        --target_semantic_path=${root_dir}/${dump_dir}/test/synthesize_input/target_semantic.tsv \
+        --target_semantic_path=${root_dir}/${dump_dir}/test/synthesize_input/target_semantic.npy \
         --output_dir=${root_dir}/${train_output_path}/syn_output \
         --hificodec_model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --hificodec_config_path=pretrained_model/hificodec/config_16k_320d.json
@@ -41,7 +41,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
         --prompt_wav_path=${root_dir}/${dump_dir}/test/synthesize_input/1001_134708_000013_000000.wav \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --target_semantic_path=${root_dir}/${dump_dir}/test/synthesize_input/target_semantic.tsv \
+        --target_semantic_path=${root_dir}/${dump_dir}/test/synthesize_input/target_semantic.npy \
         --output_dir=${root_dir}/${train_output_path}/syn_output \
         --hificodec_model_path=pretrained_model/hificodec/HiFi-Codec-16k-320d-large-universal \
         --hificodec_config_path=pretrained_model/hificodec/config_16k_320d.json
