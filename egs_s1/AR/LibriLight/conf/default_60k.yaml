@@ -1,0 +1,33 @@
+# L7bin300
+# 一个 epoch 保存的模型数 = `dataset.__len__() / (batch_size * ngpus ** 3 * every_n_train_steps)`
+train:
+    seed: 1234
+    epochs: 20
+    batch_size: 10
+    gradient_accumulation: 4
+    every_n_train_steps: 200 # 200 for 4 gpus, save 8.4 models per epoch for LibriLight 6k
+    precision: 32 # batch_size = 8 not OOM for precision = 12
+    gradient_clip: 1.0
+optimizer:
+    lr: 0.01
+    lr_init: 0.00001
+    lr_end: 0.0001
+    warmup_steps: 2000
+    decay_steps: 40000
+data:
+    max_eval_sample: 8
+    max_sec: 20
+    num_workers: 1
+    pad_val: 300 # same with EOS in model
+model:
+    vocab_size: 301 # EOS + 1
+    phoneme_vocab_size: 512
+    embedding_dim: 512
+    hidden_dim: 512
+    head: 16
+    linear_units: 2048
+    n_layer: 12
+    dropout: 0
+    EOS: 300
+inference:
+    top_k: 3
