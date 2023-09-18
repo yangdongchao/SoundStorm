@@ -3,8 +3,6 @@
 model:
     target: soundstorm.s2.models.dalle_wav.dalle_wav.DALLE
     params:
-        content_info: {key: audio}
-        condition_info: {key: text}
         n_q: 4  # the encodec codebook's number, same as `num_quant` of dataloader
         diffusion_config:
             target: soundstorm.s2.models.dalle_wav.diffusion_transformer.DiffusionTransformer
@@ -82,7 +80,7 @@ dataloader:
                 codec_name: hificodec
                 num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
                 semantic_token_nums: 500 # 1000 for mhubert 500 for en_hubert 
-                semantic_path: dump/train/semantic_token.tsv
+                semantic_path: dump/train/semantic_token.npy
                 acoustic_path: dump/train/acoustic_token/hificodec.pth
 
     dev_datasets:
@@ -91,5 +89,5 @@ dataloader:
                 codec_name: hificodec
                 num_quant: 4    # not work when != 4 for hificodec, and can be 3 for soundstream and encodec
                 semantic_token_nums: 500 # 1000 for mhubert 500 for en_hubert 
-                semantic_path: dump/dev/semantic_token.tsv
+                semantic_path: dump/dev/semantic_token.npy
                 acoustic_path: dump/dev/acoustic_token/hificodec.pth

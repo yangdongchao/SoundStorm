@@ -11,6 +11,7 @@ from torch.utils import data
 LOCAL_PROCESS_GROUP = None
 
 
+# global_rank
 def is_primary():
     return get_rank() == 0
 
@@ -112,38 +113,29 @@ def all_gather(data):
 
     return data_list
 
-
+# 只有 rank 为 0 的进程会计算均值，其他进程会保持原始值
 def reduce_dict(input_dict, average=True):
     world_size = get_world_size()
-
     if world_size < 2:
         return input_dict
-
     with torch.no_grad():
         keys = []
         values = []
-
         for k in sorted(input_dict.keys()):
             keys.append(k)
             values.append(input_dict[k])
-
         values = torch.stack(values, 0)
         dist.reduce(values, dst=0)
-
         if dist.get_rank() == 0 and average:
             values /= world_size
-
         reduced_dict = {k: v for k, v in zip(keys, values)}
-
     return reduced_dict
 
 
 def data_sampler(dataset, shuffle, distributed):
     if distributed:
         return data.distributed.DistributedSampler(dataset, shuffle=shuffle)
-
     if shuffle:
         return data.RandomSampler(dataset)
-
     else:
         return data.SequentialSampler(dataset)

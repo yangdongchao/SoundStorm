@@ -11,6 +11,6 @@ omp_num=4
 OMP_NUM_THREADS=${omp_num} python3 ${BIN_DIR}/test.py \
     --config_file=${config_path} \
     --ckpt_path=${root_dir}/${train_output_path}/ckpt/${ckpt_name} \
-    --test_semantic_path=${root_dir}/${dump_dir}/test/semantic_token.tsv \
+    --test_semantic_path=${root_dir}/${dump_dir}/test/semantic_token.npy \
     --test_phoneme_path=${root_dir}/${dump_dir}/test/phonemes.npy \
     --output_dir=${root_dir}/${train_output_path}/S1_test_output

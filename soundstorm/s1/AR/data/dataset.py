@@ -3,7 +3,6 @@ from typing import Dict
 from typing import List
 
 import numpy as np
-import pandas as pd
 import torch
 from soundstorm.s1.AR.text_processing.phonemizer import GruutPhonemizer
 from torch.utils.data import DataLoader
@@ -34,19 +33,20 @@ def batch_sequences(sequences: List[np.array], axis: int=0, pad_value: int=0):
 class Text2SemanticDataset(Dataset):
     """dataset class for text tokens to semantic model training."""
 
-    def __init__(self,
-                 phoneme_path: str,
-                 semantic_path: str,
-                 max_sample: int=None,
-                 max_sec: int=100,
-                 pad_val: int=1024,
-                 # min value of phoneme/sec 
-                 min_ps_ratio: int=6,
-                 # max value of phoneme/sec 
-                 max_ps_ratio: int=25) -> None:
+    def __init__(
+            self,
+            phoneme_path: str,
+            semantic_path: str,
+            max_sample: int=None,
+            max_sec: int=100,
+            pad_val: int=1024,
+            # min value of phoneme/sec 
+            min_ps_ratio: int=6,
+            # max value of phoneme/sec 
+            max_ps_ratio: int=25) -> None:
         super().__init__()
 
-        self.semantic_data = pd.read_csv(semantic_path, delimiter='\t')
+        self.semantic_data = np.load(semantic_path, allow_pickle=True).item()
         # get dict
         self.phoneme_data = np.load(phoneme_path, allow_pickle=True).item()
         # pad for semantic tokens
@@ -59,7 +59,15 @@ class Text2SemanticDataset(Dataset):
         self.phonemizer: GruutPhonemizer = GruutPhonemizer(language='en-us')
 
         if max_sample is not None:
-            self.semantic_data = self.semantic_data[:max_sample]
+            count = 0
+            semantic_data_clip = {}
+            for key, value in self.semantic_data.items():
+                if count < max_sample:
+                    semantic_data_clip[key] = value
+                    count += 1
+                else:
+                    break
+            self.semantic_data = semantic_data_clip
 
         # {idx: (semantic, phoneme)}
         # semantic list, phoneme list
@@ -75,27 +83,22 @@ class Text2SemanticDataset(Dataset):
 
     def init_batch(self):
         semantic_data_len = len(self.semantic_data)
-        phoneme_data_len = len(self.phoneme_data.keys())
+        phoneme_data_len = len(self.phoneme_data)
         print("semantic_data_len:", semantic_data_len)
         print("phoneme_data_len:", phoneme_data_len)
         idx = 0
         num_not_in = 0
         num_deleted_bigger = 0
         num_deleted_ps = 0
-        for i in range(semantic_data_len):
+        for item_name, semantic_ids in self.semantic_data.items():
             # 先依次遍历
-            # get str
-            item_name = self.semantic_data['item_name'][i]
             try:
                 phoneme = self.phoneme_data[item_name]
             except Exception:
                 # print(f"{item_name} not in self.phoneme_data !")
                 num_not_in += 1
                 continue
-
-            semantic_str = self.semantic_data['semantic_audio'][i]
-            # get token list
-            semantic_ids = [int(idx) for idx in semantic_str.split(' ')]
+            
             # (T), 是否需要变成 (1, T) -> 不需要，因为需要求 len
             # 过滤掉太长的样本
             if len(semantic_ids) > self.max_sec * self.hz:
@@ -106,7 +109,7 @@ class Text2SemanticDataset(Dataset):
             phoneme_ids = self.phonemizer.transform(phoneme)
 
             ps_ratio = len(phoneme_ids) / (len(semantic_ids) / self.hz)
-            
+
             if ps_ratio > self.max_ps_ratio or ps_ratio < self.min_ps_ratio:
                 num_deleted_ps += 1
                 continue
@@ -194,7 +197,13 @@ if __name__ == '__main__':
     root_dir = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/SoundStorm/dump_libritts/train/'
     dataset = Text2SemanticDataset(
         phoneme_path=root_dir + 'phonemes.npy',
-        semantic_path=root_dir + 'semantic_token.tsv')
+        semantic_path=root_dir + 'semantic_token.npy')
+
+    root_dir_2 = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/SoundStorm/dump_libritts/dev/'
+    dataset_2 = Text2SemanticDataset(
+        phoneme_path=root_dir_2 + 'phonemes.npy',
+        semantic_path=root_dir_2 + 'semantic_token.npy',
+        max_sample=10)
 
     batch_size = 12
     dataloader = DataLoader(

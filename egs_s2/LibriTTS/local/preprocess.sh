@@ -8,17 +8,17 @@ quantizer_path=$4
 layer=$5
 dump_dir=$6
 
-# extract semantic token by mHubert `.tsv`
+# extract semantic token by mHubert `.npy`
 # download Hubert to pretrained_model/hubert/
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     # 需要处理不同数据集格式
-    python3 ${BIN_DIR}/get_semantic_token.py \
+    OMP_NUM_THREADS=1 python3 ${BIN_DIR}/get_semantic_token.py \
         --data_dir=${data_dir} \
         --dataset=libritts \
         --dump_dir=${root_dir}/${dump_dir} \
         --hubert_path=${hubert_path} \
         --quantizer_path=${quantizer_path} \
-        --num-cpu=20 \
+        --num-cpu=256 \
         --layer=${layer}
 fi
 
@@ -28,7 +28,7 @@ fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     # HiFi-Codec
-    python3 ${BIN_DIR}/get_acoustic_token.py \
+    OMP_NUM_THREADS=1 python3 ${BIN_DIR}/get_acoustic_token.py \
         --data_dir=${data_dir} \
         --dataset=libritts \
         --dump_dir=${root_dir}/${dump_dir} \

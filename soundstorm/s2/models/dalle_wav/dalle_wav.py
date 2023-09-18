@@ -10,27 +10,20 @@ from torch import nn
 
 class DALLE(nn.Module):
     def __init__(self,
-                 *,
-                 n_q=4,
-                 content_info={'key': 'wav_token'},
-                 condition_info={'key': 'text_dpe_adapted'},
-                 learnable_cf=False,
                  diffusion_config,
+                 n_q: int=4,
                  init_type: str="kaiming_uniform"):
         super().__init__()
         self.n_q = n_q
-        self.content_info = content_info
-        self.condition_info = condition_info
         # we donot use the classifier guidance in this stage
         self.guidance_scale = 1.0
-        self.learnable_cf = learnable_cf
         # self.content_codec = instantiate_from_config(content_codec_config)
         diffusion_config['params']['n_q'] = self.n_q
         self.transformer = instantiate_from_config(diffusion_config)
         self.truncation_forward = False
         initialize(self, init_type)
 
-    def parameters(self, recurse=True, name=None):
+    def parameters(self, recurse: bool=True, name=None):
         if name is None or name == 'none':
             return super().parameters(recurse=recurse)
         else:
@@ -104,9 +97,9 @@ class DALLE(nn.Module):
     def generate_content(self,
                          batch,
                          condition=None,
-                         filter_ratio=0.0,
-                         replicate=1,
-                         sample_type="top0.85r"):
+                         filter_ratio: float=0.0,
+                         replicate: int=1,
+                         sample_type: str="top0.85r"):
         self.eval()
         con = batch['target_acoustics']
         batch_size = con.shape[0]
@@ -154,9 +147,7 @@ class DALLE(nn.Module):
                 cf_predict_start, sample_type.split(',')[0])
             self.truncation_forward = True
         trans_out = self.transformer.sample(
-            batch=batch,
-            filter_ratio=filter_ratio,
-            return_logits=False)
+            batch=batch, filter_ratio=filter_ratio, return_logits=False)
         out['token_pred'] = trans_out['pre_content_token']
         return out
 
@@ -165,7 +156,7 @@ class DALLE(nn.Module):
         output = self.generate_content(batch)
         return output
 
-    def forward(self, batch, name='none', **kwargs):
+    def forward(self, batch, **kwargs):
         # 信息处理直接交给 transformer
         output = self.transformer(batch, **kwargs)
         return output

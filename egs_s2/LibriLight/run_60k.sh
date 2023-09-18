@@ -8,15 +8,15 @@ source path.sh
 gpus=0,1,2,3
 stage=0
 stop_stage=100
-train_output_path='exp_librilight/default'
+train_output_path='exp_librilight/60k_default'
 # dir to set part/all of dump dataset and experiment result
 root_dir='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm'
 # there should be *.wav 、*/*.wav or */*/*.wav in data_dir
 data_dir='~/datasets/LibriLight'
-config_path='conf/default.yaml'
+config_path='conf/60k_default.yaml'
 log_frequency=1
 # 'tcp://%s:%s' % (MASTER_ADDR, MASTER_PORT)
-dist_url='tcp://127.0.0.1:29505'
+dist_url='tcp://127.0.0.1:29507'
 # use which checkpoint file to test
 ckpt_name='last.pth'
 # should be same with ${layer} in hubert_kms.sh
@@ -42,7 +42,7 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
 fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-    CUDA_VISIBLE_DEVICES=${gpus} ./local/train.sh ${config_path} ${train_output_path} ${root_dir} ${log_frequency} ${dist_url} ${dump_dir}|| exit -1
+    CUDA_VISIBLE_DEVICES=${gpus} ./local/train_60k.sh ${config_path} ${train_output_path} ${root_dir} ${log_frequency} ${dist_url} ${dump_dir}|| exit -1
 fi
 # test with test dataset, prompt and target should be the same audio
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then

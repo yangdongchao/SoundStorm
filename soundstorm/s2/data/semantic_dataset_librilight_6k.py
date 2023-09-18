@@ -1,9 +1,11 @@
-import os
 import random
+import time
+from collections import OrderedDict
 
-import pandas as pd
+import numpy as np
 import torch
 from soundstorm.s2.data.semantic_dataset import pad_2D
+from soundstorm.utils import get_files_by_prefix_suffix
 
 # BaseDataset code from NATSpeech
 '''
@@ -12,14 +14,6 @@ from soundstorm.s2.data.semantic_dataset import pad_2D
 (2) 若总长度小于 6s, 则 1/2 分给 prompt, 1/2 分给 target.
 (3) 分成 se_pro, se-tar, ac_pro, ac_targ 4 个部分返回，每个部分分别 padding 到其 max sample
 '''
-
-
-def get_files_by_suffix(path: str, suffix: str):
-    files = []
-    for file_name in os.listdir(path):
-        if file_name.endswith(suffix):
-            files.append(os.path.join(path, file_name))
-    return files
 
 
 class SemanticDataset(torch.utils.data.Dataset):
@@ -39,24 +33,28 @@ class SemanticDataset(torch.utils.data.Dataset):
         semantic_files = []
         acoustic_files = []
         for semantic_dir in semantic_dirs:
-            semantic_files += get_files_by_suffix(semantic_dir, 'tsv')
+            semantic_files += get_files_by_prefix_suffix(
+                semantic_dir, prefix='semantic_token', suffix='npy')
         for acoustic_dir in acoustic_dirs:
-            acoustic_files += get_files_by_suffix(acoustic_dir, 'pth')
-
+            acoustic_files += get_files_by_prefix_suffix(
+                acoustic_dir, prefix='hificodec', suffix='pth')
+        s_st = time.time()
         for semantic_file in semantic_files:
             name_list = semantic_file.split("/")
-            # semantic_token_0_3.tsv -> 0_3
+            # semantic_token_0_3.npy -> 0_3
             rank_name = '_'.join(name_list[-1].split('.')[0].split('_')[-2:])
             # small/medium/large/duplicate_0_3
             key_name = f'{name_list[-3]}_{rank_name}'
-            self.semantic_data_dict[key_name] = pd.read_csv(
-                semantic_file, delimiter='\t')
+            self.semantic_data_dict[key_name] = np.load(
+                semantic_file, allow_pickle=True).item()
+        print(f"load semantic_files done, cost {round(time.time()-s_st, 2)}s")
+        a_st = time.time()
         for acoustic_file in acoustic_files:
             name_list = acoustic_file.split("/")
             rank_name = '_'.join(name_list[-1].split('.')[0].split('_')[-2:])
             key_name = f'{name_list[-4]}_{rank_name}'
             self.acoustic_data_dict[key_name] = torch.load(acoustic_file)
-
+        print(f"load acoustic_files done, cost {round(time.time()-a_st, 2)}s")
         self.num_quant = 4 if codec_name == 'hificodec' else num_quant
         # 16000 / 320 = 50
         self.hz = 50  # 分辨率
@@ -91,7 +89,11 @@ class SemanticDataset(torch.utils.data.Dataset):
         if not self.inited:
             # 调用初始化函数
             for key_name in self.semantic_data_dict.keys():
+                i_st = time.time()
                 self.init_batch(key_name)
+                print(
+                    f"init_batch of {key_name} done, cost {round(time.time()-i_st, 2)}s"
+                )
             self.inited = True
             print("self.total_semantic_data_len:", self.total_semantic_data_len)
             print("self.total_acoustic_data_len:", self.total_acoustic_data_len)
@@ -115,17 +117,9 @@ class SemanticDataset(torch.utils.data.Dataset):
         self.total_semantic_data_len += semantic_data_len
         self.total_acoustic_data_len += acoustic_data_len
 
-        for i in range(semantic_data_len):
-            # 先依次遍历
-            # get str
-            semantic_str = semantic_data['semantic_audio'][i]
-            # get token list
-            tmp = [int(idx) for idx in semantic_str.split(' ')]
-            sementic_ls.append(tmp)
-            len_ls.append(len(tmp))
-        # 按列表中元素的值进行排序，并返回元素对应索引序列
-        sorted_id = sorted(
-            range(len(len_ls)), key=lambda k: len_ls[k], reverse=True)
+        semantic_data = OrderedDict(
+            sorted(
+                semantic_data.items(), key=lambda x: len(x[1]), reverse=True))
 
         # 最大长度为 13s
         max_len = self.max_sec * self.hz
@@ -134,14 +128,11 @@ class SemanticDataset(torch.utils.data.Dataset):
         tmp_prompt_acoustics = []
         tmp_target_acoustics = []
         tmp_tot_tokens = 0
-        for i in range(len(sorted_id)):
-            # get the index
-            index = sorted_id[i]
+        for item_name, semantic_ids in semantic_data.items():
             # get the semantic 
             # (1, T)
-            over_semantic = torch.tensor(sementic_ls[index]).unsqueeze(0)
+            over_semantic = torch.tensor(semantic_ids).unsqueeze(0)
             # 需要处理 item_name 不在 acoustic_data 中的情况
-            item_name = semantic_data['item_name'][index]
             try:
                 acoustic_str = acoustic_data[item_name]
             except Exception:
@@ -151,7 +142,7 @@ class SemanticDataset(torch.utils.data.Dataset):
             # 这里表明 acoustic_token 的存储方式是 (C, T)
             over_acoustic = acoustic_str[:self.num_quant, ...]
             over_semantic_len = over_semantic.shape[1]
-            if over_semantic_len > max_len:
+            if over_semantic_len >= max_len:
                 # 若音频长度大于 13s，则考虑切成 3 + 10, prompt 3s, target 10s
                 prompt_len = self.max_prompt_sec * self.hz
                 targen_len = self.max_target_sec * self.hz
@@ -251,10 +242,11 @@ class SemanticDataset(torch.utils.data.Dataset):
         # 为什么只取 第 0 个? => 因为 samples 是 list 长度一直是 1, batch_size must be 1 here
         # prompt_semantics 里面是 n 个 tensor, n 的大小不固定
         # len(prompt_semantics) = 100 ，表示 batch_size = 100, batch_size 是不固定的
-        prompt_semantics = samples[0]['prompt_semantic']
-        target_semantics = samples[0]['target_semantic']
-        prompt_acoustics = samples[0]['prompt_acoustic']
-        target_acoustics = samples[0]['target_acoustic']
+        sample = samples[0]
+        prompt_semantics = sample['prompt_semantic']
+        target_semantics = sample['target_semantic']
+        prompt_acoustics = sample['prompt_acoustic']
+        target_acoustics = sample['target_acoustic']
         # in this version, we do not use pading token any more, instead, we use eos token
         # 一个 batch 里面按照最长的补 0
         prompt_semantics = pad_2D(prompt_semantics, self.prompt_semantic_end_id)
@@ -273,3 +265,30 @@ class SemanticDataset(torch.utils.data.Dataset):
         new_samples['target_acoustics'] = torch.from_numpy(target_acoustics)
         new_samples['x_mask'] = torch.from_numpy(x_mask[:, 0, :])
         return new_samples
+
+
+if __name__ == '__main__':
+    from torch.utils.data import DataLoader
+    semantic_dirs_1 = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_librilight/small/train'
+    acoustic_dirs_1 = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_librilight/small/train/acoustic_token'
+    semantic_dirs_2 = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_librilight/medium/train'
+    acoustic_dirs_2 = '/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/SoundStorm/dump_librilight/medium/train/acoustic_token'
+    start_build_time = time.time()
+    dataset = SemanticDataset(
+        semantic_dirs=[semantic_dirs_1, semantic_dirs_2],
+        acoustic_dirs=[acoustic_dirs_1, acoustic_dirs_2],
+        num_quant=4, )
+    batch_size = 12
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        collate_fn=dataset.collater,
+        shuffle=False)
+
+    print(f"time of build dataloader: {time.time() - start_build_time}")
+    for i, batch in enumerate(dataloader):
+        if i == 0:
+            print('batch["prompt_semantics"]:', batch["prompt_semantics"].shape)
+            print('batch["target_semantics"]:', batch["target_semantics"].shape)
+            print('batch["prompt_acoustics"]:', batch["prompt_acoustics"].shape)
+            print('batch["target_acoustics"]:', batch["target_acoustics"].shape)

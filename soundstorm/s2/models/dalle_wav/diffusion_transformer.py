@@ -6,7 +6,6 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-from hydra.utils import instantiate
 from soundstorm.s2.utils.misc import instantiate_from_config
 from torch import nn
 from torch.cuda.amp import autocast
@@ -63,67 +62,6 @@ def log_onehot_to_index(log_x):
     return log_x.argmax(1)
 
 
-def alpha_schedule_mask_only(time_step,
-                             N=100,
-                             att_1=0.99999,
-                             att_T=0.000009,
-                             ctt_1=0.000009,
-                             ctt_T=0.99999):
-    # it means alpha, 等差数列
-    att = np.arange(0, time_step) / (time_step - 1) * (att_T - att_1) + att_1
-    # add 1 on the first
-    att = np.concatenate(([1], att))
-    # 得到从当前步到下一步乘的系数
-    at = att[1:] / att[:-1]
-    # denotes gama,the prob for mask token
-    ctt = np.arange(0, time_step) / (time_step - 1) * (ctt_T - ctt_1) + ctt_1
-    # 与 att 反过来
-    ctt = np.concatenate(([0], ctt))
-    # reverse
-    one_minus_ctt = 1 - ctt
-    # 9.99991000e-01, 9.89899091e-01
-    one_minus_ct = one_minus_ctt[1:] / one_minus_ctt[:-1]
-    # 9.00000000e-06, 1.01009091e-02
-    ct = 1 - one_minus_ct
-    # it means beta
-    bt = (1 - at - ct) / N
-    att = np.concatenate((att[1:], [1]))
-    ctt = np.concatenate((ctt[1:], [0]))
-    btt = (1 - att - ctt) / N
-    return at, bt, ct, att, btt, ctt
-
-
-def alpha_schedule_uniform_only(time_step,
-                                N=100,
-                                att_1=0.99999,
-                                att_T=0.000009,
-                                ctt_1=0.000009,
-                                ctt_T=0.1):
-    # set ctt_T = ? to control
-    # it means alpha, 等差数列
-    att = np.arange(0, time_step) / (time_step - 1) * (att_T - att_1) + att_1
-    # add 1 on the first
-    att = np.concatenate(([1], att))
-    # 得到从当前步到下一步乘的系数
-    at = att[1:] / att[:-1]
-    # denotes gama,the prob for mask token
-    ctt = np.arange(0, time_step) / (time_step - 1) * (ctt_T - ctt_1) + ctt_1
-    # 与att反过来
-    ctt = np.concatenate(([0], ctt))
-    # reverse
-    one_minus_ctt = 1 - ctt
-    # 9.99991000e-01, 9.89899091e-01
-    one_minus_ct = one_minus_ctt[1:] / one_minus_ctt[:-1]
-    # 9.00000000e-06, 1.01009091e-02
-    ct = 1 - one_minus_ct
-    # it means beta
-    bt = (1 - at - ct) / N
-    att = np.concatenate((att[1:], [1]))
-    ctt = np.concatenate((ctt[1:], [0]))
-    btt = (1 - att - ctt) / N
-    return at, bt, ct, att, btt, ctt
-
-
 def alpha_schedule(time_step,
                    N=100,
                    att_1=0.99999,
@@ -158,25 +96,14 @@ def alpha_schedule(time_step,
 class DiffusionTransformer(nn.Module):
     def __init__(
             self,
-            condition_emb_config=None,
             transformer_config=None,
-            diffusion_step=100,
-            n_q=12,
-            alpha_init_type='cos',
-            auxiliary_loss_weight=0,
-            adaptive_auxiliary_loss=False,
-            learnable_cf=False,
+            diffusion_step: int=100,
+            n_q: int=12,
+            alpha_init_type: str='cos',
+            auxiliary_loss_weight: int=0,
+            adaptive_auxiliary_loss: bool=False,
             mask_weight=[1, 1], ):
         super().__init__()
-        # 不使用 conditional information
-        if condition_emb_config is None:
-            self.condition_emb = None
-        else:
-            # for condition and config, we learn a seperate embedding
-            # 加载能获得 condition embedding 的模型
-            self.condition_emb = instantiate(condition_emb_config)
-            # 每个embedding的维度
-            self.condition_dim = self.condition_emb.embed_dim
         # 在 transformer_conf 文件中，加入这两个参数
         transformer_config['diffusion_step'] = diffusion_step
         self.n_q = n_q
@@ -241,11 +168,7 @@ class DiffusionTransformer(nn.Module):
         self.register_buffer('Lt_count', torch.zeros(self.num_timesteps))
 
         self.zero_vector = None
-        if learnable_cf:
-            # 设定一个可学习的空文本向量, 一个字符用一个256维度的向量表示，最大长度应该不超过2000
-            self.empty_text_embed = torch.nn.Parameter(
-                torch.randn(
-                    size=(2000, 256), requires_grad=True, dtype=torch.float64))
+
         # inference rule: 0 for VQ-Diffusion v1, 1 for only high-quality inference, 2 for purity prior
         self.prior_rule = 2
         # max number to sample per step
@@ -254,8 +177,6 @@ class DiffusionTransformer(nn.Module):
         self.prior_weight = 2
 
         self.update_n_sample(total_num=1300)
-
-        self.learnable_cf = learnable_cf
 
         # too slow
         # self.metric_top10 = MulticlassAccuracy(
@@ -324,12 +245,6 @@ class DiffusionTransformer(nn.Module):
             dim=1)
         return log_probs
 
-    def sample_samll_time(self, b, device, method='uniform'):
-        # do not pass 20 diffusion steps
-        # 从 [0,num_timesteps] 随机产生b个数
-        t = torch.randint(1, 20, (b, ), device=device).long()
-        return t
-
     # p(x0|xt)
     def predict_start(self, log_x_t, cond_emb, x_mask, cond_emb_mask, t):
         # 核心是根据 x_t 推理出 x0
@@ -367,11 +282,11 @@ class DiffusionTransformer(nn.Module):
         batch_size = log_x_start.size()[0]
         # get sample
         onehot_x_t = log_onehot_to_index(log_x_t)
-        #选出为 mask token 的
+        # 选出为 mask token 的
         mask = (onehot_x_t == self.num_classes - 1).unsqueeze(1)
-        # b,1,1 (全0)
+        # [b, 1, 1] (全0)
         log_one_vector = torch.zeros(batch_size, 1, 1).type_as(log_x_t)
-        #[2, 1, 1024]
+        # [2, 1, 1024]
         log_zero_vector = torch.log(log_one_vector + 1.0e-30).expand(
             -1, -1, log_x_start.shape[2])
         # log(q(xt|x0))
@@ -547,7 +462,7 @@ class DiffusionTransformer(nn.Module):
         else:
             raise ValueError
 
-    def topk_accuracy(self, predictions, targets, k=1, mask=None):
+    def topk_accuracy(self, predictions, targets, k: int=1, mask=None):
         _, indices = torch.topk(predictions, k, dim=1)
         targets_expanded = targets.unsqueeze(1).expand_as(indices)
         if mask is not None:
@@ -567,7 +482,7 @@ class DiffusionTransformer(nn.Module):
             x_mask=None,
             cond_emb_mask=None,
             # get the KL loss
-            is_train=True):
+            is_train: bool=True):
         b, device = x.size(0), x.device
         assert self.loss_type == 'vb_stochastic'
         # (b, N)
@@ -693,7 +608,7 @@ class DiffusionTransformer(nn.Module):
     def device(self):
         return self.transformer.content_emb.pos_emb.weight.device
 
-    def parameters(self, recurse=True, name=None):
+    def parameters(self, recurse: bool=True, name=None):
         """
         Following minGPT:
         This long function is unfortunately doing something very simple and is being very defensive:
@@ -771,9 +686,9 @@ class DiffusionTransformer(nn.Module):
 
     def forward(self,
                 input,
-                return_loss=True,
-                return_logits=True,
-                is_train=True,
+                return_loss: bool=True,
+                return_logits: bool=True,
+                is_train: bool=True,
                 **kwargs):
         # {'condition_text_embed': cond, 'condition_mel_mask': cond_mask, 'content_token': }
         # the input is prompt_semantic, target_semantic, prompt_acoustic, target_acoustic
@@ -792,14 +707,7 @@ class DiffusionTransformer(nn.Module):
         cond_emb['prompt_semantics'] = input['prompt_semantics']
         cond_emb['prompt_acoustics'] = input['prompt_acoustics']
         cond_emb['target_semantics'] = input['target_semantics']
-        # now we get cond_emb and sample_image
-        if self.learnable_cf:  # 目前先不用
-            # b = torch.rand(cond_emb.shape[0]) > 0.1 # generate randomly 
-            # is_empty_text = torch.logical_not(b.to(device)).unsqueeze(1).unsqueeze(2).repeat(1, cond_emb.shape[1], 256)
-            # # torch.where(condition，a，b)其中输入参数condition：条件限制，如果满足条件，则选择a，否则选择b作为输出。
-            # cond_emb = torch.where(is_empty_text, self.empty_text_embed[:cond_emb.shape[1],:].unsqueeze(0).repeat(cond_emb.shape[0], 1, 1), cond_emb.type_as(self.empty_text_embed))
-            # cond_emb = cond_emb.float()
-            pass
+
         if is_train is True:
             log_model_prob, loss, top1_acc, top10_acc = self._train_loss(
                 content_token, cond_emb, content_token_mask, cond_emb_mask)
@@ -817,10 +725,7 @@ class DiffusionTransformer(nn.Module):
         self.amp = False
         return out
 
-    def sample(self,
-               batch,
-               filter_ratio=0.5,
-               return_logits=False):
+    def sample(self, batch, filter_ratio: float=0.5, return_logits: bool=False):
         real_content = batch['target_acoustics']
         batch_size = real_content.shape[0]
         device = self.log_at.device
@@ -868,7 +773,7 @@ class DiffusionTransformer(nn.Module):
                             condition_mask, sampled,
                             self.n_sample[diffusion_index])
         else:
-            print('erroe, we must sample from zero')
+            print('error, we must sample from zero')
         # transfer from one-hot to index
         content_token = log_onehot_to_index(log_z)
         # return the predict content_token

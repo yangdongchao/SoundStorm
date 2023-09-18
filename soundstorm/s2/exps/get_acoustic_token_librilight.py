@@ -2,6 +2,9 @@ import argparse
 import os
 import time
 import traceback
+from academicodec.models.encodec.net3 import SoundStream
+from academicodec.models.encodec.test import remove_encodec_weight_norm
+from academicodec.models.hificodec.vqvae import VQVAE
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List
@@ -10,24 +13,8 @@ import librosa
 import numpy as np
 import torch
 import tqdm
-from academicodec.models.encodec.net3 import SoundStream
-from academicodec.models.encodec.test import remove_encodec_weight_norm
-from academicodec.models.hificodec.vqvae import VQVAE
 from soundstorm.s2.exps.hubert.feature_utils import get_shard_range
-
-
-# 损坏的 numpy 会重新生成
-def check_numpy_file(file_path):
-    try:
-        # 尝试加载 numpy 文件
-        np.load(file_path)
-        # print("文件存在且没有损坏。")
-        return True
-    except Exception:
-        # traceback.print_exc()
-        print(f'Cannot load {file_path}, will return False and regenerate it')
-        return False
-    return False
+from soundstorm.utils import check_numpy_file
 
 
 def process_sentence(args,

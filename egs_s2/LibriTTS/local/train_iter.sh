@@ -11,9 +11,9 @@ omp_num=8
 
 OMP_NUM_THREADS=${omp_num} python3 ${BIN_DIR}/train.py \
         --config_file=${config_path} \
-        --train_semantic_path=${root_dir}/${dump_dir}/train/semantic_token.tsv \
+        --train_semantic_path=${root_dir}/${dump_dir}/train/semantic_token.npy \
         --train_acoustic_path=${root_dir}/${dump_dir}/train/acoustic_token/hificodec.pth \
-        --dev_semantic_path=${root_dir}/${dump_dir}/dev/semantic_token.tsv \
+        --dev_semantic_path=${root_dir}/${dump_dir}/dev/semantic_token.npy \
         --dev_acoustic_path=${root_dir}/${dump_dir}/dev/acoustic_token/hificodec.pth \
         --output=${root_dir}/${train_output_path} \
         --log_frequency=${log_frequency} \

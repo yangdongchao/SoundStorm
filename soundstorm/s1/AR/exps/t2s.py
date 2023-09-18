@@ -155,7 +155,7 @@ def main():
                 utt_id = items[0]
                 sentence = " ".join(items[1:])
             sentences.append((utt_id, sentence))
-    semantic_data = [['item_name', 'semantic_audio']]
+    semantic_token_dict = {}
     for utt_id, sentence in sentences[1:]:
         # 需要自己构造伪 batch 输入给模型
         batch = get_batch(sentence, phonemizer)
@@ -180,18 +180,11 @@ def main():
 
         # bs = 1
         pred_semantic = pred_semantic[0]
-        semantic_token = pred_semantic.detach().cpu().numpy().tolist()
-        semantic_token_str = ' '.join(str(x) for x in semantic_token)
-        semantic_data.append([utt_id, semantic_token_str])
+        semantic_token = pred_semantic.detach().cpu().numpy()
+        semantic_token_dict[utt_id] = semantic_token.astype(np.int16)
 
-        delimiter = '\t'
-        filename = output_dir / f'{utt_id}_p_{prompt_result["prompt_name"]}_semantic_token.tsv'
-        with open(filename, 'w', encoding='utf-8') as writer:
-            for row in semantic_data:
-                line = delimiter.join(row)
-                writer.write(line + '\n')
-        # clean semantic token for next setence
-        semantic_data = [['item_name', 'semantic_audio']]
+        filename = output_dir / f'{utt_id}_p_{prompt_result["prompt_name"]}_semantic_token.npy'
+        np.save(filename, semantic_token_dict)
 
 
 if __name__ == "__main__":

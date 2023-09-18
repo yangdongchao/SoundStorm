@@ -5,8 +5,7 @@ root_dir=$1
 data_dir=$2
 dump_dir=$3
 
-# get text use ASR (whisper small) for LibriLight
-
+# get text use ASR (whisper tiny_en) for LibriLight
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     sub_dataset=small
     echo "get_txt_librilight.py for ${sub_dataset} start!"
@@ -26,8 +25,6 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     echo "get_txt_librilight.py for ${sub_dataset} done!"
 fi
 
-# get semantic for medium (1596 speakers)
-# cost ~ 2.5 hours
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     sub_dataset=medium
     echo "get_txt_librilight.py for ${sub_dataset} start!"
@@ -47,7 +44,6 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     echo "get_txt_librilight.py for ${sub_dataset} done!"
 fi
 
-# get semantic for large (6875 speakers)
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     sub_dataset=large
     echo "get_txt_librilight.py for ${sub_dataset} start!"
@@ -68,8 +64,6 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     echo "get_txt_librilight.py for ${sub_dataset} done!"
 fi
 
-# get semantic for duplicate (1100 speakers)
-# cost ~ 2.5 hours
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     sub_dataset=duplicate
     echo "get_txt_librilight.py for ${sub_dataset} start!"
