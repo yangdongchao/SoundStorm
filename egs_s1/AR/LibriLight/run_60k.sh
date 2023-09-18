@@ -13,7 +13,7 @@ root_dir='/nfs-speech-cpfs/dev/yuantian04/Vivid_TTS/SoundStorm/SoundStorm/ar_s1/
 data_dir='~/datasets/LibriLight'
 config_path=conf/default_60k.yaml
 dump_dir=dump_librilight
-ckpt_name='epoch=99-step=49000.ckpt'
+ckpt_name='epoch=19-step=99600.ckpt'
 
 # with the following command, you can choose the stage range you want to run
 # such as `./run.sh --stage 0 --stop-stage 0`
