@@ -217,7 +217,7 @@ def evaluate(args,
 
     N = 0
     T = 0
-    max_sample = 10
+    max_sample = 20
 
     if max_sample is not None:
         count = 0

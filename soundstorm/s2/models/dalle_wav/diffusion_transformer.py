@@ -9,7 +9,6 @@ import torch.nn.functional as F
 from soundstorm.s2.utils.misc import instantiate_from_config
 from torch import nn
 from torch.cuda.amp import autocast
-# from torchmetrics.classification import MulticlassAccuracy
 eps = 1e-8
 
 
@@ -105,6 +104,7 @@ class DiffusionTransformer(nn.Module):
             mask_weight=[1, 1], ):
         super().__init__()
         # 在 transformer_conf 文件中，加入这两个参数
+        # 不能直接在这里改 diffusion_step, 因为会修改模型参数, 导致和预训练的模型不匹配
         transformer_config['diffusion_step'] = diffusion_step
         self.n_q = n_q
         # 加载 transformer
@@ -117,6 +117,7 @@ class DiffusionTransformer(nn.Module):
         self.num_classes = self.transformer.content_emb.num_embed
         self.loss_type = 'vb_stochastic'
         # 迭代的次数
+        # 也不能在这直接改, 会影响 L130 的参数的赋值
         self.num_timesteps = diffusion_step
         self.parametrization = 'x0'
         # Reparameterization trick?
@@ -177,12 +178,6 @@ class DiffusionTransformer(nn.Module):
         self.prior_weight = 2
 
         self.update_n_sample(total_num=1300)
-
-        # too slow
-        # self.metric_top10 = MulticlassAccuracy(
-        #     self.num_classes, top_k=10, average="micro",multidim_average="global",)
-        # self.metric_top1 = MulticlassAccuracy(
-        #     self.num_classes, top_k=1, average="micro",multidim_average="global",)
 
     def update_n_sample(self, total_num):
         # 设定每步要更新的 mask sample
@@ -353,6 +348,7 @@ class DiffusionTransformer(nn.Module):
         # max number to sample per step
         max_sample_per_step = self.prior_ps
         # prior_rule: 0 for VQ-Diffusion v1, 1 for only high-quality inference, 2 for purity prior
+        # 这里本质没用 model_log_prob
         if t[0] > 0 and self.prior_rule > 0 and to_sample is not None:
             # get the index
             log_x_idx = log_onehot_to_index(log_x)
@@ -447,7 +443,8 @@ class DiffusionTransformer(nn.Module):
             pt_all = Lt_sqrt / Lt_sqrt.sum()
             # 采 index 权重大的，采到的几率就越大
             t = torch.multinomial(pt_all, num_samples=b, replacement=True)
-            # input 张量可以看成一个权重张量，每一个元素代表其在该行中的权重。如果有元素为0，那么在其他不为0的元素被取干净之前，这个元素是不会被取到的。
+            # input 张量可以看成一个权重张量，每一个元素代表其在该行中的权重。
+            # 如果有元素为0，那么在其他不为 0 的元素被取干净之前，这个元素是不会被取到的。
             # 根据 index, 找到对应的值
             pt = pt_all.gather(dim=0, index=t)
             return t, pt
@@ -585,17 +582,12 @@ class DiffusionTransformer(nn.Module):
             loss2 = addition_loss_weight * self.auxiliary_loss_weight * kl_aux_loss / pt
             vb_loss += loss2
 
-        # calculate acc in cpu cause it cost to much gpu when use MulticlassAccuracy
-        # self.metric_top1.to('cpu')
-        # self.metric_top10.to('cpu')
         probs = log_model_prob.cpu()
         targets = x_start.cpu()
         x_mask_cpu_reverse = ~x_mask.cpu()
 
-        # top1_acc = self.metric_top1(probs, targets)
         top1_acc = self.topk_accuracy(
             probs, targets, k=1, mask=x_mask_cpu_reverse)
-        # top10_acc = self.metric_top10(probs, targets)
         top10_acc = self.topk_accuracy(
             probs, targets, k=10, mask=x_mask_cpu_reverse)
 
@@ -701,7 +693,6 @@ class DiffusionTransformer(nn.Module):
         # 目前先不使用 mask, 因为我们直接 padding eos
         content_token_mask = None
         content_token_mask = input['x_mask']
-        # cont_emb = self.content_emb(sample_image)
         cond_emb = {}
         cond_emb_mask = None  # condition mask
         cond_emb['prompt_semantics'] = input['prompt_semantics']
@@ -766,14 +757,77 @@ class DiffusionTransformer(nn.Module):
                         dtype=torch.long)
                     # 初始时 sampled 全设为 0
                     sampled = [0] * log_z.shape[0]
+                    # 这里的循环是否一定必要
                     while min(sampled) < self.n_sample[diffusion_index]:
                         # log_z is log_onehot
+                        # 结束后 min(sampled) == self.n_sample[diffusion_index]
                         log_z, sampled = self.p_sample(
                             log_z, condition, t, content_token_mask,
                             condition_mask, sampled,
                             self.n_sample[diffusion_index])
         else:
             print('error, we must sample from zero')
+        # transfer from one-hot to index
+        content_token = log_onehot_to_index(log_z)
+        # return the predict content_token
+        output = {'pre_content_token': content_token}
+        # false
+        if return_logits:
+            output['logits'] = torch.exp(log_z)
+        return output
+
+    def sample_fast(self,
+                    batch,
+                    filter_ratio: float=0.5,
+                    return_logits: bool=False,
+                    skip_step: int=1):
+        print("in sample_fast!!!!!!!!")
+        real_content = batch['target_acoustics']
+        batch_size = real_content.shape[0]
+        device = self.log_at.device
+        # 100*filter_ratio
+        start_step = int(self.num_timesteps * filter_ratio)
+        condition = {}
+        condition['prompt_semantics'] = batch['prompt_semantics']
+        condition['prompt_acoustics'] = batch['prompt_acoustics']
+        condition['target_semantics'] = batch['target_semantics']
+        content_token_mask = batch['x_mask']
+        condition_mask = None
+
+        assert start_step == 0
+        predict_len = batch['target_acoustics'].shape[-1] * self.n_q
+        zero_logits = torch.zeros(
+            (batch_size, self.num_classes - 1, predict_len), device=device)
+        one_logits = torch.ones((batch_size, 1, predict_len), device=device)
+        mask_logits = torch.cat((zero_logits, one_logits), dim=1)
+        log_z = torch.log(mask_logits)
+        start_step = self.num_timesteps
+
+        with torch.no_grad():
+            # skip_step = 1
+            diffusion_list = [
+                index for index in range(start_step - 1, -1, -1 - skip_step)
+            ]
+            if diffusion_list[-1] != 0:
+                diffusion_list.append(0)
+            for diffusion_index in diffusion_list:
+                t = torch.full(
+                    (batch_size, ),
+                    diffusion_index,
+                    device=device,
+                    dtype=torch.long)
+                log_x_recon = self.cf_predict_start(
+                    log_z, condition, content_token_mask, condition_mask, t)
+
+                if diffusion_index > skip_step:
+                    model_log_prob = self.q_posterior(
+                        log_x_start=log_x_recon, log_x_t=log_z, t=t - skip_step)
+                else:
+                    model_log_prob = self.q_posterior(
+                        log_x_start=log_x_recon, log_x_t=log_z, t=t)
+                # 看看能不能用 p_sample 改一下这里
+                log_z = self.log_sample_categorical(model_log_prob)
+
         # transfer from one-hot to index
         content_token = log_onehot_to_index(log_z)
         # return the predict content_token
