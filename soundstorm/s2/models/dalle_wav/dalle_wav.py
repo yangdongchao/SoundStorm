@@ -146,14 +146,23 @@ class DALLE(nn.Module):
             self.transformer.cf_predict_start = self.predict_start_with_truncation(
                 cf_predict_start, sample_type.split(',')[0])
             self.truncation_forward = True
-        trans_out = self.transformer.sample(
-            batch=batch, filter_ratio=filter_ratio, return_logits=False)
+        if len(sample_type.split(',')) == 2 and sample_type.split(',')[
+                1][:4] == 'fast':
+            trans_out = self.transformer.sample_fast(
+                batch=batch,
+                filter_ratio=filter_ratio,
+                return_logits=False,
+                skip_step=int(sample_type.split(',')[1][4:]))
+        else:
+            trans_out = self.transformer.sample(
+                batch=batch, filter_ratio=filter_ratio, return_logits=False)
         out['token_pred'] = trans_out['pre_content_token']
         return out
 
     @torch.no_grad()
-    def infer_one(self, batch):
-        output = self.generate_content(batch)
+    def infer_one(self, batch, sample_type: str="top0.85r"):
+        # sample_type = "top0.85r,fast1" for fast inference
+        output = self.generate_content(batch, sample_type=sample_type)
         return output
 
     def forward(self, batch, **kwargs):
